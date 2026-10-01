@@ -1,42 +1,5 @@
 package com.esibuy.esibuy_backend.integracion;
 
-import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
-import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
-import com.esibuy.esibuy_backend.dto.TipoCliente;
-import com.esibuy.esibuy_backend.modelo.Rol;
-import com.esibuy.esibuy_backend.servicio.DiccionarioContrasenasProhibidas;
-import com.esibuy.esibuy_backend.servicio.ValidadorDominioEmail;
-import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
-import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.ErrorCategory;
-import com.mongodb.MongoWriteException;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import org.bson.Document;
-import org.bson.types.ObjectId;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.containers.MongoDBContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.MountableFile;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -49,13 +12,51 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
+import org.testcontainers.utility.MountableFile;
+
+import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
+import com.esibuy.esibuy_backend.dto.TipoCliente;
+import com.esibuy.esibuy_backend.modelo.Rol;
+import com.esibuy.esibuy_backend.servicio.DiccionarioContrasenasProhibidas;
+import com.esibuy.esibuy_backend.servicio.ValidadorDominioEmail;
+import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
+import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
+import com.mongodb.ErrorCategory;
+import com.mongodb.MongoWriteException;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Pruebas de integracion contra un MongoDB real (contenedor) con el script de BBDD del proyecto

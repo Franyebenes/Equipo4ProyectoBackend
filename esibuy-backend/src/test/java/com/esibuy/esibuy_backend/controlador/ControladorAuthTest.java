@@ -11,9 +11,8 @@ import com.esibuy.esibuy_backend.servicio.ServicioRegistro;
 import com.esibuy.esibuy_backend.util.CapturadorLogs;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +21,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -100,11 +99,11 @@ class ControladorAuthTest {
                 .content(cuerpoJson));
     }
 
-    private String cuerpoClienteValido() throws JsonProcessingException {
+    private String cuerpoClienteValido() {
         return objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida().construir());
     }
 
-    private String cuerpoVendedorValido() throws JsonProcessingException {
+    private String cuerpoVendedorValido() {
         return objectMapper.writeValueAsString(ConstructorSolicitudVendedor.unaSolicitudValida().construir());
     }
 
@@ -118,7 +117,7 @@ class ControladorAuthTest {
                 new TypeReference<Map<String, Object>>() { });
     }
 
-    private String conCampo(Map<String, Object> base, String clave, Object valor) throws JsonProcessingException {
+    private String conCampo(Map<String, Object> base, String clave, Object valor) {
         Map<String, Object> copia = new LinkedHashMap<>(base);
         copia.put(clave, valor);
         return objectMapper.writeValueAsString(copia);
@@ -419,7 +418,7 @@ class ControladorAuthTest {
 
         // Then
         verifyNoInteractions(servicioRegistro);
-        assertThat(cuerpoDe(resultado)).doesNotContain("Exception").doesNotContain("com.fasterxml");
+        assertThat(cuerpoDe(resultado)).doesNotContain("Exception").doesNotContain("com.fasterxml").doesNotContain("tools.jackson");
     }
 
     // ------------------------------------------------------------------ CP-SEG-07 (endpoint publico)
@@ -498,7 +497,7 @@ class ControladorAuthTest {
 
         // Then
         assertThat(cuerpoDe(resultado))
-                .doesNotContain("Exception").doesNotContain("com.fasterxml").doesNotContain("org.springframework");
+                .doesNotContain("Exception").doesNotContain("com.fasterxml").doesNotContain("tools.jackson").doesNotContain("org.springframework");
         verifyNoInteractions(servicioRegistro);
     }
 
