@@ -1,20 +1,20 @@
 package com.esibuy.esibuy_backend.servicio;
 
-import com.esibuy.esibuy_backend.excepcion.CodigoError;
-import com.esibuy.esibuy_backend.util.DiccionarioContrasenasFalso;
+import java.text.Normalizer;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.text.Normalizer;
-import java.util.Set;
-
-import static com.esibuy.esibuy_backend.servicio.ValidadorContrasena.LONGITUD_MAXIMA;
-import static com.esibuy.esibuy_backend.servicio.ValidadorContrasena.LONGITUD_MINIMA;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import static com.esibuy.esibuy_backend.util.Constantes.LONGITUD_MAXIMA;
+import static com.esibuy.esibuy_backend.util.Constantes.LONGITUD_MINIMA;
+import com.esibuy.esibuy_backend.util.DiccionarioContrasenasFalso;
 
 /**
  * Pruebas unitarias puras de la politica de contrasenas (sin mocks: diccionario falso en memoria).
