@@ -1,31 +1,40 @@
 package com.esibuy.esibuy_backend.modelo;
 
+import java.util.List;
+import java.util.Objects;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.util.List;
 
-/**
- * Coleccion "users".
- *
- * TODO: anadir constructor o builder para que el servicio pueda crearlo; conversor Rol <-> String
- * (CUSTOMER, PREMIUM, SELLER, ADMIN) y EstadoUsuario <-> String (ACTIVE, BLOCKED);
- * toString() que NO incluya passwordHash (CP-REG-12).
- */
-@Document(collection = "users")
+@Document(collection = "usuarios")
 public class Usuario {
 
     @Id
     private String id;
     private String email;
-    @Field("passwordHash")
+    @Field("password")
     private String passwordHash;
+    @Field("rol")
     private List<Rol> roles;
-    @Field("status")
+    @Field("estado")
     private EstadoUsuario estado;
-    @Field("profile")
+    @Field("perfil")
     private PerfilUsuario perfil;
+
+    /** Usado por Spring Data al leer de MongoDB. */
+    protected Usuario() {
+    }
+
+    /** Crea un usuario nuevo con un unico rol, desactivado hasta que un administrador lo active. */
+    public Usuario(String email, String passwordHash, Rol rol, PerfilUsuario perfil) {
+        this.email = Objects.requireNonNull(email, "email");
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
+        this.roles = List.of(Objects.requireNonNull(rol, "rol"));
+        this.perfil = Objects.requireNonNull(perfil, "perfil");
+        this.estado = EstadoUsuario.DESACTIVADO;
+    }
 
     public String getId() {
         return id;
@@ -49,5 +58,10 @@ public class Usuario {
 
     public PerfilUsuario getPerfil() {
         return perfil;
+    } 
+
+    @Override
+    public String toString() {
+        return "Usuario[id=" + id + ", roles=" + roles + ", estado=" + estado + "]";
     }
 }

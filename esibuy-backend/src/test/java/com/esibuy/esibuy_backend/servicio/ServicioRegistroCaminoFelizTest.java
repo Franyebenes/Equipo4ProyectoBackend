@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
 
     @Test
-    void registrarCliente_datosValidos_creaUsuarioConRolClienteYEstadoActivo() { // CP-REG-01
+    void registrarCliente_datosValidos_creaUsuarioConRolClienteYEstadoDesactivado() { // CP-REG-01
         // Given
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
@@ -35,7 +35,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
         // Then
         Usuario usuario = usuarioGuardado();
         assertThat(usuario.getRoles()).containsExactly(Rol.CLIENTE);
-        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.DESACTIVADO);
         assertThat(usuario.getEmail()).isEqualTo(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO);
         assertThat(usuario.getPerfil().getNombre()).isEqualTo("Ana");
         assertThat(usuario.getPerfil().getApellidos()).isEqualTo("Garc\u00eda L\u00f3pez");
@@ -71,7 +71,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
         // Then
         Usuario usuario = usuarioGuardado();
         assertThat(usuario.getRoles()).containsExactly(Rol.VENDEDOR);
-        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.DESACTIVADO);
         assertThat(usuario.getPerfil().getCategoriaPrincipalId())
                 .isEqualTo(ConstructorSolicitudVendedor.CATEGORIA_VALIDA);
         assertThat(usuario.getPerfil().getNombreComercial())

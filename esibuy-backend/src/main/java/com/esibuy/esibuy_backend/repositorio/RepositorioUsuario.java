@@ -14,6 +14,6 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
      * el guardado (con su capitalizacion original) hace falta una comparacion sin distinguir mayusculas
      * (p. ej. con collation de fuerza 2) o guardar tambien una version normalizada. Ver CP-REG-43.
      */
-    @Query(value = "{ 'profile.tradeName': ?0 }", exists = true)
+    @Query(value = "{ 'perfil.nombreComercial': ?0 }", exists = true)
     boolean existePorNombreComercial(String nombreComercial);
 }

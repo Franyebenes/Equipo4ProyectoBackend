@@ -1,13 +1,18 @@
 package com.esibuy.esibuy_backend.modelo;
 
 public enum Rol {
-    CLIENTE, PREMIUM, VENDEDOR, ADMINISTRADOR;
+    CLIENTE("CLIENTE"),
+    PREMIUM("PREMIUM"),
+    VENDEDOR("VENDEDOR"),
+    ADMINISTRADOR("ADMIN");
 
-    /**
-     * Valor que se guarda en MongoDB (en ingles): CUSTOMER, PREMIUM, SELLER, ADMIN.
-     * Tests: CP-INT-08.
-     */
+    private final String valorBd;
+
+    Rol(String valorBd) {
+        this.valorBd = valorBd;
+    }
+
     public String valorBd() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return valorBd;
     }
 }

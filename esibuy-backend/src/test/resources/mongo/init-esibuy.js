@@ -1,48 +1,49 @@
-// 1. Seleccionar la base de datos
+// 1. Seleccion la base de datos
 db = db.getSiblingDB("ESIBuy");
 
-// 2. Limpieza colecciones previas al quedar obsoletas
-db.users.drop();
-db.categories.drop();
-db.products.drop();
-db.orders.drop();
-db.reviews.drop();
-db.incidents.drop();
+// 2. Limpieza de colecciones previas
+db.usuarios.drop();
+db.categorias.drop();
+db.productos.drop();
+db.pedidos.drop();
+db.valoraciones.drop();
+db.incidencias.drop();
 
 // ==========================================
-// 1. COLECCIÓN: USERS 
+// 1. COLECCIÓN: USUARIOS (users)
 // ==========================================
-db.createCollection("users", {
+db.createCollection("usuarios", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "email", "passwordHash", "roles", "profile" ],
+         required: [ "email", "password", "rol", "perfil" ],
          properties: {
             email: { bsonType: "string" },
-            passwordHash: { bsonType: "string" },
-            status: { enum: [ "ACTIVE", "BLOCKED" ] },
-            roles: {
+            password: { bsonType: "string" },
+            estado: { enum: [ "ACTIVO", "BLOQUEADO", "DESACTIVADO" ] },
+            rol: {
                bsonType: "array",
-               items: { bsonType: "string", enum: [ "ADMIN", "SELLER", "CUSTOMER", "PREMIUM" ] },
-               minItems: 1
+               items: { bsonType: "string", enum: [ "ADMIN", "VENDEDOR", "CLIENTE", "PREMIUM" ] },
+               minItems: 1,
+               maxItems: 1 // RESTRICCIÓN: Solo permite 1 rol por usuario
             },
-            profile: {
+            perfil: {
                bsonType: "object",
-               required: ["firstName", "lastName"], 
+               required: ["nombre", "apellidos"],
                properties: {
-                  firstName: { bsonType: "string" },
-                  lastName: { bsonType: "string" },
+                  nombre: { bsonType: "string" },
+                  apellidos: { bsonType: "string" },
                   dni: { bsonType: "string" },
-                  birthDate: { bsonType: "date" }, 
-                  phone: { 
+                  fechaNacimiento: { bsonType: "date" },
+                  telefono: {
                      bsonType: "string",
                      pattern: "^[0-9]{9}$" // Exige 9 números exactos
                   },
-                  avatarUrl: { bsonType: "string" },
-                  tradeName: { bsonType: "string" }, 
-                  mainCategoryId: { bsonType: "objectId" },
-                  officeLocation: { bsonType: "string" }, 
-                  joinDate: { bsonType: "date" } 
+                  imagen: { bsonType: "string" }, // Avatar
+                  nombreComercial: { bsonType: "string" },
+                  idCategoriaPrincipal: { bsonType: "objectId" },
+                  sede: { bsonType: "string" },
+                  fechaIncorporacion: { bsonType: "date" }
                }
             }
          }
@@ -50,82 +51,83 @@ db.createCollection("users", {
    }
 });
 
-db.users.createIndex({ "email": 1 }, { unique: true });
-db.users.createIndex({ "profile.tradeName": 1 }, { unique: true, partialFilterExpression: { "profile.tradeName": { $exists: true } } });
+db.usuarios.createIndex({ "email": 1 }, { unique: true });
+db.usuarios.createIndex({ "perfil.nombreComercial": 1 }, { unique: true, partialFilterExpression: { "perfil.nombreComercial": { $exists: true } } });
 
 // ==========================================
-// 2. COLECCIÓN: CATEGORIES
+// 2. COLECCIÓN: CATEGORÍAS (categories)
 // ==========================================
-db.createCollection("categories", {
+db.createCollection("categorias", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "name" ],
+         required: [ "nombre" ],
          properties: {
-            name: { bsonType: "string" }
+            nombre: { bsonType: "string" }
          }
       }
    }
 });
 
 // ==========================================
-// 3. COLECCIÓN: PRODUCTS
+// 3. COLECCIÓN: PRODUCTOS (products)
 // ==========================================
-db.createCollection("products", {
+db.createCollection("productos", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "sellerId", "categoryIds", "name", "pricing", "stock", "active" ],
+         required: [ "idVendedor", "idCategorias", "nombre", "precio", "stock", "visible" ],
          properties: {
-            sellerId: { bsonType: "objectId" },
-            name: { bsonType: "string" },
-            description: { bsonType: "string" },
-            imageUrl: { bsonType: "string" },
-            categoryIds: { 
+            idVendedor: { bsonType: "objectId" },
+            nombre: { bsonType: "string" },
+            descripcion: { bsonType: "string" },
+            imagen: { bsonType: "string" },
+            idCategorias: {
                bsonType: "array",
                items: { bsonType: "objectId" },
-               minItems: 1 
+               minItems: 1
             },
-            pricing: {
+            precio: {
                bsonType: "object",
-               required: [ "basePrice" ],
+               required: [ "base" ],
                properties: {
-                  basePrice: { bsonType: "number", minimum: 0 },
-                  discount: { bsonType: "number", minimum: 0, maximum: 100 }, 
-                  premiumDiscount: { bsonType: "number", minimum: 0, maximum: 100 } 
+                  base: { bsonType: "number", minimum: 0 },
+                  descuento: { bsonType: "number", minimum: 0, maximum: 100 },
+                  descuentoPremium: { bsonType: "number", minimum: 0, maximum: 100 }
                }
             },
             stock: { bsonType: "int", minimum: 0 },
-            active: { bsonType: "bool" }
+            visible: { bsonType: "bool" } // Equivalente a "active"
          }
       }
    }
 });
 
-db.products.createIndex({ "sellerId": 1 });
-db.products.createIndex({ "categoryIds": 1 });
+db.productos.createIndex({ "idVendedor": 1 });
+db.productos.createIndex({ "idCategorias": 1 });
 
 // ==========================================
-// 4. COLECCIÓN: ORDERS
+// 4. COLECCIÓN: PEDIDOS (orders)
 // ==========================================
-db.createCollection("orders", {
+db.createCollection("pedidos", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "customerId", "status", "totalAmount", "date", "shippingAddress", "items" ],
+         required: [ "idCliente", "estado", "precioTotal", "fecha", "direccionEnvio", "lineas" ],
          properties: {
-            customerId: { bsonType: "objectId" },
-            status: {
-               enum: [ "PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED" ]
+            idCliente: { bsonType: "objectId" },
+            estado: {
+               enum: [ "PENDIENTE", "PAGADO", "ENVIADO", "ENTREGADO", "CANCELADO" ]
             },
-            totalAmount: { bsonType: "number", minimum: 0 },
-            date: { bsonType: "date" },
-            items: {
+            precioTotal: { bsonType: "number", minimum: 0 },
+            fecha: { bsonType: "date" },
+            direccionEnvio: { bsonType: "object" },
+            lineas: { // Equivalente a items
                bsonType: "array",
-               minItems: 1, 
+               minItems: 1,
                items: {
                   bsonType: "object",
-                  required: ["productId", "quantity", "unitPrice"]
+                  required: ["idProducto", "cantidad", "precioUnitario"]
                }
             }
          }
@@ -133,45 +135,46 @@ db.createCollection("orders", {
    }
 });
 
-db.orders.createIndex({ "customerId": 1 });
+db.pedidos.createIndex({ "idCliente": 1 });
 
 // ==========================================
-// 5. COLECCIÓN: REVIEWS
+// 5. COLECCIÓN: VALORACIONES (reviews)
 // ==========================================
-db.createCollection("reviews", {
+db.createCollection("valoraciones", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "productId", "customerId", "orderId", "rating" ],
+         required: [ "idProducto", "idCliente", "idPedido", "puntos" ],
          properties: {
-            productId: { bsonType: "objectId" },
-            customerId: { bsonType: "objectId" },
-            orderId: { bsonType: "objectId" },
-            rating: {
+            idProducto: { bsonType: "objectId" },
+            idCliente: { bsonType: "objectId" },
+            idPedido: { bsonType: "objectId" },
+            puntos: {
                bsonType: "int",
                minimum: 1,
-               maximum: 5 
+               maximum: 5
             }
          }
       }
    }
 });
 
-db.reviews.createIndex({ "customerId": 1, "productId": 1, "orderId": 1 }, { unique: true });
+db.valoraciones.createIndex({ "idCliente": 1, "idProducto": 1, "idPedido": 1 }, { unique: true });
 
 // ==========================================
-// 6. COLECCIÓN: INCIDENTS
+// 6. COLECCIÓN: INCIDENCIAS (incidents)
 // ==========================================
-db.createCollection("incidents", {
+db.createCollection("incidencias", {
    validator: {
       $jsonSchema: {
          bsonType: "object",
-         required: [ "userId", "description", "status" ],
+         required: [ "idUsuario", "descripcion", "estado" ],
          properties: {
-            userId: { bsonType: "objectId" },
-            status: {
-               enum: [ "OPEN", "IN_PROGRESS", "RESOLVED" ]
-            }
+            idUsuario: { bsonType: "objectId" },
+            estado: {
+               enum: [ "ABIERTA", "EN_PROCESO", "RESUELTA" ]
+            },
+            descripcion: { bsonType: "string" }
          }
       }
    }

@@ -111,8 +111,8 @@ class RegistroIntegracionMongoTest {
 
     @BeforeEach
     void limpiarColeccionesYPrepararMocks() {
-        usuarios = mongo.getCollection("users");
-        categorias = mongo.getCollection("categories");
+        usuarios = mongo.getCollection("usuarios");
+        categorias = mongo.getCollection("categorias");
         usuarios.deleteMany(new Document());
         categorias.deleteMany(new Document());
         when(validadorDominioEmail.tieneDominioValido(anyString())).thenReturn(true);
@@ -141,32 +141,32 @@ class RegistroIntegracionMongoTest {
     }
 
     private Document perfilDe(Document usuario) {
-        return usuario.get("profile", Document.class);
+        return usuario.get("perfil", Document.class);
     }
 
-    /** Documento valido segun el esquema de la coleccion users (para inserciones directas). */
+    /** Documento valido segun el esquema de la coleccion usuarios (para inserciones directas). */
     private static Document documentoCliente(String email) {
         return new Document("email", email)
-                .append("passwordHash", "$argon2id$hash-de-prueba")
-                .append("status", "ACTIVE")
-                .append("roles", List.of("CUSTOMER"))
-                .append("profile", new Document("firstName", "Ana").append("lastName", "Garc\u00eda"));
+                .append("password", "$argon2id$hash-de-prueba")
+                .append("estado", "ACTIVO")
+                .append("rol", List.of("CLIENTE"))
+                .append("perfil", new Document("nombre", "Ana").append("apellidos", "Garc\u00eda"));
     }
 
     private static Document documentoVendedor(String email, String nombreComercial) {
         return new Document("email", email)
-                .append("passwordHash", "$argon2id$hash-de-prueba")
-                .append("status", "ACTIVE")
-                .append("roles", List.of("SELLER"))
-                .append("profile", new Document("firstName", "Luis").append("lastName", "P\u00e9rez")
-                        .append("tradeName", nombreComercial)
-                        .append("mainCategoryId", new ObjectId()));
+                .append("password", "$argon2id$hash-de-prueba")
+                .append("estado", "ACTIVO")
+                .append("rol", List.of("VENDEDOR"))
+                .append("perfil", new Document("nombre", "Luis").append("apellidos", "P\u00e9rez")
+                        .append("nombreComercial", nombreComercial)
+                        .append("idCategoriaPrincipal", new ObjectId()));
     }
 
     // ------------------------------------------------------------------ CP-INT-01
 
     @Test
-    void registrarCliente_extremoAExtremo_persisteDocumentoConHashUnRolYEstadoActivo() throws Exception { // CP-INT-01
+    void registrarCliente_extremoAExtremo_persisteDocumentoConHashUnRolYEstadoDesactivado() throws Exception { // CP-INT-01
         // Given
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
@@ -176,14 +176,14 @@ class RegistroIntegracionMongoTest {
         // Then
         Document usuario = usuarioPorEmail(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO);
         assertThat(usuario).isNotNull();
-        assertThat(usuario.getString("passwordHash")).startsWith("$argon2id$");
+        assertThat(usuario.getString("password")).startsWith("$argon2id$");
         assertThat(usuario.containsKey("password")).isFalse();
         assertThat(usuario.containsKey("contrasena")).isFalse();
         assertThat(usuario.toJson()).doesNotContain(ConstructorSolicitudCliente.CONTRASENA_VALIDA);
-        assertThat(usuario.getList("roles", String.class)).containsExactly("CUSTOMER");
-        assertThat(usuario.getString("status")).isEqualTo("ACTIVE");
-        assertThat(perfilDe(usuario).getString("firstName")).isEqualTo("Ana");
-        assertThat(perfilDe(usuario).getString("lastName")).isEqualTo("Garc\u00eda L\u00f3pez");
+        assertThat(usuario.getList("rol", String.class)).containsExactly("CLIENTE");
+        assertThat(usuario.getString("estado")).isEqualTo("DESACTIVADO");
+        assertThat(perfilDe(usuario).getString("nombre")).isEqualTo("Ana");
+        assertThat(perfilDe(usuario).getString("apellidos")).isEqualTo("Garc\u00eda L\u00f3pez");
     }
 
     // ------------------------------------------------------------------ CP-INT-02
@@ -248,36 +248,36 @@ class RegistroIntegracionMongoTest {
     // ------------------------------------------------------------------ CP-INT-04
 
     @Test
-    void registrarCliente_variosClientesSinNombreComercial_todosSeGuardanSinCampoTradeName() throws Exception { // CP-INT-04
+    void registrarCliente_variosClientesSinNombreComercial_todosSeGuardanSinCampoNombreComercial() throws Exception { // CP-INT-04
         // Given / When
         registrarCliente("cliente.uno@ejemplo.es").andExpect(status().isCreated());
         registrarCliente("cliente.dos@ejemplo.es").andExpect(status().isCreated());
         registrarCliente("cliente.tres@ejemplo.es").andExpect(status().isCreated());
 
-        // Then: el indice parcial no se rompe porque nunca se guarda tradeName ni a null ni vacio
+        // Then: el indice parcial no se rompe porque nunca se guarda nombreComercial ni a null ni vacio
         assertThat(usuarios.countDocuments()).isEqualTo(3);
         assertThat(usuarios.find()).allSatisfy(usuario ->
-                assertThat(perfilDe(usuario).containsKey("tradeName")).isFalse());
+                assertThat(perfilDe(usuario).containsKey("nombreComercial")).isFalse());
     }
 
     // ------------------------------------------------------------------ CP-INT-05
 
     static Stream<Arguments> documentosQueIncumplenElEsquema() {
         Document sinHash = documentoCliente("sin.hash@ejemplo.es");
-        sinHash.remove("passwordHash");
+        sinHash.remove("password");
 
         Document rolFueraDelEnum = documentoCliente("rol.raro@ejemplo.es");
-        rolFueraDelEnum.put("roles", List.of("HACKER"));
+        rolFueraDelEnum.put("rol", List.of("HACKER"));
 
-        // Requiere anadir maxItems: 1 al campo roles del script (recomendacion de la decision D2)
+        // El script limita rol a un unico elemento (maxItems: 1, decision D2)
         Document dosRoles = documentoCliente("dos.roles@ejemplo.es");
-        dosRoles.put("roles", List.of("CUSTOMER", "PREMIUM"));
+        dosRoles.put("rol", List.of("CLIENTE", "PREMIUM"));
 
         Document telefonoInvalido = documentoCliente("telefono@ejemplo.es");
-        telefonoInvalido.get("profile", Document.class).append("phone", "12345");
+        telefonoInvalido.get("perfil", Document.class).append("telefono", "12345");
 
         return Stream.of(
-                arguments("sin passwordHash", sinHash),
+                arguments("sin password", sinHash),
                 arguments("rol fuera del enum", rolFueraDelEnum),
                 arguments("mas de un rol", dosRoles),
                 arguments("telefono que no tiene 9 digitos", telefonoInvalido));
@@ -309,7 +309,7 @@ class RegistroIntegracionMongoTest {
 
         // Then
         Object fechaPersistida = perfilDe(usuarioPorEmail(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO))
-                .get("birthDate");
+                .get("fechaNacimiento");
         assertThat(fechaPersistida).isInstanceOf(Date.class);
     }
 
@@ -319,7 +319,7 @@ class RegistroIntegracionMongoTest {
     void registrarVendedor_categoriaPrincipal_sePersisteComoObjectIdYNoComoString() throws Exception { // CP-INT-07
         // Given
         ObjectId categoriaId = new ObjectId(ConstructorSolicitudVendedor.CATEGORIA_VALIDA);
-        categorias.insertOne(new Document("_id", categoriaId).append("name", "Electronica"));
+        categorias.insertOne(new Document("_id", categoriaId).append("nombre", "Electronica"));
         SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida().construir();
 
         // When
@@ -327,7 +327,7 @@ class RegistroIntegracionMongoTest {
 
         // Then
         Object categoriaPersistida = perfilDe(usuarioPorEmail(ConstructorSolicitudVendedor.EMAIL_POR_DEFECTO))
-                .get("mainCategoryId");
+                .get("idCategoriaPrincipal");
         assertThat(categoriaPersistida).isInstanceOf(ObjectId.class).isEqualTo(categoriaId);
     }
 
@@ -335,13 +335,13 @@ class RegistroIntegracionMongoTest {
 
     @Test
     void roles_valoresDelEnumJavaYEnumDelEsquema_estanSincronizados() { // CP-INT-08
-        // Given: el enum de roles definido en el esquema de la coleccion users
-        Document coleccion = mongo.getDb().listCollections().filter(Filters.eq("name", "users")).first();
+        // Given: el enum de roles definido en el esquema de la coleccion usuarios
+        Document coleccion = mongo.getDb().listCollections().filter(Filters.eq("name", "usuarios")).first();
         Document esquema = coleccion.get("options", Document.class)
                 .get("validator", Document.class)
                 .get("$jsonSchema", Document.class);
         List<String> permitidosPorElEsquema = esquema.get("properties", Document.class)
-                .get("roles", Document.class)
+                .get("rol", Document.class)
                 .get("items", Document.class)
                 .getList("enum", String.class);
 
@@ -353,10 +353,10 @@ class RegistroIntegracionMongoTest {
     }
 
     @Test
-    void registrar_clientePremiumYVendedor_persistenElValorInglesDelRol() throws Exception { // CP-INT-08
+    void registrar_clientePremiumYVendedor_persistenElValorDeBdDelRol() throws Exception { // CP-INT-08
         // Given
         categorias.insertOne(new Document("_id", new ObjectId(ConstructorSolicitudVendedor.CATEGORIA_VALIDA))
-                .append("name", "Electronica"));
+                .append("nombre", "Electronica"));
 
         // When
         registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida()
@@ -367,9 +367,9 @@ class RegistroIntegracionMongoTest {
                 .andExpect(status().isCreated());
 
         // Then
-        assertThat(usuarioPorEmail("premium@ejemplo.es").getList("roles", String.class)).containsExactly("PREMIUM");
-        assertThat(usuarioPorEmail("normal@ejemplo.es").getList("roles", String.class)).containsExactly("CUSTOMER");
-        assertThat(usuarioPorEmail(ConstructorSolicitudVendedor.EMAIL_POR_DEFECTO).getList("roles", String.class))
-                .containsExactly("SELLER");
+        assertThat(usuarioPorEmail("premium@ejemplo.es").getList("rol", String.class)).containsExactly("PREMIUM");
+        assertThat(usuarioPorEmail("normal@ejemplo.es").getList("rol", String.class)).containsExactly("CLIENTE");
+        assertThat(usuarioPorEmail(ConstructorSolicitudVendedor.EMAIL_POR_DEFECTO).getList("rol", String.class))
+                .containsExactly("VENDEDOR");
     }
 }
