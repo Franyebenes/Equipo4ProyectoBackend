@@ -136,12 +136,6 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
         assertThat(porCarrera).hasSameClassAs(porComprobacionPrevia);
     }
 
-    @Disabled("Opcional (CP-REG-48): decidir si el equipo incluye la proteccion por temporizacion en este sprint. "
-            + "Con mocks el tiempo no es medible; si se implementa, probarlo con una prueba de integracion.")
-    @Test
-    void registrarCliente_emailExistenteYNoExistente_tardanLoMismoEnResponder() { // CP-REG-48
-        // Given / When / Then: pendiente de decision
-    }
 
     // ------------------------------------------------------------------ Nombre comercial duplicado
 

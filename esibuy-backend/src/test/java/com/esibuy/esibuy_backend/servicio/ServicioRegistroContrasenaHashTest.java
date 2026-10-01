@@ -122,8 +122,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         // Then
         String hash = usuarioGuardado().getPasswordHash();
         assertThat(textosDeLog).noneMatch(texto -> texto.contains(CONTRASENA));
-        assertThat(textosDeLog).noneMatch(texto -> texto.contains(hash));
-        assertThat(textosDeLog).noneMatch(texto -> texto.contains(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO));
+        assertThat(textosDeLog).noneMatch(texto -> texto.contains(hash)|| texto.contains(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO));
     }
 
     @Test
@@ -142,8 +141,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         }
 
         // Then
-        assertThat(textosDeLog).noneMatch(texto -> texto.contains(CONTRASENA));
-        assertThat(textosDeLog).noneMatch(texto -> texto.contains(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO));
+        assertThat(textosDeLog).noneMatch(texto -> texto.contains(CONTRASENA) || texto.contains(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO));
         assertThat(excepcion.toString()).doesNotContain(CONTRASENA);
     }
 
