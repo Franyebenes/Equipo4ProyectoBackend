@@ -1,14 +1,5 @@
 package com.esibuy.esibuy_backend.servicio;
 
-import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
-import com.esibuy.esibuy_backend.excepcion.CodigoError;
-import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
-import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,6 +7,15 @@ import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
+import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
+import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
 
 /**
  * Mayoria de edad y validez de la fecha de nacimiento.

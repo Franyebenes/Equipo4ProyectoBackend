@@ -16,7 +16,8 @@
             "name": "EsibuyBackendApplication",
             "request": "launch",
             "mainClass": "com.esibuy.esibuy_backend.EsibuyBackendApplication",
-            "projectName": "esibuy-backend"
+            "projectName": "esibuy-backend",
+            "envFile": "${workspaceFolder}/esibuy-backend/.env"
         }
     ]
 }
