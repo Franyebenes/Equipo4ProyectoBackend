@@ -24,11 +24,11 @@ public class ControladorFormularioRegistro {
 
     @GetMapping("/avatares")
     public List<String> listarAvatares() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return catalogoAvatares.listarAvatares();
     }
 
     @GetMapping("/categorias")
     public List<CategoriaDTO> listarCategorias() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return servicioCategoria.listarCategorias();
     }
 }

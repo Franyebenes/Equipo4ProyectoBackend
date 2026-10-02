@@ -1,18 +1,11 @@
 package com.esibuy.esibuy_backend.modelo;
 
+/** Rol de un usuario. Se guarda en MongoDB con el mismo nombre, sin conversor. */
 public enum Rol {
-    CLIENTE("CLIENTE"),
-    PREMIUM("PREMIUM"),
-    VENDEDOR("VENDEDOR"),
-    ADMINISTRADOR("ADMIN");
+    CLIENTE, PREMIUM, VENDEDOR, ADMIN;
 
-    private final String valorBd;
-
-    Rol(String valorBd) {
-        this.valorBd = valorBd;
-    }
-
+    /** Valor que se guarda en MongoDB (CP-INT-08). */
     public String valorBd() {
-        return valorBd;
+        return name();
     }
 }
