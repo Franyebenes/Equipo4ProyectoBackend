@@ -52,7 +52,9 @@ db.createCollection("usuarios", {
 });
 
 db.usuarios.createIndex({ "email": 1 }, { unique: true });
-db.usuarios.createIndex({ "perfil.nombreComercial": 1 }, { unique: true, partialFilterExpression: { "perfil.nombreComercial": { $exists: true } } });
+// Unico sin distinguir mayusculas ("Tienda Norte" = "TIENDA NORTE"): collation espanola de fuerza 2.
+// Debe coincidir con RepositorioUsuario.COLLATION_NOMBRE_COMERCIAL.
+db.usuarios.createIndex({ "perfil.nombreComercial": 1 }, { unique: true, partialFilterExpression: { "perfil.nombreComercial": { $exists: true } }, collation: { locale: "es", strength: 2 } });
 
 // ==========================================
 // 2. COLECCIÓN: CATEGORÍAS (categories)

@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.integracion;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -36,6 +37,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.junit.jupiter.Container;
@@ -65,10 +67,13 @@ import tools.jackson.databind.ObjectMapper;
  *
  * Requisitos: Docker en marcha y el script copiado en src/test/resources/mongo/init-esibuy.js
  * (ver CONTRATO_PRODUCCION.md).
+ *
+ * Sin Docker la clase se OMITE (aparece como "skipped", no como fallo) para no bloquear a quien no lo tenga
+ * instalado. Antes de cerrar una fase hay que ejecutarla con Docker y comprobar que no sale omitida.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class RegistroIntegracionMongoTest {
 
     private static final String RUTA_CLIENTE = "/api/auth/registro/cliente";
@@ -82,7 +87,7 @@ class RegistroIntegracionMongoTest {
 
     @DynamicPropertySource
     static void configurarPropiedades(DynamicPropertyRegistry registro) {
-        registro.add("spring.data.mongodb.uri", () -> MONGO.getReplicaSetUrl("ESIBuy"));
+        registro.add("spring.mongodb.uri", () -> MONGO.getReplicaSetUrl("ESIBuy"));
         registro.add("esibuy.seguridad.pepper", () -> "pepper-de-integracion");
         // El limite de peticiones no debe interferir con estas pruebas
         registro.add("esibuy.limite-registro.max-peticiones", () -> "1000");
@@ -177,8 +182,10 @@ class RegistroIntegracionMongoTest {
         Document usuario = usuarioPorEmail(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO);
         assertThat(usuario).isNotNull();
         assertThat(usuario.getString("password")).startsWith("$argon2id$");
-        assertThat(usuario.containsKey("password")).isFalse();
+        // "password" es el campo del esquema que guarda el hash (comprobado arriba); la contrasena en claro
+        // no aparece en ningun campo (comprobado abajo con toJson)
         assertThat(usuario.containsKey("contrasena")).isFalse();
+        assertThat(usuario.containsKey("_class")).as("solo los campos del esquema").isFalse();
         assertThat(usuario.toJson()).doesNotContain(ConstructorSolicitudCliente.CONTRASENA_VALIDA);
         assertThat(usuario.getList("rol", String.class)).containsExactly("CLIENTE");
         assertThat(usuario.getString("estado")).isEqualTo("DESACTIVADO");
@@ -243,6 +250,35 @@ class RegistroIntegracionMongoTest {
 
         // Then
         assertThat(excepcion.getError().getCategory()).isEqualTo(ErrorCategory.DUPLICATE_KEY);
+    }
+
+    @Test
+    void insertOne_mismoNombreComercialConOtraCapitalizacion_elIndiceConCollationRechazaElSegundo() { // CP-INT-03
+        // Given
+        usuarios.insertOne(documentoVendedor("uno@tienda.es", "Tienda Norte"));
+
+        // When
+        MongoWriteException excepcion = assertThrows(MongoWriteException.class,
+                () -> usuarios.insertOne(documentoVendedor("dos@tienda.es", "TIENDA NORTE")));
+
+        // Then
+        assertThat(excepcion.getError().getCategory()).isEqualTo(ErrorCategory.DUPLICATE_KEY);
+    }
+
+    @Test
+    void registrarVendedor_nombreComercialExistenteConOtraCapitalizacion_devuelve400SinGuardar() throws Exception { // CP-REG-43
+        // Given: ya existe "Tienda Norte" y la categoria del vendedor
+        categorias.insertOne(new Document("_id", new ObjectId(ConstructorSolicitudVendedor.CATEGORIA_VALIDA))
+                .append("nombre", "Electronica"));
+        usuarios.insertOne(documentoVendedor("otro@tienda.es", "Tienda Norte"));
+        SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida()
+                .conNombreComercial("  TIENDA   norte ").construir();
+
+        // When / Then: la consulta del repositorio con collation lo detecta antes de intentar guardar
+        registrarVendedor(solicitud)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores.nombreComercial[0]").value("NOMBRE_COMERCIAL_DUPLICADO"));
+        assertThat(usuarios.countDocuments()).isEqualTo(1);
     }
 
     // ------------------------------------------------------------------ CP-INT-04
@@ -311,6 +347,8 @@ class RegistroIntegracionMongoTest {
         Object fechaPersistida = perfilDe(usuarioPorEmail(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO))
                 .get("fechaNacimiento");
         assertThat(fechaPersistida).isInstanceOf(Date.class);
+        // A medianoche UTC, no de la zona del servidor: si no, un servidor en otra zona leeria otro dia
+        assertThat(((Date) fechaPersistida).toInstant()).isEqualTo(Instant.parse("2000-05-15T00:00:00Z"));
     }
 
     // ------------------------------------------------------------------ CP-INT-07
