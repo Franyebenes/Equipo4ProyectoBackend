@@ -1,0 +1,34 @@
+# Contrasenas filtradas en brechas publicas (se comparan tal cual, distinguiendo mayusculas). Una por linea, UTF-8.
+#
+# LISTA INICIAL de ejemplo con contrasenas largas habituales en las filtraciones publicas, que cumplen la
+# longitud minima y por eso no las frena la regla de longitud. No sustituye a una fuente real: conviene
+# cargar una lista amplia o consultar el servicio Pwned Passwords (haveibeenpwned.com).
+Password1234
+Password123!
+Password@123
+P@ssw0rd1234
+P@ssword1234
+Qwerty123456
+Qwertyuiop12
+Qwertyuiop123
+Welcome12345
+Welcome@1234
+Welcome123!
+Admin@123456
+Changeme1234
+Iloveyou1234
+Summer2024!!
+Summer2025!!
+Winter2024!!
+Winter2025!!
+Abcd1234!@#$
+Aa123456789!
+1q2w3e4r5t6y
+1qaz2wsx3edc
+Zaq12wsxcde3
+Contraseña123
+Contrasena123
+Contraseña1234
+Contrasena1234
+Barcelona1234
+Realmadrid1234

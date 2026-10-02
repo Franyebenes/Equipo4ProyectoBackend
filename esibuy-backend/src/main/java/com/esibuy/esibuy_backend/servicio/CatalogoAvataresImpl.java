@@ -1,30 +1,40 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.util.List;
+import java.util.Set;
+
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
-/** Esqueleto: permite arrancar el contexto de Spring. Pendiente de implementar. */
+//Catalogo de avatares definido en configuracion ({@link PropiedadesAvatares}).
 @Component
 public class CatalogoAvataresImpl implements CatalogoAvatares {
 
+    private final PropiedadesAvatares propiedades;
+    private final Set<String> disponibles;
+
+    public CatalogoAvataresImpl(PropiedadesAvatares propiedades) {
+        this.propiedades = propiedades;
+        this.disponibles = Set.copyOf(propiedades.disponibles());
+    }
+
     @Override
     public boolean esAvatarValido(String avatar) {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return avatar != null && disponibles.contains(avatar);
     }
 
     @Override
     public String avatarPorDefectoCliente() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return propiedades.porDefectoCliente();
     }
 
     @Override
     public String avatarPorDefectoVendedor() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return propiedades.porDefectoVendedor();
     }
 
+    // En el orden de la configuracion, que es el que vera el usuario en el formulario. 
     @Override
     public List<String> listarAvatares() {
-        throw new UnsupportedOperationException("Pendiente de implementar");
+        return propiedades.disponibles();
     }
 }

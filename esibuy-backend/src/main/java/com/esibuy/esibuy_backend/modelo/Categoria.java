@@ -12,6 +12,15 @@ public class Categoria {
     @Field("nombre")
     private String nombre;
 
+    // Usado por Spring Data al leer de MongoDB.
+    protected Categoria() {
+    }
+
+    public Categoria(String id, String nombre) {
+        this.id = id;
+        this.nombre = nombre;
+    }
+
     public String getId() {
         return id;
     }

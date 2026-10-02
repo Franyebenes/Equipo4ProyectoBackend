@@ -1,13 +1,17 @@
 package com.esibuy.esibuy_backend.configuracion;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
 import java.time.Clock;
 import java.time.ZoneId;
 
-/** Reloj inyectable (en los tests se sustituye por uno fijo). */
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.esibuy.esibuy_backend.servicio.PropiedadesAvatares;
+
+// Beans generales de la aplicacion: reloj inyectable (en los tests se sustituye por uno fijo) y propiedades.
 @Configuration
+@EnableConfigurationProperties(PropiedadesAvatares.class)
 public class ConfiguracionAplicacion {
 
     @Bean
