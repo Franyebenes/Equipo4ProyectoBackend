@@ -15,13 +15,26 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-    public List<User> listarUsuarios() {
+    public List<User> listarUsuarios(@RequestParam(required = false) String rol) {
+        if (rol != null && !rol.isEmpty()) {
+            return userService.obtenerPorRol(rol);
+        }
         return userService.obtenerTodos();
     }
 
     @PutMapping("/{id}")
     public User actualizarUsuario(@PathVariable String id, @RequestBody User usuario) {
         return userService.actualizar(id, usuario);
+    }
+
+    @PutMapping("/{id}/bloquear")
+    public User bloquearUsuario(@PathVariable String id) {
+        return userService.cambiarEstado(id, "BLOQUEADO");
+    }
+
+    @PutMapping("/{id}/desbloquear")
+    public User desbloquearUsuario(@PathVariable String id) {
+        return userService.cambiarEstado(id, "ACTIVO");
     }
 
     @DeleteMapping("/{id}")
