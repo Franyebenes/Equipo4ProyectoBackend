@@ -43,6 +43,10 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
             "El servicio no esta disponible en este momento. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_ERROR_INESPERADO =
             "Se ha producido un error inesperado. Si persiste, indica este codigo al soporte";
+    static final String MENSAJE_ACCESO_DENEGADO = "No tienes permisos para realizar esta accion";
+    static final String MENSAJE_RECURSO_NO_ENCONTRADO = "Recurso no encontrado";
+    static final String MENSAJE_OPERACION_NO_PERMITIDA = "La operacion no esta permitida";
+
 
     private static final String CLAVE_ERRORES = "errores";
     private static final String CLAVE_MENSAJE = "mensaje";
@@ -70,6 +74,23 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> servicioNoDisponible(ServicioNoDisponibleException ex) {
         log.warn("Servicio externo no disponible", ex);
         return conCorrelationId(HttpStatus.SERVICE_UNAVAILABLE, MENSAJE_SERVICIO_NO_DISPONIBLE);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> accesoDenegado() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(CLAVE_MENSAJE, MENSAJE_ACCESO_DENEGADO));
+    }
+
+    @ExceptionHandler(UsuarioNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> usuarioNoEncontrado() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of(CLAVE_MENSAJE, MENSAJE_RECURSO_NO_ENCONTRADO));
+    }
+
+    @ExceptionHandler(OperacionNoPermitidaException.class)
+    public ResponseEntity<Map<String, Object>> operacionNoPermitida() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of(CLAVE_MENSAJE, MENSAJE_OPERACION_NO_PERMITIDA));
     }
 
     @ExceptionHandler(Exception.class)
