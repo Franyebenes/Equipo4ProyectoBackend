@@ -6,6 +6,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Collator;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.repositorio.CategoriaDAO;
@@ -33,6 +38,21 @@ public class CategoriaService {
         } catch (DataAccessException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "No se ha podido crear la categoría, inténtalo de nuevo más tarde", e);
+        }
+    }
+
+
+        @PreAuthorize("hasRole('ADMIN')")
+    public List<CategoriaDTO> listarCategorias() {
+        Collator ordenEspanol = Collator.getInstance(Locale.forLanguageTag("es-ES"));
+        try {
+            return catDAO.findAll().stream()
+                    .sorted(Comparator.comparing(Categoria::getNombre, ordenEspanol))
+                    .map(categoria -> new CategoriaDTO(categoria.getNombre()))
+                    .toList();
+        } catch (DataAccessException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "No se han podido cargar las categorías, inténtalo de nuevo más tarde", e);
         }
     }
 }
