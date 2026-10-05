@@ -71,4 +71,15 @@ final class ReglasCamposRegistro {
             errores.anadir(campo, CodigoError.MENOR_DE_EDAD);
         }
     }
+
+    static void validarTextoOpcional(String campo, String valor, int longitudMaxima, ErroresRegistro errores) {
+        if (valor != null) {
+            if (valor.codePointCount(0, valor.length()) > longitudMaxima) {
+                errores.anadir(campo, CodigoError.LONGITUD_EXCESIVA);
+            }
+            if (CARACTERES_PROHIBIDOS.matcher(valor).find()) {
+                errores.anadir(campo, CodigoError.FORMATO_INVALIDO);
+            }
+        }
+    }
 }
