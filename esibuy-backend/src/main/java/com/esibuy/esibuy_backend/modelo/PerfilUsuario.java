@@ -26,6 +26,11 @@ public class PerfilUsuario {
     private String nombreComercial;
     @Field(name = "idCategoriaPrincipal", targetType = FieldType.OBJECT_ID)
     private String categoriaPrincipalId;
+    // datos del administrador
+    @Field("sede")
+    private String sede;
+    @Field("fechaIncorporacion")
+    private LocalDate fechaIncorporacion;
 
     // Usado por Spring Data al leer de MongoDB. 
     protected PerfilUsuario() {
@@ -76,6 +81,14 @@ public class PerfilUsuario {
 
     public String getCategoriaPrincipalId() {
         return categoriaPrincipalId;
+    }
+
+    public String getSede() {
+        return sede;
+    }
+
+    public LocalDate getFechaIncorporacion() {
+        return fechaIncorporacion;
     }
 
     /** Sin datos personales: puede acabar en un log. */
@@ -136,6 +149,16 @@ public class PerfilUsuario {
 
         public Builder categoriaPrincipalId(String categoriaPrincipalId) {
             this.categoriaPrincipalId = categoriaPrincipalId;
+            return this;
+        }
+
+        public Builder sede(String sede) {
+            this.sede = sede;
+            return this;
+        }
+
+        public Builder fechaIncorporacion(LocalDate fechaIncorporacion) {
+            this.fechaIncorporacion = fechaIncorporacion;
             return this;
         }
 
