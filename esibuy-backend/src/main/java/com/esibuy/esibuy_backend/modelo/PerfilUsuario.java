@@ -27,7 +27,7 @@ public class PerfilUsuario {
     @Field(name = "idCategoriaPrincipal", targetType = FieldType.OBJECT_ID)
     private String categoriaPrincipalId;
 
-    // Usado por Spring Data al leer de MongoDB. 
+    /** Usado por Spring Data al leer de MongoDB. */
     protected PerfilUsuario() {
     }
 

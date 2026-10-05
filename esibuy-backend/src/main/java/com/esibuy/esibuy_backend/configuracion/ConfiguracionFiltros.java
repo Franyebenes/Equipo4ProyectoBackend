@@ -9,8 +9,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
-// Registro de los filtros propios. El de correlacion va el primero para que todas las trazas y respuesta (incluidas las 429 del limite de peticiones) lleven correlationId. Ambos van antes de Spring Security.
-
+/**
+ * Registro de los filtros propios. El de correlacion va el primero, para que todas las trazas y respuestas
+ * (incluidas las 429 del limite de peticiones) lleven correlationId. Ambos van antes de Spring Security.
+ */
 @Configuration
 public class ConfiguracionFiltros {
 

@@ -5,7 +5,9 @@ import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
-//Catalogo de avatares definido en configuracion ({@link PropiedadesAvatares}).
+/**
+ * Catalogo de avatares definido en configuracion ({@link PropiedadesAvatares}).
+ */
 @Component
 public class CatalogoAvataresImpl implements CatalogoAvatares {
 
@@ -32,7 +34,7 @@ public class CatalogoAvataresImpl implements CatalogoAvatares {
         return propiedades.porDefectoVendedor();
     }
 
-    // En el orden de la configuracion, que es el que vera el usuario en el formulario. 
+    /** En el orden de la configuracion, que es el que vera el usuario en el formulario. */
     @Override
     public List<String> listarAvatares() {
         return propiedades.disponibles();

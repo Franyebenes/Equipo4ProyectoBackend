@@ -2,6 +2,7 @@ package com.esibuy.esibuy_backend.controlador;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
@@ -43,6 +44,9 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -62,8 +66,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(ConfiguracionSeguridad.class)
 class ControladorAuthTest {
 
-    private static final String RUTA_CLIENTE = "/api/auth/registro/cliente";
-    private static final String RUTA_VENDEDOR = "/api/auth/registro/vendedor";
+    // Un unico endpoint: el campo tipoCuenta del cuerpo decide si es cliente o vendedor
+    private static final String RUTA_REGISTRO = "/api/auth/registro";
 
     private static final RespuestaRegistroDTO RESPUESTA_CLIENTE = new RespuestaRegistroDTO(
             "id-cliente-1", ConstructorSolicitudCliente.EMAIL_POR_DEFECTO, "Ana",
@@ -135,7 +139,7 @@ class ControladorAuthTest {
         String cuerpo = cuerpoClienteValido();
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isCreated())
@@ -151,7 +155,7 @@ class ControladorAuthTest {
         String cuerpo = cuerpoVendedorValido();
 
         // When
-        ResultActions resultado = enviar(RUTA_VENDEDOR, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isCreated())
@@ -172,7 +176,7 @@ class ControladorAuthTest {
         when(servicioRegistro.registrarCliente(any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido());
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido());
 
         // Then
         resultado.andExpect(status().isBadRequest())
@@ -187,7 +191,7 @@ class ControladorAuthTest {
         when(servicioRegistro.registrarCliente(any())).thenThrow(new RegistroNoCompletadoException());
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido())
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido())
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje").value(RegistroNoCompletadoException.MENSAJE_GENERICO))
                 .andReturn();
@@ -206,7 +210,7 @@ class ControladorAuthTest {
         when(servicioRegistro.registrarVendedor(any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
-        ResultActions resultado = enviar(RUTA_VENDEDOR, cuerpoVendedorValido());
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoVendedorValido());
 
         // Then
         resultado.andExpect(status().isBadRequest())
@@ -220,7 +224,7 @@ class ControladorAuthTest {
         when(servicioRegistro.registrarCliente(any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido());
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido());
 
         // Then
         resultado.andExpect(status().isBadRequest())
@@ -234,7 +238,7 @@ class ControladorAuthTest {
                 .thenThrow(new ServicioNoDisponibleException(new IllegalStateException("timeout DNS interno")));
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido())
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido())
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.mensaje").isNotEmpty())
                 .andReturn();
@@ -253,7 +257,7 @@ class ControladorAuthTest {
 
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
             // When
-            MvcResult resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido())
+            MvcResult resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido())
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.mensaje").isNotEmpty())
                     .andExpect(jsonPath("$.correlationId").isNotEmpty())
@@ -279,7 +283,7 @@ class ControladorAuthTest {
                 "E11000 duplicate key error collection: ESIBuy.users index: email_1 (MongoDB 7.0.4)"));
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, cuerpoClienteValido())
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido())
                 .andExpect(status().isInternalServerError())
                 .andReturn();
 
@@ -300,7 +304,7 @@ class ControladorAuthTest {
         String cuerpo = cuerpoClienteValido();
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(header().exists("X-Correlation-Id"));
@@ -326,7 +330,7 @@ class ControladorAuthTest {
         String cuerpo = conCampo(mapaClienteValido(), clave, valor);
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isBadRequest());
@@ -341,21 +345,93 @@ class ControladorAuthTest {
         String cuerpo = conCampo(mapaVendedorValido(), clave, valor);
 
         // When
-        ResultActions resultado = enviar(RUTA_VENDEDOR, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isBadRequest());
         verifyNoInteractions(servicioRegistro);
     }
 
-    @ParameterizedTest(name = "tipoCliente no permitido: {0}")
-    @ValueSource(strings = {"ADMIN", "ADMINISTRADOR", "SELLER", "VENDEDOR", "CUSTOMER_Y_PREMIUM"})
-    void registrarCliente_tipoDeClienteNoPermitido_rechazaYNoLlamaAlServicio(String tipo) throws Exception { // CP-SEG-02
+    @ParameterizedTest(name = "tipoCuenta no permitido: {0}")
+    @ValueSource(strings = {"ADMIN", "ADMINISTRADOR", "SELLER", "NORMAL", "CUSTOMER_Y_PREMIUM"})
+    void registrar_tipoDeCuentaNoPermitido_rechazaConErrorEnTipoCuentaYNoLlamaAlServicio(String tipo)
+            throws Exception { // CP-SEG-02
         // Given
-        String cuerpo = conCampo(mapaClienteValido(), "tipoCliente", tipo);
+        String cuerpo = conCampo(mapaClienteValido(), "tipoCuenta", tipo);
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
+
+        // Then
+        resultado.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores.tipoCuenta[0]").value("FORMATO_INVALIDO"));
+        verifyNoInteractions(servicioRegistro);
+    }
+
+    @Test
+    void registrar_tipoDeCuentaComoListaDeRoles_rechazaYNoLlamaAlServicio() throws Exception { // CP-SEG-02
+        // Given
+        String cuerpo = conCampo(mapaClienteValido(), "tipoCuenta", List.of("CLIENTE", "PREMIUM"));
+
+        // When
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
+
+        // Then
+        resultado.andExpect(status().isBadRequest());
+        verifyNoInteractions(servicioRegistro);
+    }
+
+    // ------------------------------------------------------------------ tipoCuenta (endpoint unico de registro)
+
+    @Test
+    void registrar_sinTipoDeCuenta_devuelve400ConTipoCuentaObligatorio() throws Exception {
+        // Given
+        Map<String, Object> cuerpo = mapaClienteValido();
+        cuerpo.remove("tipoCuenta");
+
+        // When
+        ResultActions resultado = enviar(RUTA_REGISTRO, objectMapper.writeValueAsString(cuerpo));
+
+        // Then
+        resultado.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores.tipoCuenta[0]").value("OBLIGATORIO"));
+        verifyNoInteractions(servicioRegistro);
+    }
+
+    @ParameterizedTest(name = "tipoCuenta {0} -> registro de cliente")
+    @ValueSource(strings = {"CLIENTE", "PREMIUM"})
+    void registrar_tipoDeCuentaDeCliente_llamaAlRegistroDeClienteConEseTipo(String tipo) throws Exception {
+        // Given
+        String cuerpo = conCampo(mapaClienteValido(), "tipoCuenta", tipo);
+
+        // When
+        enviar(RUTA_REGISTRO, cuerpo).andExpect(status().isCreated());
+
+        // Then
+        verify(servicioRegistro).registrarCliente(argThat(solicitud -> solicitud.tipoCuenta() == TipoCuenta.valueOf(tipo)));
+        verify(servicioRegistro, never()).registrarVendedor(any());
+    }
+
+    @Test
+    void registrar_tipoDeCuentaVendedor_llamaAlRegistroDeVendedor() throws Exception {
+        // Given
+        String cuerpo = cuerpoVendedorValido();
+
+        // When
+        enviar(RUTA_REGISTRO, cuerpo).andExpect(status().isCreated());
+
+        // Then
+        verify(servicioRegistro).registrarVendedor(any());
+        verify(servicioRegistro, never()).registrarCliente(any());
+    }
+
+    @Test
+    void registrar_datosDeClienteDeclaradosComoVendedor_rechazaPorCamposQueNoSonDeVendedor() throws Exception {
+        // Given: cuerpo de cliente (con fechaNacimiento) pero tipoCuenta VENDEDOR
+        String cuerpo = conCampo(mapaClienteValido(), "tipoCuenta", "VENDEDOR");
+
+        // When
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isBadRequest());
@@ -363,12 +439,12 @@ class ControladorAuthTest {
     }
 
     @Test
-    void registrarCliente_tipoDeClienteComoListaDeRoles_rechazaYNoLlamaAlServicio() throws Exception { // CP-SEG-02
-        // Given
-        String cuerpo = conCampo(mapaClienteValido(), "tipoCliente", List.of("NORMAL", "PREMIUM"));
+    void registrar_datosDeVendedorDeclaradosComoCliente_rechazaPorCamposQueNoSonDeCliente() throws Exception {
+        // Given: cuerpo de vendedor (con nombreComercial y categoria) pero tipoCuenta CLIENTE
+        String cuerpo = conCampo(mapaVendedorValido(), "tipoCuenta", "CLIENTE");
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isBadRequest());
@@ -394,7 +470,7 @@ class ControladorAuthTest {
         String cuerpo = conCampo(mapaClienteValido(), clave, valor);
 
         // When
-        ResultActions resultado = enviar(RUTA_CLIENTE, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isBadRequest());
@@ -411,7 +487,7 @@ class ControladorAuthTest {
         String cuerpo = conCampo(mapaClienteValido(), "fechaNacimiento", fechaIncorrecta);
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, cuerpo)
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpo)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores.fechaNacimiento").exists())
                 .andReturn();
@@ -423,30 +499,30 @@ class ControladorAuthTest {
 
     // ------------------------------------------------------------------ CP-SEG-07 (endpoint publico)
 
-    @ParameterizedTest(name = "ruta publica: {0}")
-    @ValueSource(strings = {RUTA_CLIENTE, RUTA_VENDEDOR})
-    void registrar_sinAutenticacionNiTokenCsrf_aceptaLaPeticion(String ruta) throws Exception { // CP-SEG-07
+    @ParameterizedTest(name = "registro publico de {0}")
+    @ValueSource(strings = {"CLIENTE", "VENDEDOR"})
+    void registrar_sinAutenticacionNiTokenCsrf_aceptaLaPeticion(String tipo) throws Exception { // CP-SEG-07
         // Given: visitante anonimo, sin sesion y sin token CSRF
-        String cuerpo = ruta.equals(RUTA_CLIENTE) ? cuerpoClienteValido() : cuerpoVendedorValido();
+        String cuerpo = tipo.equals("CLIENTE") ? cuerpoClienteValido() : cuerpoVendedorValido();
 
         // When
-        ResultActions resultado = enviar(ruta, cuerpo);
+        ResultActions resultado = enviar(RUTA_REGISTRO, cuerpo);
 
         // Then
         resultado.andExpect(status().isCreated());
     }
 
-    @ParameterizedTest(name = "ruta publica: {0}")
-    @ValueSource(strings = {RUTA_CLIENTE, RUTA_VENDEDOR})
-    void registrar_sinAutenticacionYConConflicto_respondeConflictoYNuncaNoAutorizadoNiProhibido(String ruta)
+    @ParameterizedTest(name = "registro publico de {0}")
+    @ValueSource(strings = {"CLIENTE", "VENDEDOR"})
+    void registrar_sinAutenticacionYConConflicto_respondeConflictoYNuncaNoAutorizadoNiProhibido(String tipo)
             throws Exception { // CP-SEG-07
         // Given
         when(servicioRegistro.registrarCliente(any())).thenThrow(new RegistroNoCompletadoException());
         when(servicioRegistro.registrarVendedor(any())).thenThrow(new RegistroNoCompletadoException());
-        String cuerpo = ruta.equals(RUTA_CLIENTE) ? cuerpoClienteValido() : cuerpoVendedorValido();
+        String cuerpo = tipo.equals("CLIENTE") ? cuerpoClienteValido() : cuerpoVendedorValido();
 
         // When
-        MvcResult resultado = enviar(ruta, cuerpo).andReturn();
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpo).andReturn();
 
         // Then
         assertThat(resultado.getResponse().getStatus()).isEqualTo(409).isNotIn(401, 403);
@@ -459,7 +535,7 @@ class ControladorAuthTest {
         // Given: peticion JSON sin cuerpo
 
         // When
-        MvcResult resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_CLIENTE)
+        MvcResult resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andReturn();
@@ -476,7 +552,7 @@ class ControladorAuthTest {
         String cuerpo = "nombre=Ana";
 
         // When
-        ResultActions resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_CLIENTE)
+        ResultActions resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO)
                 .contentType(MediaType.TEXT_PLAIN)
                 .content(cuerpo));
 
@@ -491,7 +567,7 @@ class ControladorAuthTest {
         String jsonRoto = "{\"nombre\": \"Ana\", \"email\": ";
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, jsonRoto)
+        MvcResult resultado = enviar(RUTA_REGISTRO, jsonRoto)
                 .andExpect(status().isBadRequest())
                 .andReturn();
 
@@ -509,7 +585,7 @@ class ControladorAuthTest {
         String cuerpo = conCampo(mapaClienteValido(), "nombre", "a".repeat(1_000_000));
 
         // When
-        MvcResult resultado = enviar(RUTA_CLIENTE, cuerpo).andReturn();
+        MvcResult resultado = enviar(RUTA_REGISTRO, cuerpo).andReturn();
 
         // Then
         assertThat(resultado.getResponse().getStatus()).isIn(400, 413);

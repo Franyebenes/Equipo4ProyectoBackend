@@ -34,8 +34,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @Import(ConfiguracionSeguridad.class)
 class LimitePeticionesRegistroTest {
 
-    private static final String RUTA_CLIENTE = "/api/auth/registro/cliente";
-    private static final String RUTA_VENDEDOR = "/api/auth/registro/vendedor";
+    // Un unico endpoint: el campo tipoCuenta del cuerpo decide si es cliente o vendedor
+    private static final String RUTA_REGISTRO = "/api/auth/registro";
     private static final int MAXIMO_PETICIONES = 3;
 
     private static final String IP_ATACANTE = "10.0.0.1";
@@ -80,12 +80,12 @@ class LimitePeticionesRegistroTest {
     void registrar_superadoElLimiteDesdeUnaIp_respondeConTooManyRequestsYRetryAfter() throws Exception { // CP-SEG-13
         // Given: la IP agota las peticiones permitidas
         for (int i = 0; i < MAXIMO_PETICIONES; i++) {
-            assertThat(registrarDesde(IP_ATACANTE, RUTA_CLIENTE, cuerpoCliente).getResponse().getStatus())
+            assertThat(registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoCliente).getResponse().getStatus())
                     .isEqualTo(201);
         }
 
         // When
-        MvcResult resultado = registrarDesde(IP_ATACANTE, RUTA_CLIENTE, cuerpoCliente);
+        MvcResult resultado = registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoCliente);
 
         // Then
         assertThat(resultado.getResponse().getStatus()).isEqualTo(429);
@@ -98,11 +98,11 @@ class LimitePeticionesRegistroTest {
     void registrar_superadoElLimiteDesdeUnaIp_otraIpNoSeVeAfectada() throws Exception { // CP-SEG-13
         // Given
         for (int i = 0; i <= MAXIMO_PETICIONES; i++) {
-            registrarDesde(IP_ATACANTE, RUTA_CLIENTE, cuerpoCliente);
+            registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoCliente);
         }
 
         // When
-        MvcResult resultado = registrarDesde(IP_VISITANTE_LEGITIMO, RUTA_CLIENTE, cuerpoCliente);
+        MvcResult resultado = registrarDesde(IP_VISITANTE_LEGITIMO, RUTA_REGISTRO, cuerpoCliente);
 
         // Then
         assertThat(resultado.getResponse().getStatus()).isEqualTo(201);
@@ -111,12 +111,12 @@ class LimitePeticionesRegistroTest {
     @Test
     void registrar_clienteYVendedorDesdeLaMismaIp_comparteElMismoContador() throws Exception { // CP-SEG-13
         // Given: dos peticiones de cliente y una de vendedor agotan el limite de 3
-        registrarDesde(IP_ATACANTE, RUTA_CLIENTE, cuerpoCliente);
-        registrarDesde(IP_ATACANTE, RUTA_CLIENTE, cuerpoCliente);
-        registrarDesde(IP_ATACANTE, RUTA_VENDEDOR, cuerpoVendedor);
+        registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoCliente);
+        registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoCliente);
+        registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoVendedor);
 
         // When
-        MvcResult resultado = registrarDesde(IP_ATACANTE, RUTA_VENDEDOR, cuerpoVendedor);
+        MvcResult resultado = registrarDesde(IP_ATACANTE, RUTA_REGISTRO, cuerpoVendedor);
 
         // Then
         assertThat(resultado.getResponse().getStatus()).isEqualTo(429);

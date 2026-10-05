@@ -47,7 +47,7 @@ import org.testcontainers.utility.MountableFile;
 
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
-import com.esibuy.esibuy_backend.dto.TipoCliente;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.servicio.DiccionarioContrasenasProhibidas;
 import com.esibuy.esibuy_backend.servicio.ValidadorDominioEmail;
@@ -76,8 +76,8 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers(disabledWithoutDocker = true)
 class RegistroIntegracionMongoTest {
 
-    private static final String RUTA_CLIENTE = "/api/auth/registro/cliente";
-    private static final String RUTA_VENDEDOR = "/api/auth/registro/vendedor";
+    // Un unico endpoint: el campo tipoCuenta del cuerpo decide si es cliente o vendedor
+    private static final String RUTA_REGISTRO = "/api/auth/registro";
     private static final int CODIGO_ERROR_VALIDACION_ESQUEMA = 121;
 
     @Container
@@ -126,7 +126,7 @@ class RegistroIntegracionMongoTest {
     // ------------------------------------------------------------------ utilidades
 
     private ResultActions registrarCliente(SolicitudRegistroClienteDTO solicitud) throws Exception {
-        return mockMvc.perform(post(RUTA_CLIENTE)
+        return mockMvc.perform(post(RUTA_REGISTRO)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(solicitud)));
     }
@@ -136,7 +136,7 @@ class RegistroIntegracionMongoTest {
     }
 
     private ResultActions registrarVendedor(SolicitudRegistroVendedorDTO solicitud) throws Exception {
-        return mockMvc.perform(post(RUTA_VENDEDOR)
+        return mockMvc.perform(post(RUTA_REGISTRO)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(solicitud)));
     }
@@ -398,7 +398,7 @@ class RegistroIntegracionMongoTest {
 
         // When
         registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida()
-                .conEmail("premium@ejemplo.es").conTipoCliente(TipoCliente.PREMIUM).construir())
+                .conEmail("premium@ejemplo.es").conTipoCuenta(TipoCuenta.PREMIUM).construir())
                 .andExpect(status().isCreated());
         registrarCliente("normal@ejemplo.es").andExpect(status().isCreated());
         registrarVendedor(ConstructorSolicitudVendedor.unaSolicitudValida().construir())

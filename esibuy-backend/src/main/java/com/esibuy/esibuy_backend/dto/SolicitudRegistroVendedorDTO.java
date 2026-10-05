@@ -1,9 +1,11 @@
 package com.esibuy.esibuy_backend.dto;
 
 /**
- * Datos de registro de un vendedor.
+ * Datos de registro de un vendedor ({@code tipoCuenta} = VENDEDOR). El toString() no incluye las contrasenas
+ * (CP-REG-12).
  */
 public record SolicitudRegistroVendedorDTO(
+        TipoCuenta tipoCuenta,
         String nombre,
         String apellidos,
         String categoriaPrincipalId,
@@ -13,11 +15,12 @@ public record SolicitudRegistroVendedorDTO(
         String telefono,
         String avatar,
         String contrasena,
-        String repetirContrasena) {
+        String repetirContrasena) implements SolicitudRegistro {
 
     @Override
     public String toString() {
-        return "SolicitudRegistroVendedorDTO[nombre=" + nombre
+        return "SolicitudRegistroVendedorDTO[tipoCuenta=" + tipoCuenta
+                + ", nombre=" + nombre
                 + ", apellidos=" + apellidos
                 + ", categoriaPrincipalId=" + categoriaPrincipalId
                 + ", nombreComercial=" + nombreComercial

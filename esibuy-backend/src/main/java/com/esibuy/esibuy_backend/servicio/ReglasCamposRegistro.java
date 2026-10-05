@@ -8,15 +8,22 @@ import org.bson.types.ObjectId;
 
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 
+/**
+ * Reglas de formato de los campos del registro. Son locales (no consultan la BBDD ni servicios externos) y reciben
+ * los valores ya normalizados por {@link NormalizadorRegistro}.
+ */
 final class ReglasCamposRegistro {
-// Reglas de formato de los campos del registro. Son locales (no consultan BBDD ni servicios externos) y reciben los valores ya normalizados por {@link NormalizadorRegistro}.
 
     static final int EDAD_MINIMA = 18;
-    static final int EDAD_MAXIMA = 120; //Por encima de esta edad la fecha se considera un error de introduccio
+    /** Por encima de esta edad la fecha se considera un error al introducirla (CP-REG-35). */
+    static final int EDAD_MAXIMA = 120;
+    /** Longitud maxima de una direccion de email (RFC 5321). */
     static final int LONGITUD_MAXIMA_EMAIL = 254;
 
-    private static final Pattern CARACTERES_PROHIBIDOS = Pattern.compile("[<>{}$]"); //Caracteres que no tienen sentido en nombres y que se usan en XSS y en operadores NoSQL (CP-SEG-04/05).
-    private static final Pattern FORMATO_EMAIL = Pattern.compile("^[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)+[a-z]{2,}$"); //Formato basico de email ya en minusculas: parte local, arroba unica y dominio con TLD.
+    /** Caracteres que no tienen sentido en nombres y que se usan en XSS y en operadores NoSQL (CP-SEG-04/05). */
+    private static final Pattern CARACTERES_PROHIBIDOS = Pattern.compile("[<>{}$]");
+    /** Formato basico de email ya en minusculas: parte local, arroba unica y dominio con TLD. */
+    private static final Pattern FORMATO_EMAIL = Pattern.compile("^[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)+[a-z]{2,}$");
     private static final Pattern FORMATO_TELEFONO = Pattern.compile("^[0-9]{9}$");
 
     private ReglasCamposRegistro() {
@@ -45,15 +52,15 @@ final class ReglasCamposRegistro {
         }
     }
 
+    /** El telefono es opcional; si se informa, deben ser exactamente 9 digitos (CP-REG-26). */
     static void validarTelefono(String campo, String telefono, ErroresRegistro errores) {
-    // El telefono es opcional, en caso de darlo, deben ser exactamente 9 digitos (CP-REG-26).
         if (telefono != null && !FORMATO_TELEFONO.matcher(telefono).matches()) {
             errores.anadir(campo, CodigoError.TELEFONO_INVALIDO);
         }
     }
 
+    /** La categoria debe ser un ObjectId bien formado; su existencia se comprueba despues (CP-REG-45). */
     static void validarCategoriaPrincipal(String campo, String categoriaId, ErroresRegistro errores) {
-        // La categoria debe ser un ObjectId bien formado; su existencia se comprueba despues
         if (categoriaId == null) {
             errores.anadir(campo, CodigoError.OBLIGATORIO);
         } else if (!ObjectId.isValid(categoriaId)) {

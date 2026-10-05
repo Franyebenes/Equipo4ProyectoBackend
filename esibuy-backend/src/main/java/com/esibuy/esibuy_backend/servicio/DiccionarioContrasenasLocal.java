@@ -16,10 +16,13 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 /**
- * Listas locales de contrasenas prohibidas (las usa {@link DiccionarioContrasenasCompuesto}), cargadas en memoria al arrancar desde dos ficheros del classpath (una
- * contrasena por linea, UTF-8; se ignoran las lineas vacias y las que empiezan por #):
- *   Comunes: se comparan sin distinguir mayusculas, asi que se guardan en minusculas.</li>
- *   Filtradas en brechas: se comparan tal cual.</li>
+ * Listas locales de contrasenas prohibidas (las usa {@link DiccionarioContrasenasCompuesto}), cargadas en
+ * memoria al arrancar desde dos ficheros del classpath (una contrasena por linea, UTF-8; se ignoran las lineas
+ * vacias y las que empiezan por #):
+ * <ul>
+ *   <li>Comunes: se comparan sin distinguir mayusculas, asi que se guardan en minusculas.</li>
+ *   <li>Filtradas en brechas: se comparan tal cual.</li>
+ * </ul>
  * Ambas se normalizan a NFC, igual que la contrasena que llega del validador. Si falta un fichero, la aplicacion
  * no arranca: un diccionario vacio dejaria pasar contrasenas debiles sin avisar.
  */
