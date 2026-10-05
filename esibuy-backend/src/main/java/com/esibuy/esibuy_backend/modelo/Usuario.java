@@ -60,6 +60,15 @@ public class Usuario {
         return perfil;
     } 
 
+    public void cambiarEstado(EstadoUsuario nuevoEstado) {
+        this.estado = Objects.requireNonNull(nuevoEstado, "estado");
+    }
+
+    public void actualizarDatosPersonales(String nombre, String apellidos, String dni, String telefono,
+                                          String sede) {
+        perfil.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede);
+    }
+
     @Override
     public String toString() {
         return "Usuario[id=" + id + ", roles=" + roles + ", estado=" + estado + "]";

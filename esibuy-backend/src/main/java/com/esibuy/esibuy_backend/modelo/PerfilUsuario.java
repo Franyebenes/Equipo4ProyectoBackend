@@ -91,6 +91,15 @@ public class PerfilUsuario {
         return fechaIncorporacion;
     }
 
+    public void actualizarDatosPersonales(String nombre, String apellidos, String dni, String telefono,
+                                          String sede) {
+        this.nombre = nombre;
+        this.apellidos = apellidos;
+        this.dni = Objects.requireNonNullElse(dni, this.dni);
+        this.telefono = Objects.requireNonNullElse(telefono, this.telefono);
+        this.sede = Objects.requireNonNullElse(sede, this.sede);    
+    }
+
     /** Sin datos personales: puede acabar en un log. */
     @Override
     public String toString() {
@@ -165,5 +174,7 @@ public class PerfilUsuario {
         public PerfilUsuario build() {
             return new PerfilUsuario(this);
         }
+
+        
     }
 }

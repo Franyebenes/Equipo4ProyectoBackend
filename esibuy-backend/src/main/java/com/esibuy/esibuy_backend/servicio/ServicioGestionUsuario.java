@@ -21,6 +21,13 @@ public class ServicioGestionUsuario {
     // para la fecha de incorporacoin
     private final Clock reloj;
 
+    private static final Set<EstadoUsuario> PUEDEN_BLOQUEARSE =
+            EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO);
+    private static final Set<EstadoUsuario> PUEDEN_DESBLOQUEARSE = EnumSet.of(EstadoUsuario.BLOQUEADO);
+    private static final Set<EstadoUsuario> PUEDEN_ELIMINARSE =
+            EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO, EstadoUsuario.BLOQUEADO);
+
+
 
     public ServicioGestionUsuario(RepositorioUsuario repositorioUsuario, ValidadorContrasena validadorContrasena, 
         PasswordEncoder passwordEncoder, CatalogoAvatares catalogoAvatares, Clock reloj) {
@@ -52,6 +59,48 @@ public class ServicioGestionUsuario {
         return crearCuenta(datos, Rol.ADMINISTRADOR, perfil);
     }
 
+    public PaginaDTO<UsuarioDTO> listar(int pagina, int tamano, Rol rol, EstadoUsuario estado) {
+        // Math.clamp(value, min, max) keeps the size inside the allowed range; Sort.by uses a constant field
+        // name, never a value coming from the client.
+        Pageable pageable = PageRequest.of(Math.max(0, pagina), Math.clamp(tamano, 1, TAMANO_MAXIMO_PAGINA),
+                Sort.by(CAMPO_EMAIL);
+        return PaginaDTO.desde(buscarPagina(rol, estado, pageable).map(UsuarioDTO::desde));
+    }
+
+    public UsuarioDTO modificar(String id, SolicitudModificacionUsuarioDTO solicitud) {
+        String nombre = NormalizadorRegistro.texto(solicitud.nombre());
+        String apellidos = NormalizadorRegistro.texto(solicitud.apellidos());
+        String dni = NormalizadorRegistro.texto(solicitud.dni());
+        String telefono = NormalizadorRegistro.texto(solicitud.telefono());
+        String sede = NormalizadorRegistro.texto(solicitud.sede());
+
+        ErroresRegistro errores = new ErroresRegistro();
+        validarDatosPersonales(nombre, apellidos, sede, errores);
+        validarTextoOpcional(CAMPO_DNI, dni, errores);
+        ReglasCamposRegistro.validarTelefono(CAMPO_TELEFONO, telefono, errores);
+        errores.lanzarSiHay();
+
+        Usuario usuario = buscarNoEliminado(id);
+        usuario.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede);
+        Usuario guardado = repositorioUsuario.save(usuario);
+        log.info("Usuario modificado: id={}", guardado.getId());
+        return UsuarioDTO.desde(guardado);
+    }
+
+    public UsuarioDTO bloquear(String id, String emailSolicitante) {
+        return cambiarEstado(id, emailSolicitante, PUEDEN_BLOQUEARSE, EstadoUsuario.BLOQUEADO);
+    }
+
+    public UsuarioDTO desbloquear(String id, String emailSolicitante) {
+        return cambiarEstado(id, emailSolicitante, PUEDEN_DESBLOQUEARSE, EstadoUsuario.ACTIVO);
+    }
+
+    public void eliminar(String id, String emailSolicitante) {
+        cambiarEstado(id, emailSolicitante, PUEDEN_ELIMINARSE, EstadoUsuario.ELIMINADO);
+    }
+
+    // helpers 
+
     private RespuestaRegistroDTO crearCuenta(DatosComunes datos, Rol rol, PerfilUsuario perfil) {
         if (repositorioUsuario.existePorEmail(datos.email())) {
             log.info("Registro rechazado: el email ya pertenece a una cuenta");
@@ -73,6 +122,37 @@ public class ServicioGestionUsuario {
         }
     }
 
+    private UsuarioDTO cambiarEstado(String id, String emailSolicitante, Set<EstadoUsuario> origenesValidos,
+                                     EstadoUsuario destino) {
+        Usuario usuario = buscarNoEliminado(id);
+        // Case-insensitive because emails are stored lowercase but the authentication name may differ in case.
+        if (usuario.getEmail().equalsIgnoreCase(emailSolicitante) || !origenesValidos.contains(usuario.getEstado())) {
+            throw new OperacionNoPermitidaException();
+        }
+        usuario.cambiarEstado(destino);
+        Usuario guardado = repositorioUsuario.save(usuario);
+        log.info("Estado de usuario cambiado: id={}, nuevoEstado={}", guardado.getId(), destino);
+        return UsuarioDTO.desde(guardado);
+    }
+
+    private Page<Usuario> buscarPagina(Rol rol, EstadoUsuario estado, Pageable pageable) {
+        if (rol == null) {
+            return estado == null
+                    ? repositorioUsuario.findByEstadoNot(EstadoUsuario.ELIMINADO, pageable)
+                    : repositorioUsuario.findByEstado(estado, pageable);
+        }
+        return estado == null
+                ? repositorioUsuario.findPorRolExcluyendoEstado(rol, EstadoUsuario.ELIMINADO, pageable)
+                : repositorioUsuario.findPorRolYEstado(rol, estado, pageable);
+    }
+
+    private Usuario buscarNoEliminado(String id) {
+        if (id == null || !ObjectId.isValid(id)) {
+            throw new UsuarioNoEncontradoException();
+        }
+        return repositorioUsuario.findByIdAndEstadoNot(id, EstadoUsuario.ELIMINADO)
+                .orElseThrow(UsuarioNoEncontradoException::new);
+    }
 
 
 
