@@ -27,6 +27,7 @@ import com.esibuy.esibuy_backend.modelo.Rol;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // @PreAuthorize, @Secured, @RolesAllowed
 public class ConfiguracionSeguridad {
 
     @Bean
