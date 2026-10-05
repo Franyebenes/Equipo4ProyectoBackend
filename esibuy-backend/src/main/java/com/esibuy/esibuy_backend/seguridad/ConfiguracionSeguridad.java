@@ -37,10 +37,12 @@ public class ConfiguracionSeguridad {
                 // API REST sin estado y sin cookies de sesion: no hay sesion que un CSRF pueda aprovechar
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errores -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/registro/**", "/api/public/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole(Rol.ADMIN.name())
                         .anyRequest().authenticated());
         return http.build();
     }
