@@ -13,14 +13,18 @@ public class Categoria {
     @Indexed(unique = true)
     private String nombre;
 
+    private String descripcion;
+
     public Categoria() {
-        // Constructor requerido por Spring Data
+        
     }
 
-    public Categoria(String nombre) {
+    public Categoria(String nombre, String descripcion) {
         this.nombre = nombre;
+        this.descripcion = descripcion;
     }
 
     public String getId() { return id; }
     public String getNombre() { return nombre; }
+    public String getDescripcion() { return descripcion; }
 }
