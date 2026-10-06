@@ -9,15 +9,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
-import com.esibuy.esibuy_backend.servicio.CategoriaService;
+import com.esibuy.esibuy_backend.servicio.ServicioCategoria;
 
 @RestController
 @RequestMapping("/api/admin/categorias")
 public class ControladorCategoria {
 
-    private final CategoriaService servicioCategoria;
+    private final ServicioCategoria servicioCategoria;
 
-    public ControladorCategoria(CategoriaService servicioCategoria) {
+    public ControladorCategoria(ServicioCategoria servicioCategoria) {
         this.servicioCategoria = servicioCategoria;
     }
 
