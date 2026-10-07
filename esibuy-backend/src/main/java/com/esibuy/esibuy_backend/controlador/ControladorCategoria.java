@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.servicio.ServicioCategoria;
@@ -32,9 +34,18 @@ public class ControladorCategoria {
         return ResponseEntity.ok(servicioCategoria.listarCategorias());
     }
 
+<<<<<<< HEAD
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CategoriaDTO> crearCategoria(@Valid @RequestBody CategoriaDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(servicioCategoria.crearCategoria(dto));
+=======
+
+        @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> eliminarCategoria(@PathVariable String id) {
+        servicioCategoria.eliminarCategoria(id);
+        return ResponseEntity.noContent().build();
+>>>>>>> origin/Develop
     }
 }

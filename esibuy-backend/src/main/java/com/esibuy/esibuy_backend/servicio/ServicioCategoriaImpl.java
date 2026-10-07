@@ -10,19 +10,32 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.bson.types.ObjectId;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
+import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 
 /** Categorias del catalogo: listado (registro de vendedor y panel de administracion) y alta. */
 @Service
 public class ServicioCategoriaImpl implements ServicioCategoria {
 
-    private final RepositorioCategoria repositorioCategoria;
+        // Contrato con la HU de productos: colección "productos", campo "categoriaId" (String con el id de la categoría)
+        // Diseño de la colección "productos" en Atlas: cada producto tiene "idCategorias", una lista de ObjectId
+    private static final String COLECCION_PRODUCTOS = "productos";
+    private static final String CAMPO_CATEGORIAS_PRODUCTO = "idCategorias";
 
-    public ServicioCategoriaImpl(RepositorioCategoria repositorioCategoria) {
+    private final RepositorioCategoria repositorioCategoria;
+    private final MongoTemplate mongoTemplate;
+
+    public ServicioCategoriaImpl(RepositorioCategoria repositorioCategoria, MongoTemplate mongoTemplate) {
         this.repositorioCategoria = repositorioCategoria;
+        this.mongoTemplate = mongoTemplate;
     }
 
     // Se ordena en Java con las reglas del espanol.
@@ -53,6 +66,22 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "No se ha podido crear la categoría, inténtalo de nuevo más tarde", e);
         }
+    }
+
+
+        @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public void eliminarCategoria(String id) {
+        Categoria categoria = repositorioCategoria.findById(id)
+                .orElseThrow(CategoriaNoEncontradaException::new);
+
+                long productosAsociados = mongoTemplate.count(
+                Query.query(Criteria.where(CAMPO_CATEGORIAS_PRODUCTO).is(new ObjectId(id))), COLECCION_PRODUCTOS);
+        if (productosAsociados > 0) {
+            throw new CategoriaConProductosException(categoria.getNombre(), productosAsociados);
+        }
+
+        repositorioCategoria.deleteById(id);
     }
 
     private CategoriaDTO aDTO(Categoria categoria) {
