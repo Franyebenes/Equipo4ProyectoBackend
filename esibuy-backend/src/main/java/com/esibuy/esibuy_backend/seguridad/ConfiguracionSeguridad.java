@@ -12,7 +12,6 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,22 +21,31 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.modelo.Rol;
 
-/**
+/*
  * Seguridad web, CORS y RBAC. Solo son publicas las rutas que se enumeran; todo lo demas exige autenticacion (denegado por defecto).
  */
 @Configuration
 @EnableWebSecurity
 public class ConfiguracionSeguridad {
 
+    /** Un ano: el HSTS que recomienda CCN-CERT BP/28 para que el navegador solo use HTTPS. */
+    private static final long SEGUNDOS_HSTS = 31_536_000L;
+
     @Bean
     public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
-                // API REST sin estado y sin cookies de sesion: no hay sesion que un CSRF pueda aprovechar
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Hay sesion (la crea el login), asi que el login exige token CSRF. El registro no crea sesion ni
+                // usa la existente: sigue exento
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/auth/registro"))
+                .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .headers(cabeceras -> cabeceras.httpStrictTransportSecurity(
+                        hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(SEGUNDOS_HSTS)))
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+                        // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403
+                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/registro/**", "/api/public/**").permitAll()
                         .anyRequest().authenticated());

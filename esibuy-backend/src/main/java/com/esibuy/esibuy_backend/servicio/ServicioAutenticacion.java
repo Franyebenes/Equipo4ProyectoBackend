@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 import com.esibuy.esibuy_backend.dto.SolicitudLoginDTO;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
@@ -30,9 +31,9 @@ import com.esibuy.esibuy_backend.util.Constantes;
  * un unico rol valido; cualquier otro caso es la misma, CredencialesInvalidasException, y suma un fallo. Un
  * fallo interno falla cerrado como ServicioNoDisponibleException, sin causa y sin sumar fallo.
  *
- * Aun no es un bean de Spring (sin @Service): se registrara al conectarlo con el controlador en la fase 6, para
- * no alterar el contexto de la aplicacion mientras tanto. La auditoria se conecta en la fase 4.
+ * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria.
  */
+@Service
 public class ServicioAutenticacion {
 
     private static final Logger log = LoggerFactory.getLogger(ServicioAutenticacion.class);

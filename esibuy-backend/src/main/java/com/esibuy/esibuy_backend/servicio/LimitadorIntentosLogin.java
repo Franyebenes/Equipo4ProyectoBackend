@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.stereotype.Component;
+
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 
 /*
@@ -23,6 +25,7 @@ import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
  * Los contadores viven en memoria de esta instancia y son seguros entre hilos: cada cuenta y cada IP se
  * modifican bajo su propio cerrojo. El reloj, la pausa y los avisos se inyectan para poder probarlo sin esperas.
  */
+@Component
 public class LimitadorIntentosLogin {
 
     private static final int FALLOS_PARA_BLOQUEAR = 5;

@@ -3,6 +3,7 @@ package com.esibuy.esibuy_backend.servicio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.stereotype.Component;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 
@@ -11,6 +12,7 @@ import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
  * datos en forma clave=valor. El correo siempre va enmascarado y los textos que controla el cliente, saneados; nunca
  * se escribe una contrasena ni un hash. Tambien es el {@link AlertasSeguridad} real del limitador de login.
  */
+@Component
 public class AuditoriaSeguridad implements AlertasSeguridad {
 
     private static final Logger log = LoggerFactory.getLogger(AuditoriaSeguridad.class);
