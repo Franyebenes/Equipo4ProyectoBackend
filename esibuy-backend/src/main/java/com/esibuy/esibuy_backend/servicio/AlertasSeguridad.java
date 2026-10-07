@@ -1,10 +1,12 @@
 package com.esibuy.esibuy_backend.servicio;
 
-/**
- * Avisos de seguridad hacia el equipo de operacion. Detras de una interfaz para poder verificarlos en los tests.
- */
+// Avisos de seguridad hacia el equipo de operacion. Detras de una interfaz para poder verificarlos en los tests.
+ 
 public interface AlertasSeguridad {
 
-    /** Una IP ha probado muchos usuarios distintos en poco tiempo y pasa al modo adaptativo del limitador. */
+    // Una IP ha probado muchos usuarios distintos en poco tiempo y pasa al modo adaptativo del limitador. 
     void ipEnModoAdaptativo(String ip, int usuariosDistintos);
+
+    // Se ha activado un bloqueo temporal de la cuenta tras varios fallos (posible fuerza bruta).
+    void cuentaBloqueada(String correo, String ip, long segundosDeBloqueo);
 }

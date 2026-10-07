@@ -11,16 +11,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 
-/**
+/*
  * Contadores de intentos fallidos, bloqueo progresivo de cuentas y limite de intentos por IP.
  *
- * <p>Por cuenta (correo normalizado): al llegar a 5 fallos seguidos se bloquea 30 s, 2, 4 y 5 min, y se mantiene en
+ * Por cuenta (correo normalizado): al llegar a 5 fallos seguidos se bloquea 30 s, 2, 4 y 5 min, y se mantiene en
  * 5 min; los fallos separados por mas de 10 min no se acumulan y un exito reinicia contador y nivel.
  *
- * <p>Por IP y usuario: 5 intentos cada 5 min. Si una IP prueba 20 usuarios distintos en 5 min pasa al modo
+ * Por IP y usuario: 5 intentos cada 5 min. Si una IP prueba 20 usuarios distintos en 5 min pasa al modo
  * adaptativo durante 5 min: 2 intentos por usuario y un retraso fijo de 2 s por intento, y se avisa a operacion.
  *
- * <p>Los contadores viven en memoria de esta instancia y son seguros entre hilos: cada cuenta y cada IP se
+ * Los contadores viven en memoria de esta instancia y son seguros entre hilos: cada cuenta y cada IP se
  * modifican bajo su propio cerrojo. El reloj, la pausa y los avisos se inyectan para poder probarlo sin esperas.
  */
 public class LimitadorIntentosLogin {
@@ -47,7 +47,7 @@ public class LimitadorIntentosLogin {
         this.alertas = alertas;
     }
 
-    /**
+    /*
      * Puerta de cada intento de inicio de sesion. Rechaza si la cuenta esta bloqueada o si esa IP ha agotado sus
      * intentos para ese usuario; un intento rechazado no cuenta. En modo adaptativo espera 2 s antes de dejar pasar.
      */
@@ -72,51 +72,58 @@ public class LimitadorIntentosLogin {
         }
     }
 
-    /**
-     * Suma un fallo a la cuenta, venga de la IP que venga. La IP no interviene en este contador: el limite por IP
-     * se cuenta en {@link #comprobarIntento}.
+    /*
+     * Suma un fallo a la cuenta, venga de la IP que venga: el contador es de la cuenta y el limite por IP se cuenta
+     * en comprobarIntento. La IP solo se usa para avisar si este fallo activa un bloqueo.
      */
     public void registrarFallo(String correo, String ip) {
-        cuentas.computeIfAbsent(NormalizadorRegistro.email(correo), clave -> new Cuenta())
-                .registrarFallo(reloj.instant());
+        String clave = NormalizadorRegistro.email(correo);
+        long segundosDeBloqueo = cuentas.computeIfAbsent(clave, c -> new Cuenta()).registrarFallo(reloj.instant());
+        if (segundosDeBloqueo > 0) {
+            alertas.cuentaBloqueada(clave, ip, segundosDeBloqueo);
+        }
     }
 
-    /** Un inicio de sesion correcto reinicia el contador de fallos y el nivel de escalado de la cuenta. */
+    // Un inicio de sesion correcto reinicia el contador de fallos y el nivel de escalado de la cuenta.
     public void registrarExito(String correo) {
         cuentas.remove(NormalizadorRegistro.email(correo));
     }
 
-    /** Fallos acumulados de la cuenta (0 si no tiene). */
+    // Fallos acumulados de la cuenta (0 si no tiene).
     public int fallosConsecutivos(String correo) {
         Cuenta cuenta = cuentas.get(NormalizadorRegistro.email(correo));
         return cuenta == null ? 0 : cuenta.fallos();
     }
 
-    /** Segundos que faltan hasta el instante dado, redondeados hacia arriba y como minimo 1. */
+    //Segundos que faltan hasta el instante dado, redondeados hacia arriba y como minimo 1.
     private static long segundosHasta(Instant limite, Instant ahora) {
         Duration restante = Duration.between(ahora, limite);
         long segundos = restante.getSeconds() + (restante.getNano() > 0 ? 1 : 0);
         return Math.max(1, segundos);
     }
 
-    /** Estado de bloqueo de una cuenta. */
+    //Estado de bloqueo de una cuenta.
     private static final class Cuenta {
         private int fallos;
         private int nivel;
         private Instant ultimoFallo;
         private Instant bloqueadoHasta;
 
-        synchronized void registrarFallo(Instant ahora) {
+        // Suma un fallo; devuelve los segundos del bloqueo que ese fallo activa, o 0 si no activa ninguno.
+        synchronized long registrarFallo(Instant ahora) {
             if (ultimoFallo != null && Duration.between(ultimoFallo, ahora).compareTo(VENTANA_FALLOS) > 0) {
                 fallos = 0;
             }
             fallos++;
             ultimoFallo = ahora;
             // Con el bloqueo vigente los fallos suman pero no escalan
-            if (fallos >= FALLOS_PARA_BLOQUEAR && segundosDeBloqueo(ahora) == 0) {
-                nivel = Math.min(nivel + 1, SEGUNDOS_DE_BLOQUEO.length);
-                bloqueadoHasta = ahora.plusSeconds(SEGUNDOS_DE_BLOQUEO[nivel - 1]);
+            if (fallos < FALLOS_PARA_BLOQUEAR || segundosDeBloqueo(ahora) > 0) {
+                return 0;
             }
+            nivel = Math.min(nivel + 1, SEGUNDOS_DE_BLOQUEO.length);
+            long segundosDeBloqueo = SEGUNDOS_DE_BLOQUEO[nivel - 1];
+            bloqueadoHasta = ahora.plusSeconds(segundosDeBloqueo);
+            return segundosDeBloqueo;
         }
 
         synchronized long segundosDeBloqueo(Instant ahora) {
@@ -128,7 +135,7 @@ public class LimitadorIntentosLogin {
         }
     }
 
-    /** Intentos recientes de una IP, con el modo adaptativo si lo tiene activo. */
+    // Intentos recientes de una IP, con el modo adaptativo si lo tiene activo.
     private static final class VentanaIp {
         private final Deque<Intento> intentos = new ArrayDeque<>();
         private Instant adaptativoHasta;

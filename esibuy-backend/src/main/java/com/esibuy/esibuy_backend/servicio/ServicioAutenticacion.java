@@ -13,6 +13,7 @@ import com.esibuy.esibuy_backend.dto.SolicitudLoginDTO;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.DatosLoginInvalidosException;
+import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
@@ -20,8 +21,8 @@ import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 import com.esibuy.esibuy_backend.util.Constantes;
 
-/**
- * Autenticacion por correo y contrasena. Tests: ServicioAutenticacion*Test.
+/*
+ * Autenticacion por correo y contrasena.
  *
  * Flujo: validacion y normalizacion de las credenciales (un 400 que no cuenta como intento fallido), paso por el
  * limitador (cuenta bloqueada o IP agotada), busqueda por correo exacto y verificacion de la contrasena una sola vez
@@ -66,18 +67,46 @@ public class ServicioAutenticacion {
         String contrasena = NormalizadorRegistro.contrasena(solicitud.contrasena());
         validarCredenciales(email, contrasena);
 
-        limitador.comprobarIntento(email, contexto.ip());
+        comprobarPasoDelLimitador(email, contexto);
 
         Comprobacion comprobacion = comprobarContrasena(email, contrasena);
-        Optional<ResultadoAutenticacion> resultado = comprobacion.contrasenaCorrecta()
-                ? resultadoDeCuentaActiva(comprobacion.usuario())
-                : Optional.empty();
-        if (resultado.isEmpty()) {
-            limitador.registrarFallo(email, contexto.ip());
-            throw new CredencialesInvalidasException();
+        Usuario usuario = comprobacion.usuario();
+        if (usuario == null) {
+            throw rechazar(email, contexto, MotivoFalloLogin.CORREO_NO_REGISTRADO);
         }
+        if (!comprobacion.contrasenaCorrecta()) {
+            throw rechazar(email, contexto, MotivoFalloLogin.CONTRASENA_INCORRECTA);
+        }
+        // Solo una cuenta activa con un unico rol valido puede entrar
+        if (usuario.getEstado() != EstadoUsuario.ACTIVO) {
+            throw rechazar(email, contexto, MotivoFalloLogin.CUENTA_NO_ACTIVA);
+        }
+        Optional<Rol> rol = rolUnico(usuario);
+        if (rol.isEmpty()) {
+            throw rechazar(email, contexto, MotivoFalloLogin.ROLES_INVALIDOS);
+        }
+
         limitador.registrarExito(email);
-        return resultado.get();
+        auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
+        return new ResultadoAutenticacion(usuario.getId(), usuario.getEmail(), usuario.getPerfil().getNombre(),
+                rol.get());
+    }
+
+    // Un bloqueo temporal (cuenta o IP) se rechaza tal cual, pero antes queda constancia en la auditoria.
+    private void comprobarPasoDelLimitador(String email, ContextoPeticion contexto) {
+        try {
+            limitador.comprobarIntento(email, contexto.ip());
+        } catch (LoginBloqueadoTemporalmenteException e) {
+            auditoria.registrarLoginFallido(contexto, email, MotivoFalloLogin.BLOQUEO_TEMPORAL);
+            throw e;
+        }
+    }
+
+    // Todo rechazo de credenciales suma un fallo, queda auditado con su motivo y responde igual para todos.
+    private CredencialesInvalidasException rechazar(String email, ContextoPeticion contexto, MotivoFalloLogin motivo) {
+        limitador.registrarFallo(email, contexto.ip());
+        auditoria.registrarLoginFallido(contexto, email, motivo);
+        return new CredencialesInvalidasException();
     }
 
     /**
@@ -99,7 +128,7 @@ public class ServicioAutenticacion {
         }
     }
 
-    /**
+    /*
      * Busca al usuario y verifica la contrasena exactamente una vez, exista o no el usuario. Cualquier fallo de la
      * BBDD o del codificador falla cerrado: sin causa ni detalles en la excepcion, que queda solo en el log.
      */
@@ -121,15 +150,6 @@ public class ServicioAutenticacion {
             hashFicticio = hash;
         }
         return hash;
-    }
-
-    // Solo una cuenta activa con un unico rol valido puede entrar. 
-    private static Optional<ResultadoAutenticacion> resultadoDeCuentaActiva(Usuario usuario) {
-        if (usuario.getEstado() != EstadoUsuario.ACTIVO) {
-            return Optional.empty();
-        }
-        return rolUnico(usuario).map(rol -> new ResultadoAutenticacion(
-                usuario.getId(), usuario.getEmail(), usuario.getPerfil().getNombre(), rol));
     }
 
     //El rol del usuario; si el documento tiene cero roles, mas de uno o uno desconocido, falla cerrado y lo registra.
