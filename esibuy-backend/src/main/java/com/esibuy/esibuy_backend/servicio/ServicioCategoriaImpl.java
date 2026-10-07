@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.bson.types.ObjectId;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.modelo.Categoria;
@@ -25,8 +26,9 @@ import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 public class ServicioCategoriaImpl implements ServicioCategoria {
 
         // Contrato con la HU de productos: colección "productos", campo "categoriaId" (String con el id de la categoría)
+        // Diseño de la colección "productos" en Atlas: cada producto tiene "idCategorias", una lista de ObjectId
     private static final String COLECCION_PRODUCTOS = "productos";
-    private static final String CAMPO_CATEGORIA_PRODUCTO = "categoriaId";
+    private static final String CAMPO_CATEGORIAS_PRODUCTO = "idCategorias";
 
     private final RepositorioCategoria repositorioCategoria;
     private final MongoTemplate mongoTemplate;
@@ -73,8 +75,8 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
         Categoria categoria = repositorioCategoria.findById(id)
                 .orElseThrow(CategoriaNoEncontradaException::new);
 
-        long productosAsociados = mongoTemplate.count(
-                Query.query(Criteria.where(CAMPO_CATEGORIA_PRODUCTO).is(id)), COLECCION_PRODUCTOS);
+                long productosAsociados = mongoTemplate.count(
+                Query.query(Criteria.where(CAMPO_CATEGORIAS_PRODUCTO).is(new ObjectId(id))), COLECCION_PRODUCTOS);
         if (productosAsociados > 0) {
             throw new CategoriaConProductosException(categoria.getNombre(), productosAsociados);
         }

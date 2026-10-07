@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
+import org.bson.types.ObjectId;
 
 import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
 import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
@@ -52,7 +53,7 @@ class ServicioCategoriaEliminarTest {
         verify(repositorioCategoria).deleteById(ID);
         ArgumentCaptor<Query> consulta = ArgumentCaptor.forClass(Query.class);
         verify(mongoTemplate).count(consulta.capture(), eq("productos"));
-        assertThat(consulta.getValue().getQueryObject()).containsEntry("categoriaId", ID);
+        assertThat(consulta.getValue().getQueryObject()).containsEntry("idCategorias", new ObjectId(ID));
     }
 
     @Test
