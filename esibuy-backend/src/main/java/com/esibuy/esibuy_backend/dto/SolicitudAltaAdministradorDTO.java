@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.dto;
 
+// La fecha de incorporacion no se recibe: el servicio asigna la fecha del alta.
 public record SolicitudAltaAdministradorDTO(
         String nombre,
         String apellidos,
@@ -7,10 +8,10 @@ public record SolicitudAltaAdministradorDTO(
         String sede,
         String avatar,
         String contrasena,
-        String repetirContrasena,
-        String FechaIncorporacion
+        String repetirContrasena
 ) {
 
+    @Override
     public String toString() {
         return "SolicitudAltaAdministradorDTO{" +
                 "nombre='" + nombre + '\'' +
@@ -20,7 +21,6 @@ public record SolicitudAltaAdministradorDTO(
                 ", avatar='" + avatar + '\'' +
                 ", contrasena='" + DatosSensibles.OCULTO + '\'' +
                 ", repetirContrasena='" + DatosSensibles.OCULTO + '\'' +
-                ", FechaIncorporacion='" + FechaIncorporacion + '\'' +
                 '}';
     }
 }

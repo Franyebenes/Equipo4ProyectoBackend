@@ -1,25 +1,56 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.EnumSet;
+import java.util.Set;
+
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.esibuy.esibuy_backend.dto.PaginaDTO;
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudAltaAdministradorDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudModificacionUsuarioDTO;
+import com.esibuy.esibuy_backend.dto.UsuarioDTO;
+import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
+import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
+import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
+import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
+import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
+import com.esibuy.esibuy_backend.modelo.Rol;
+import com.esibuy.esibuy_backend.modelo.Usuario;
+import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
+
+@Service
 public class ServicioGestionUsuario {
+
+    static final int TAMANO_MAXIMO_PAGINA = 100;
+    static final String MENSAJE_ADMINISTRADOR_CREADO = "La cuenta de administrador se ha creado correctamente";
+
+    private static final ZoneId ZONA_APLICACION = ZoneId.of("Europe/Madrid");
 
     // Nombres de campo de los errores: coinciden con los del JSON de la solicitud
     private static final String CAMPO_NOMBRE = "nombre";
     private static final String CAMPO_APELLIDOS = "apellidos";
+    private static final String CAMPO_DNI = "dni";
     private static final String CAMPO_EMAIL = "email";
+    private static final String CAMPO_TELEFONO = "telefono";
     private static final String CAMPO_SEDE = "sede";
     private static final String CAMPO_AVATAR = "avatar";
     private static final String CAMPO_CONTRASENA = "contrasena";
     private static final String CAMPO_REPETIR_CONTRASENA = "repetirContrasena";
-
-    private static final Logger log = LoggerFactory.getLogger(ServicioGestionUsuarios.class);
-
-    private final RepositorioUsuario repositorioUsuario;
-    private final ValidadorContrasena validadorContrasena;
-    private final PasswordEncoder codificadorContrasena;
-    private final CatalogoAvatares catalogoAvatares;
-
-    // para la fecha de incorporacoin
-    private final Clock reloj;
 
     private static final Set<EstadoUsuario> PUEDEN_BLOQUEARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO);
@@ -27,25 +58,38 @@ public class ServicioGestionUsuario {
     private static final Set<EstadoUsuario> PUEDEN_ELIMINARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO, EstadoUsuario.BLOQUEADO);
 
+    private static final Logger log = LoggerFactory.getLogger(ServicioGestionUsuario.class);
 
+    private final RepositorioUsuario repositorioUsuario;
+    private final ValidadorDominioEmail validadorDominioEmail;
+    private final ValidadorContrasena validadorContrasena;
+    private final PasswordEncoder codificadorContrasena;
+    private final CatalogoAvatares catalogoAvatares;
+    // para la fecha de incorporacion
+    private final Clock reloj;
 
-    public ServicioGestionUsuario(RepositorioUsuario repositorioUsuario, ValidadorContrasena validadorContrasena, 
-        PasswordEncoder passwordEncoder, CatalogoAvatares catalogoAvatares, Clock reloj) {
+    public ServicioGestionUsuario(RepositorioUsuario repositorioUsuario,
+                                  ValidadorDominioEmail validadorDominioEmail,
+                                  ValidadorContrasena validadorContrasena,
+                                  PasswordEncoder codificadorContrasena,
+                                  CatalogoAvatares catalogoAvatares,
+                                  Clock reloj) {
         this.repositorioUsuario = repositorioUsuario;
+        this.validadorDominioEmail = validadorDominioEmail;
         this.validadorContrasena = validadorContrasena;
-        this.passwordEncoder = passwordEncoder;
+        this.codificadorContrasena = codificadorContrasena;
         this.catalogoAvatares = catalogoAvatares;
         this.reloj = reloj;
     }
 
-    public RespuestaRegistroDTO crearAdministrador(SolicitudAltaAdministradorDTO solicitud){
-        //Normalizar los datos de la solicitud (eliminando espacios, etc.)
-        DatosComunes datos = DatosComunes.normalizar(solicitud.nombre(), solicitud.apellidos(),
-                solicitud.email(),  solicitud.FechaIncorporacion(), solicitud.sede(),solicitud.avatar(), solicitud.contrasena(),
+    public RespuestaRegistroDTO crearAdministrador(SolicitudAltaAdministradorDTO solicitud) {
+        // Normalizar los datos de la solicitud (eliminando espacios, etc.)
+        DatosAdministrador datos = DatosAdministrador.normalizar(solicitud.nombre(), solicitud.apellidos(),
+                solicitud.email(), solicitud.sede(), solicitud.avatar(), solicitud.contrasena(),
                 solicitud.repetirContrasena());
 
         // Validar los datos personales y la contraseña, acumulando errores
-        ErroresRegistro errores = validarDatosPersonales(datos);
+        ErroresRegistro errores = validarAltaAdministrador(datos);
         errores.lanzarSiHay();
 
         ErroresRegistro erroresExternos = new ErroresRegistro();
@@ -53,17 +97,20 @@ public class ServicioGestionUsuario {
         erroresExternos.lanzarSiHay();
 
         PerfilUsuario perfil = PerfilUsuario.builder()
-                .nombre(nombre).apellidos(apellidos).sede(sede).avatarUrl(avatar)
-                .fechaIncorporacion(LocalDate.now(reloj)).build();
-        
-        return crearCuenta(datos, Rol.ADMINISTRADOR, perfil);
+                .nombre(datos.nombre())
+                .apellidos(datos.apellidos())
+                .sede(datos.sede())
+                .avatarUrl(datos.avatar())
+                .fechaIncorporacion(LocalDate.now(reloj.withZone(ZONA_APLICACION)))
+                .build();
+        return crearCuenta(datos, Rol.ADMIN, perfil);
     }
 
     public PaginaDTO<UsuarioDTO> listar(int pagina, int tamano, Rol rol, EstadoUsuario estado) {
-        // Math.clamp(value, min, max) keeps the size inside the allowed range; Sort.by uses a constant field
-        // name, never a value coming from the client.
+        // Math.clamp mantiene el tamano dentro del rango permitido; Sort.by usa un campo constante,
+        // nunca un valor que venga del cliente.
         Pageable pageable = PageRequest.of(Math.max(0, pagina), Math.clamp(tamano, 1, TAMANO_MAXIMO_PAGINA),
-                Sort.by(CAMPO_EMAIL);
+                Sort.by(CAMPO_EMAIL));
         return PaginaDTO.desde(buscarPagina(rol, estado, pageable).map(UsuarioDTO::desde));
     }
 
@@ -74,10 +121,13 @@ public class ServicioGestionUsuario {
         String telefono = NormalizadorRegistro.texto(solicitud.telefono());
         String sede = NormalizadorRegistro.texto(solicitud.sede());
 
+        int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
         ErroresRegistro errores = new ErroresRegistro();
-        validarDatosPersonales(nombre, apellidos, sede, errores);
-        validarTextoOpcional(CAMPO_DNI, dni, errores);
+        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, nombre, max, errores);
+        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, apellidos, max, errores);
+        ReglasCamposRegistro.validarTextoOpcional(CAMPO_DNI, dni, max, errores);
         ReglasCamposRegistro.validarTelefono(CAMPO_TELEFONO, telefono, errores);
+        ReglasCamposRegistro.validarTextoOpcional(CAMPO_SEDE, sede, max, errores);
         errores.lanzarSiHay();
 
         Usuario usuario = buscarNoEliminado(id);
@@ -99,25 +149,64 @@ public class ServicioGestionUsuario {
         cambiarEstado(id, emailSolicitante, PUEDEN_ELIMINARSE, EstadoUsuario.ELIMINADO);
     }
 
-    // helpers 
+    /* validacion */
 
-    private RespuestaRegistroDTO crearCuenta(DatosComunes datos, Rol rol, PerfilUsuario perfil) {
+    private ErroresRegistro validarAltaAdministrador(DatosAdministrador datos) {
+        ErroresRegistro errores = new ErroresRegistro();
+        int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
+        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), max, errores);
+        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), max, errores);
+        ReglasCamposRegistro.validarEmail(CAMPO_EMAIL, datos.email(), errores);
+        ReglasCamposRegistro.validarTextoOpcional(CAMPO_SEDE, datos.sede(), max, errores);
+        if (datos.avatar() != null && !catalogoAvatares.esAvatarValido(datos.avatar())) {
+            errores.anadir(CAMPO_AVATAR, CodigoError.AVATAR_NO_PERMITIDO);
+        }
+        validarContrasena(datos, errores);
+        return errores;
+    }
+
+    private void validarContrasena(DatosAdministrador datos, ErroresRegistro errores) {
+        DatosPersonalesContrasena datosPersonales =
+                new DatosPersonalesContrasena(datos.nombre(), datos.apellidos(), datos.email(), null);
+        errores.anadirTodos(CAMPO_CONTRASENA, validadorContrasena.validar(datos.contrasena(), datosPersonales));
+        // Comparacion exacta (tras NFC): una diferencia solo de mayusculas tambien cuenta (CP-PWD-14)
+        if (datos.contrasena() != null && !datos.contrasena().equals(datos.repetirContrasena())) {
+            errores.anadir(CAMPO_REPETIR_CONTRASENA, CodigoError.CONTRASENAS_NO_COINCIDEN);
+        }
+    }
+
+    // Si el servicio de dominios falla, se aborta el alta con un error controlado (CP-REG-25).
+    private void comprobarDominioEmail(String email, ErroresRegistro errores) {
+        boolean dominioValido;
+        try {
+            dominioValido = validadorDominioEmail.tieneDominioValido(email);
+        } catch (RuntimeException e) {
+            throw new ServicioNoDisponibleException(e);
+        }
+        if (!dominioValido) {
+            errores.anadir(CAMPO_EMAIL, CodigoError.DOMINIO_EMAIL_INEXISTENTE);
+        }
+    }
+
+    /* helpers */
+
+    private RespuestaRegistroDTO crearCuenta(DatosAdministrador datos, Rol rol, PerfilUsuario perfil) {
         if (repositorioUsuario.existePorEmail(datos.email())) {
-            log.info("Registro rechazado: el email ya pertenece a una cuenta");
+            log.info("Alta rechazada: el email ya pertenece a una cuenta");
             throw new RegistroNoCompletadoException();
         }
         String hash = codificadorContrasena.encode(datos.contrasena());
         Usuario guardado = guardar(new Usuario(datos.email(), hash, rol, perfil));
         log.info("Cuenta creada: id={}, rol={}", guardado.getId(), rol);
         return new RespuestaRegistroDTO(guardado.getId(), guardado.getEmail(), perfil.getNombre(),
-                MENSAJE_REGISTRO_CORRECTO);
+                MENSAJE_ADMINISTRADOR_CREADO);
     }
 
     private Usuario guardar(Usuario usuario) {
         try {
             return repositorioUsuario.save(usuario);
         } catch (DuplicateKeyException e) { // Puede ocurrir si llegan dos solicitudes simultaneas con el mismo email. No remitir el error a cliente.
-            log.warn("Registro rechazado: clave duplicada al guardar (registro simultaneo)");
+            log.warn("Alta rechazada: clave duplicada al guardar (alta simultanea)");
             throw new RegistroNoCompletadoException();
         }
     }
@@ -125,7 +214,7 @@ public class ServicioGestionUsuario {
     private UsuarioDTO cambiarEstado(String id, String emailSolicitante, Set<EstadoUsuario> origenesValidos,
                                      EstadoUsuario destino) {
         Usuario usuario = buscarNoEliminado(id);
-        // Case-insensitive because emails are stored lowercase but the authentication name may differ in case.
+        // Sin distinguir mayusculas: el email se guarda en minusculas, pero el nombre autenticado puede variar.
         if (usuario.getEmail().equalsIgnoreCase(emailSolicitante) || !origenesValidos.contains(usuario.getEstado())) {
             throw new OperacionNoPermitidaException();
         }
@@ -154,78 +243,26 @@ public class ServicioGestionUsuario {
                 .orElseThrow(UsuarioNoEncontradoException::new);
     }
 
+    // Datos del alta de administrador, ya normalizados.
+    private record DatosAdministrador(String nombre, String apellidos, String email, String sede, String avatar,
+                                      String contrasena, String repetirContrasena) {
 
-
-    /* validacion */
-
-    //Reglas locales. 
-    public ErroresRegistro validarDatosPersonales(DatosComunes datos) {
-        ErroresRegistro errores = new ErroresRegistro();
-        int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
-
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), max, errores);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), max, errores);
-        ReglasCamposRegistro.validarEmail(CAMPO_EMAIL, datos.email(), errores);
-        ReglasCamposRegistro.validarTextoOpcional(CAMPO_SEDE, datos.sede(), max, errores);
-        if (datos.avatar() != null && !catalogoAvatares.esAvatarValido(datos.avatar())) {
-            errores.anadir(CAMPO_AVATAR, CodigoError.AVATAR_NO_PERMITIDO);
-        }
-        validarContrasena(datos, errores);
-
-        return errores;
-
-    }
-
-    private void validarContrasena(DatosComunes datos,   ErroresRegistro errores) {
-        errores.anadirTodos(CAMPO_CONTRASENA, validadorContrasena.validar(datos.contrasena(), datosPersonales));
-        // Comparacion exacta (tras NFC): una diferencia solo de mayusculas tambien cuenta (CP-PWD-14)
-        if (datos.contrasena() != null && !datos.contrasena().equals(datos.repetirContrasena())) {
-            errores.anadir(CAMPO_REPETIR_CONTRASENA, CodigoError.CONTRASENAS_NO_COINCIDEN);
-        }
-    }
-
-    // Si el servicio de dominios falla, se aborta el registro con un error controlado (CP-REG-25). 
-    private void comprobarDominioEmail(String email, ErroresRegistro errores) {
-        boolean dominioValido;
-        try {
-            dominioValido = validadorDominioEmail.tieneDominioValido(email);
-        } catch (RuntimeException e) {
-            throw new ServicioNoDisponibleException(e);
-        }
-        if (!dominioValido) {
-            errores.anadir(CAMPO_EMAIL, CodigoError.DOMINIO_EMAIL_INEXISTENTE);
-        }
-    }
-
-    private record DatosComunes(String nombre, String apellidos, String dni, String email, String sede, LocalDateTime fechaIncorporacion,
-                                String avatar, String contrasena, String repetirContrasena) {
-
-        static DatosComunes normalizar(String nombre, String apellidos, String email, LocalDateTime fechaIncorporacion,String sede,
-                                       String avatar, String contrasena, String repetirContrasena) {
-            return new DatosComunes(
+        static DatosAdministrador normalizar(String nombre, String apellidos, String email, String sede,
+                                             String avatar, String contrasena, String repetirContrasena) {
+            return new DatosAdministrador(
                     NormalizadorRegistro.texto(nombre),
                     NormalizadorRegistro.texto(apellidos),
                     NormalizadorRegistro.email(email),
                     NormalizadorRegistro.texto(sede),
-                    fechaIncorporacion,
                     NormalizadorRegistro.texto(avatar),
                     NormalizadorRegistro.contrasena(contrasena),
                     NormalizadorRegistro.contrasena(repetirContrasena));
         }
 
-    }
-
-     private RespuestaRegistroDTO crearCuenta(DatosComunes datos, Rol rol, PerfilUsuario perfil) {
-        if (repositorioUsuario.existePorEmail(datos.email())) {
-            log.info("Registro rechazado: el email ya pertenece a una cuenta");
-            throw new RegistroNoCompletadoException();
+        // Contiene la contrasena: nunca debe acabar en un log.
+        @Override
+        public String toString() {
+            return "DatosAdministrador[OCULTO]";
         }
-        String hash = codificadorContrasena.encode(datos.contrasena());
-        Usuario guardado = guardar(new Usuario(datos.email(), hash, rol, perfil));
-        log.info("Cuenta creada: id={}, rol={}", guardado.getId(), rol);
-        return new RespuestaRegistroDTO(guardado.getId(), guardado.getEmail(), perfil.getNombre(),
-                MENSAJE_REGISTRO_CORRECTO);
     }
-
-
 }

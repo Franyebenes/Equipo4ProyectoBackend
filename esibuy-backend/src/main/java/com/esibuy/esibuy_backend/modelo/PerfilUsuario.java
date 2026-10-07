@@ -1,6 +1,7 @@
 package com.esibuy.esibuy_backend.modelo;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -45,6 +46,8 @@ public class PerfilUsuario {
         this.avatarUrl = builder.avatarUrl;
         this.nombreComercial = builder.nombreComercial;
         this.categoriaPrincipalId = builder.categoriaPrincipalId;
+        this.sede = builder.sede;
+        this.fechaIncorporacion = builder.fechaIncorporacion;
     }
 
     public static Builder builder() {
@@ -117,6 +120,8 @@ public class PerfilUsuario {
         private String avatarUrl;
         private String nombreComercial;
         private String categoriaPrincipalId;
+        private String sede;
+        private LocalDate fechaIncorporacion;
 
         private Builder() {
         }
