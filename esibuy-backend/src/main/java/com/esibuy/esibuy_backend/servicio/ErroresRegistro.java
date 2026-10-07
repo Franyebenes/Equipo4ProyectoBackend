@@ -23,10 +23,19 @@ final class ErroresRegistro {
         codigos.forEach(codigo -> anadir(campo, codigo));
     }
 
+    boolean hayErrores() {
+        return !errores.isEmpty();
+    }
+
+    /** Vista de solo lectura de los errores acumulados, por campo. */
+    Map<String, Set<CodigoError>> comoMapa() {
+        return Collections.unmodifiableMap(errores);
+    }
+
     /** Lanza DatosRegistroInvalidosException si se ha acumulado algun error. */
     void lanzarSiHay() {
-        if (!errores.isEmpty()) {
-            throw new DatosRegistroInvalidosException(Collections.unmodifiableMap(errores));
+        if (hayErrores()) {
+            throw new DatosRegistroInvalidosException(comoMapa());
         }
     }
 }

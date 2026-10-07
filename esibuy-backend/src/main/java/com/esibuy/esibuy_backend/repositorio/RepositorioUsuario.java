@@ -1,5 +1,7 @@
 package com.esibuy.esibuy_backend.repositorio;
 
+import java.util.Optional;
+
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
@@ -20,4 +22,11 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
 
     @Query(value = "{ 'perfil.nombreComercial': ?0 }", exists = true, collation = COLLATION_NOMBRE_COMERCIAL)
     boolean existePorNombreComercial(String nombreComercial);
+
+    /**
+     * Usuario con ese email exacto, ya normalizado (el servicio de autenticacion lo recorta y lo pasa a minusculas
+     * antes de consultar). Se apoya en el indice unico de email.
+     */
+    @Query("{ 'email': ?0 }")
+    Optional<Usuario> buscarPorEmail(String email);
 }
