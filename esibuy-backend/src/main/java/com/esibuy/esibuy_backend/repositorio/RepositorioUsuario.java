@@ -9,8 +9,8 @@ import com.esibuy.esibuy_backend.modelo.Usuario;
 
 public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
 
-    /**
-     * Comparacion sin distinguir mayusculas (strength 2) pero si acentos, en espanol. Debe coincidir con la
+    /*
+     * Comparacion sin distinguir mayusculas (strength 2) pero si acentos, en español. Debe coincidir con la
      * collation del indice unico de perfil.nombreComercial del script de BBDD: asi la consulta usa el indice y
      * aplica el mismo criterio que la restriccion de unicidad.
      */
@@ -23,10 +23,7 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
     @Query(value = "{ 'perfil.nombreComercial': ?0 }", exists = true, collation = COLLATION_NOMBRE_COMERCIAL)
     boolean existePorNombreComercial(String nombreComercial);
 
-    /**
-     * Usuario con ese email exacto, ya normalizado (el servicio de autenticacion lo recorta y lo pasa a minusculas
-     * antes de consultar). Se apoya en el indice unico de email.
-     */
+    // Usuario con ese email exacto, ya normalizado (el servicio de autenticacion lo recorta y lo pasa a minusculas antes de consultar). Se apoya en el indice unico de email.
     @Query("{ 'email': ?0 }")
     Optional<Usuario> buscarPorEmail(String email);
 }
