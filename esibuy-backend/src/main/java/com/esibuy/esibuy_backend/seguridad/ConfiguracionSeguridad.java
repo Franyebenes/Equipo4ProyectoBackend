@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.Customizer;
@@ -14,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -41,6 +43,9 @@ public class ConfiguracionSeguridad {
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .headers(cabeceras -> cabeceras.httpStrictTransportSecurity(
                         hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(SEGUNDOS_HSTS)))
+                // Quien no esta autenticado recibe 401 (y no un 403), sin la cabecera WWW-Authenticate
+                .exceptionHandling(errores -> errores
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
                         // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403
@@ -60,6 +65,9 @@ public class ConfiguracionSeguridad {
         configuracion.setAllowedOrigins(List.of(origenPermitido));
         configuracion.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuracion.setAllowedHeaders(List.of("*"));
+        // La sesion viaja en una cookie y el frontend esta en otro origen: sin esto el navegador no la envia ni la
+        // guarda. Es valido porque el origen permitido es uno concreto (con credenciales no se admite "*")
+        configuracion.setAllowCredentials(true);
         // El frontend necesita leer el correlationId para poder citarlo al reportar un error
         configuracion.setExposedHeaders(List.of(FiltroCorrelacionId.CABECERA, HttpHeaders.RETRY_AFTER));
 
