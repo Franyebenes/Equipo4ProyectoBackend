@@ -19,6 +19,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
+import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
@@ -28,6 +30,8 @@ import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
+
+
 
 /**
  * Traduce las excepciones a respuestas HTTP sin filtrar detalles internos (CP-CTR-02 a 05, CP-SEG-09/10/11,
@@ -64,6 +68,16 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> registroNoCompletado() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of(CLAVE_MENSAJE, RegistroNoCompletadoException.MENSAJE_GENERICO));
+    }
+
+        @ExceptionHandler(CategoriaNoEncontradaException.class)
+    public ResponseEntity<Map<String, Object>> categoriaNoEncontrada(CategoriaNoEncontradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoriaConProductosException.class)
+    public ResponseEntity<Map<String, Object>> categoriaConProductos(CategoriaConProductosException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     @ExceptionHandler(CuerpoDemasiadoGrandeException.class)

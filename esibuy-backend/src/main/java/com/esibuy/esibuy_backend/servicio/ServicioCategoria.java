@@ -8,4 +8,5 @@ public interface ServicioCategoria {
 
     List<CategoriaDTO> listarCategorias();
     CategoriaDTO crearCategoria(CategoriaDTO dto);
+    void eliminarCategoria(String id);
 }
