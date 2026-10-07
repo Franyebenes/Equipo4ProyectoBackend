@@ -34,18 +34,16 @@ public class ControladorCategoria {
         return ResponseEntity.ok(servicioCategoria.listarCategorias());
     }
 
-<<<<<<< HEAD
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CategoriaDTO> crearCategoria(@Valid @RequestBody CategoriaDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(servicioCategoria.crearCategoria(dto));
-=======
+    }
 
-        @DeleteMapping("/{id}")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> eliminarCategoria(@PathVariable String id) {
         servicioCategoria.eliminarCategoria(id);
         return ResponseEntity.noContent().build();
->>>>>>> origin/Develop
     }
 }
