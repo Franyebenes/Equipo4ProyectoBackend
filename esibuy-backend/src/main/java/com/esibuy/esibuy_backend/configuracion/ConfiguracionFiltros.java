@@ -10,7 +10,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
-/**
+import com.esibuy.esibuy_backend.seguridad.PoliticaSesion;
+
+/*
  * Registro de los filtros propios y su orden:
  * <ol>
  *   <li>Correlacion: el primero, para que todas las trazas y respuestas (incluidas las 429 del limite de
@@ -19,6 +21,7 @@ import org.springframework.core.Ordered;
  *   <li>Limite de peticiones: justo despues de Spring Security. Si fuera antes, su respuesta 429 no pasaria
  *       por el filtro CORS y no llevaria las cabeceras Access-Control-*: el navegador la bloquearia y el
  *       frontend veria un error de red en lugar de un 429 con su Retry-After. Test: LimitePeticionesRegistroCorsTest.</li>
+ *   <li>Caducidad de sesion: tras Spring Security y el limite de peticiones (FiltroCaducidadSesion).</li>
  * </ol>
  */
 @Configuration
@@ -28,6 +31,15 @@ public class ConfiguracionFiltros {
     public FilterRegistrationBean<FiltroCorrelacionId> filtroCorrelacionId() {
         FilterRegistrationBean<FiltroCorrelacionId> registro = new FilterRegistrationBean<>(new FiltroCorrelacionId());
         registro.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registro;
+    }
+
+    // Tras Spring Security y el limite de registro, por la misma razon: que su 401 lleve las cabeceras CORS. 
+    @Bean
+    public FilterRegistrationBean<FiltroCaducidadSesion> filtroCaducidadSesion(PoliticaSesion politica, Clock reloj) {
+        FilterRegistrationBean<FiltroCaducidadSesion> registro = new FilterRegistrationBean<>(
+                new FiltroCaducidadSesion(politica, reloj));
+        registro.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER + 2);
         return registro;
     }
 
