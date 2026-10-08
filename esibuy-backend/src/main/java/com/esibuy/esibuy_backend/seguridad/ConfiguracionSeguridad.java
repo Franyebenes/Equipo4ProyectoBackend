@@ -48,6 +48,8 @@ public class ConfiguracionSeguridad {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+                        // Operaciones del vendedor (su catalogo propio): solo rol VENDEDOR, el resto recibe 403
+                        .requestMatchers("/api/vendedor/**").hasRole(Rol.VENDEDOR.name())
                         // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
