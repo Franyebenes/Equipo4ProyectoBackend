@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
+import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 
@@ -64,9 +65,8 @@ class ServicioCategoriaCrearTest {
 
         // When / Then
         assertThatThrownBy(() -> servicio.crearCategoria(dto))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
-                .hasMessageContaining("Ya existe una categoría con ese nombre");
+                .isInstanceOf(CategoriaDuplicadaException.class)
+                .hasMessage("Ya existe una categoría con el nombre «Moda»");
         verify(repositorioCategoria, never()).save(any());
     }
 

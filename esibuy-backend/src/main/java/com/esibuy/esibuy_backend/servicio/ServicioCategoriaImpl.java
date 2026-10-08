@@ -19,9 +19,10 @@ import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
 import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 
-/** Categorias del catalogo: listado (registro de vendedor y panel de administracion) y alta. */
+/** Categorias del catalogo: listado (registro de vendedor y panel de administracion), alta, modificacion y baja. */
 @Service
 public class ServicioCategoriaImpl implements ServicioCategoria {
 
@@ -49,6 +50,15 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
                 .toList();
     }
 
+    // Datos actuales de la categoria para rellenar el formulario de edicion.
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public CategoriaDTO obtenerCategoria(String id) {
+        return repositorioCategoria.findById(id)
+                .map(this::aDTO)
+                .orElseThrow(CategoriaNoEncontradaException::new);
+    }
+
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public CategoriaDTO crearCategoria(CategoriaDTO dto) {
@@ -56,7 +66,7 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
         String descripcion = dto.descripcion().trim();
 
         if (repositorioCategoria.existsByNombreIgnoreCase(nombre)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe una categoría con ese nombre");
+            throw new CategoriaDuplicadaException(nombre);
         }
 
         try {
@@ -66,6 +76,25 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "No se ha podido crear la categoría, inténtalo de nuevo más tarde", e);
         }
+    }
+
+    // El id del cuerpo se ignora: manda el de la ruta. Se puede dejar el mismo nombre o cambiar solo sus mayusculas.
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public CategoriaDTO modificarCategoria(String id, CategoriaDTO dto) {
+        Categoria categoria = repositorioCategoria.findById(id)
+                .orElseThrow(CategoriaNoEncontradaException::new);
+
+        String nombre = dto.nombre().trim();
+        String descripcion = dto.descripcion().trim();
+
+        if (repositorioCategoria.existsByNombreIgnoreCaseAndIdNot(nombre, id)) {
+            throw new CategoriaDuplicadaException(nombre);
+        }
+
+        categoria.setNombre(nombre);
+        categoria.setDescripcion(descripcion);
+        return aDTO(repositorioCategoria.save(categoria));
     }
 
 

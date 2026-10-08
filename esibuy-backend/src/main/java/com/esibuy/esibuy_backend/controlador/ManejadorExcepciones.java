@@ -20,6 +20,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
 import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
@@ -102,6 +103,11 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CategoriaConProductosException.class)
     public ResponseEntity<Map<String, Object>> categoriaConProductos(CategoriaConProductosException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoriaDuplicadaException.class)
+    public ResponseEntity<Map<String, Object>> categoriaDuplicada(CategoriaDuplicadaException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
