@@ -23,6 +23,9 @@ import jakarta.servlet.http.HttpSession;
  */
 public class EstablecedorSesion {
 
+    /** Atributo de sesion con el usuario autenticado (ResultadoAutenticacion), para responder a GET /api/auth/me. */
+    public static final String ATRIBUTO_USUARIO = "esibuy.sesion.usuario";
+
     private static final String PREFIJO_ROL = "ROLE_";
 
     private final PoliticaSesion politica;
@@ -47,6 +50,7 @@ public class EstablecedorSesion {
                 new SecurityContextImpl(autenticacion));
         sesion.setAttribute(PoliticaSesion.ATRIBUTO_INICIO, reloj.instant());
         sesion.setAttribute(PoliticaSesion.ATRIBUTO_ROL, rol);
+        sesion.setAttribute(ATRIBUTO_USUARIO, resultado);
         sesion.setMaxInactiveInterval((int) politica.inactividadMaxima(rol).toSeconds());
     }
 }

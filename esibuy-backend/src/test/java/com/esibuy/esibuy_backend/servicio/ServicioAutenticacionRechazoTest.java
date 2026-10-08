@@ -87,8 +87,8 @@ class ServicioAutenticacionRechazoTest extends ServicioAutenticacionBaseTest {
                 arguments("contraseña con forma de operador", true, EstadoUsuario.ACTIVO, "{\"$ne\":\"\"}"),
                 arguments("contraseña débil", true, EstadoUsuario.ACTIVO, "123"),
                 arguments("cuenta bloqueada con la contraseña correcta", true, EstadoUsuario.BLOQUEADO, CONTRASENA),
-                arguments("cuenta desactivada con la contraseña correcta", true, EstadoUsuario.DESACTIVADO,
-                        CONTRASENA),
+                // La cuenta DESACTIVADO con la contraseña correcta ya no es un rechazo genérico: se informa de que
+                // está pendiente de activación (ver ServicioAutenticacionCuentaPendienteTest)
                 arguments("cuenta sin estado con la contraseña correcta", true, null, CONTRASENA));
     }
 

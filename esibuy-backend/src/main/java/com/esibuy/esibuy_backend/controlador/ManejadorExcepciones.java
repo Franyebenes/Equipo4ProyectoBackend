@@ -21,6 +21,7 @@ import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
+import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DatosLoginInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
@@ -73,6 +74,13 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CredencialesInvalidasException.class)
     public ResponseEntity<Map<String, Object>> credencialesInvalidas(CredencialesInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    /** Contrasena correcta pero cuenta sin activar: 403 con un codigo estable (un 403 de CSRF no lleva cuerpo). */
+    @ExceptionHandler(CuentaPendienteActivacionException.class)
+    public ResponseEntity<Map<String, Object>> cuentaPendienteDeActivacion(CuentaPendienteActivacionException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of(CLAVE_MENSAJE, ex.getMessage(), "codigo", CuentaPendienteActivacionException.CODIGO));
     }
 
     @ExceptionHandler(LoginBloqueadoTemporalmenteException.class)

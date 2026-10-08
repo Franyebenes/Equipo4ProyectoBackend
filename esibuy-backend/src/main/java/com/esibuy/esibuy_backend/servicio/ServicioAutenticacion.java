@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.esibuy.esibuy_backend.dto.SolicitudLoginDTO;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
+import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.DatosLoginInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -28,7 +29,8 @@ import com.esibuy.esibuy_backend.util.Constantes;
  * Flujo: validacion y normalizacion de las credenciales (un 400 que no cuenta como intento fallido), paso por el
  * limitador (cuenta bloqueada o IP agotada), busqueda por correo exacto y verificacion de la contrasena una sola vez
  * (con un hash ficticio si el correo no existe, para que el trabajo sea el mismo). Solo entra una cuenta ACTIVA con
- * un unico rol valido; cualquier otro caso es la misma, CredencialesInvalidasException, y suma un fallo. Un
+ * un unico rol valido; cualquier otro caso es la misma CredencialesInvalidasException y suma un fallo, salvo una
+ * cuenta DESACTIVADO con la contrasena correcta, que lanza CuentaPendienteActivacionException sin sumar fallo. Un
  * fallo interno falla cerrado como ServicioNoDisponibleException, sin causa y sin sumar fallo.
  *
  * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria.
@@ -77,6 +79,12 @@ public class ServicioAutenticacion {
         }
         if (!comprobacion.contrasenaCorrecta()) {
             throw rechazar(email, contexto, MotivoFalloLogin.CONTRASENA_INCORRECTA);
+        }
+        // Con la contrasena correcta, una cuenta aun sin activar se lo dice al usuario. Es seguro porque quien no
+        // conoce la contrasena no llega aqui. No cuenta como fallo del limitador: la contrasena era buena.
+        if (usuario.getEstado() == EstadoUsuario.DESACTIVADO) {
+            auditoria.registrarLoginFallido(contexto, email, MotivoFalloLogin.CUENTA_NO_ACTIVA);
+            throw new CuentaPendienteActivacionException();
         }
         // Solo una cuenta activa con un unico rol valido puede entrar
         if (usuario.getEstado() != EstadoUsuario.ACTIVO) {

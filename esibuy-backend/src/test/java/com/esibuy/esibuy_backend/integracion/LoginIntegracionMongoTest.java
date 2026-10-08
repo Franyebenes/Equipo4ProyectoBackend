@@ -205,12 +205,15 @@ class LoginIntegracionMongoTest {
 
     @Test
     void login_tras_registrarseConLasMismasCredenciales_devuelve200YCreaLaSesion() throws Exception { // CP-LIN-01
-        // Given: un cliente recién registrado; hasta que un administrador lo activa no puede entrar
+        // Given: un cliente recién registrado; hasta que un administrador lo activa no puede entrar (403 pendiente)
         String email = "lin01@ejemplo.es";
         mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
                 objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
                         .conEmail(email).construir()))).andExpect(status().isCreated());
-        login(email, CONTRASENA).andExpect(status().isUnauthorized());
+        // Con la contraseña correcta se le dice que su cuenta está pendiente; con una incorrecta no se revela nada
+        login(email, CONTRASENA).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("CUENTA_PENDIENTE_DE_ACTIVACION"));
+        login(email, CONTRASENA_INCORRECTA).andExpect(status().isUnauthorized());
 
         // When: se activa la cuenta y se inicia sesión con las mismas credenciales del registro
         cambiarEstado(email, "ACTIVO");
