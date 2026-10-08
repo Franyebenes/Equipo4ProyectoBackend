@@ -3,7 +3,7 @@ package com.esibuy.esibuy_backend.servicio;
 import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
-import com.esibuy.esibuy_backend.dto.TipoCliente;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
@@ -49,7 +49,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
     void registrarCliente_tipoPremium_creaUsuarioConUnUnicoRolPremium() { // CP-REG-02
         // Given
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida()
-                .conTipoCliente(TipoCliente.PREMIUM).construir();
+                .conTipoCuenta(TipoCuenta.PREMIUM).construir();
 
         // When
         servicio.registrarCliente(solicitud);

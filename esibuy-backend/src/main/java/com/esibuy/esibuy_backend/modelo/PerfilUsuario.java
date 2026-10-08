@@ -33,7 +33,7 @@ public class PerfilUsuario {
     @Field("fechaIncorporacion")
     private LocalDate fechaIncorporacion;
 
-    // Usado por Spring Data al leer de MongoDB. 
+    /** Usado por Spring Data al leer de MongoDB. */
     protected PerfilUsuario() {
     }
 

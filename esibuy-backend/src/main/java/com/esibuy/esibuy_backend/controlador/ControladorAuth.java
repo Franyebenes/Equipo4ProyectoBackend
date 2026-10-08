@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
 import com.esibuy.esibuy_backend.servicio.ServicioRegistro;
 
-// Autenticacion y registro. Los errores los traduce {@link ManejadorExcepciones}. Tests: ControladorAuthTest.
-
+/**
+ * Autenticacion y registro. Los errores los traduce {@link ManejadorExcepciones}. Tests: ControladorAuthTest.
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class ControladorAuth {
@@ -27,24 +29,22 @@ public class ControladorAuth {
         this.servicioRegistro = servicioRegistro;
     }
 
-    //temporal hasta que toque implementarlo
+    // Provisional: el inicio de sesion se implementa en la rama feature/login
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login() {
         return ResponseEntity.ok(Map.of("mensaje", "login ok (pendiente de implementar)"));
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register() {
-        return ResponseEntity.ok(Map.of("mensaje", "registro ok (pendiente de implementar)"));
-    }
-
-    @PostMapping(path = "/registro/cliente", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<RespuestaRegistroDTO> registrarCliente(@RequestBody SolicitudRegistroClienteDTO solicitud) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(servicioRegistro.registrarCliente(solicitud));
-    }
-
-    @PostMapping(path = "/registro/vendedor", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<RespuestaRegistroDTO> registrarVendedor(@RequestBody SolicitudRegistroVendedorDTO solicitud) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(servicioRegistro.registrarVendedor(solicitud));
+    /**
+     * Registro de cualquier tipo de cuenta. El campo {@code tipoCuenta} del JSON decide si es un cliente
+     * (CLIENTE o PREMIUM) o un vendedor (VENDEDOR); ver {@link SolicitudRegistro}.
+     */
+    @PostMapping(path = "/registro", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RespuestaRegistroDTO> registrar(@RequestBody SolicitudRegistro solicitud) {
+        RespuestaRegistroDTO respuesta = switch (solicitud) {
+            case SolicitudRegistroClienteDTO cliente -> servicioRegistro.registrarCliente(cliente);
+            case SolicitudRegistroVendedorDTO vendedor -> servicioRegistro.registrarVendedor(vendedor);
+        };
+        return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 }

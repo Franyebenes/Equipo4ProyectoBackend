@@ -13,9 +13,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
-import com.esibuy.esibuy_backend.dto.TipoCliente;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -26,25 +27,29 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 
 /**
- * Registro de clientes y vendedores.
+ * Registro de clientes y vendedores. Tests: ServicioRegistro*Test.
  *
- * Flujo comun:
- * 1. Normalizar las entradas.</li>
- * 2. Validar el formato de todos los campos (sin tocar BBDD ni servicios externos) y devolver todos los
+ * <p>Flujo comun:
+ * <ol>
+ *   <li>Normalizar las entradas.</li>
+ *   <li>Validar el formato de todos los campos, sin tocar la BBDD ni servicios externos, y devolver todos los
  *       errores a la vez en {@link com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException}.</li>
- * 3. Solo con los datos bien formados: comprobar dominio del email y, en vendedores, nombre comercial y
- *       categoria. Asi no se lanzan consultas con datos basura ni se hacen esperas DNS innecesarias.</li>
- * 4. Comprobar que el email no esta registrado ({@link RegistroNoCompletadoException}, mensaje generico).</li>
- * 5. Codificar la contrasena, cuando todo es valido y guardar con un unico rol y desactivado.</li>
- * 6. creación de la cuenta
+ *   <li>Solo con datos bien formados: comprobar el dominio del email y, en vendedores, el nombre comercial y la
+ *       categoria. Asi no se lanzan consultas con datos basura ni esperas DNS innecesarias.</li>
+ *   <li>Comprobar que el email no esta registrado ({@link RegistroNoCompletadoException}, mensaje generico).</li>
+ *   <li>Codificar la contrasena (solo ahora, cuando todo es valido) y guardar la cuenta con un unico rol y
+ *       desactivada.</li>
+ * </ol>
  */
 @Service
 public class ServicioRegistro {
-//Registro de clientes y vendedores.
-    public static final int LONGITUD_MAXIMA_CAMPO_TEXTO = 100;
-    static final String MENSAJE_REGISTRO_CORRECTO = "Tu cuenta se ha creado correctamente. Podras acceder cuando un administrador la active";
 
-    private static final ZoneId ZONA_APLICACION = ZoneId.of("Europe/Madrid"); // La edad se calcula en la zona de la aplicacion
+    public static final int LONGITUD_MAXIMA_CAMPO_TEXTO = 100;
+    static final String MENSAJE_REGISTRO_CORRECTO =
+            "Tu cuenta se ha creado correctamente. Podras acceder cuando un administrador la active";
+
+    /** La edad se calcula en la zona de la aplicacion, no en la del reloj inyectado (CP-REG-37). */
+    private static final ZoneId ZONA_APLICACION = ZoneId.of("Europe/Madrid");
 
     // Nombres de campo de los errores: coinciden con los del JSON de la solicitud
     private static final String CAMPO_NOMBRE = "nombre";
@@ -86,9 +91,7 @@ public class ServicioRegistro {
     }
 
     public RespuestaRegistroDTO registrarCliente(SolicitudRegistroClienteDTO solicitud) {
-        DatosComunes datos = DatosComunes.normalizar(solicitud.nombre(), solicitud.apellidos(), solicitud.dni(),
-                solicitud.email(), solicitud.telefono(), solicitud.avatar(), solicitud.contrasena(),
-                solicitud.repetirContrasena());
+        DatosComunes datos = DatosComunes.de(solicitud);
 
         ErroresRegistro errores = validarFormatoComun(datos, null);
         ReglasCamposRegistro.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, solicitud.fechaNacimiento(), hoy(),
@@ -102,13 +105,11 @@ public class ServicioRegistro {
         PerfilUsuario perfil = perfilComun(datos, catalogoAvatares::avatarPorDefectoCliente)
                 .fechaNacimiento(solicitud.fechaNacimiento())
                 .build();
-        return crearCuenta(datos, rolDeCliente(solicitud.tipoCliente()), perfil);
+        return crearCuenta(datos, rolDeCliente(solicitud.tipoCuenta()), perfil);
     }
 
     public RespuestaRegistroDTO registrarVendedor(SolicitudRegistroVendedorDTO solicitud) {
-        DatosComunes datos = DatosComunes.normalizar(solicitud.nombre(), solicitud.apellidos(), solicitud.dni(),
-                solicitud.email(), solicitud.telefono(), solicitud.avatar(), solicitud.contrasena(),
-                solicitud.repetirContrasena());
+        DatosComunes datos = DatosComunes.de(solicitud);
         String nombreComercial = NormalizadorRegistro.nombreComercial(solicitud.nombreComercial());
         String categoriaId = NormalizadorRegistro.texto(solicitud.categoriaPrincipalId());
 
@@ -135,9 +136,12 @@ public class ServicioRegistro {
         return crearCuenta(datos, Rol.VENDEDOR, perfil);
     }
 
-    /* validacion */
+    // ------------------------------------------------------------------ validacion
 
-    //Reglas locales comunes a clientes y vendedores. Se decide mantener el campo nombreComercial para clientes, pero como nulo
+    /**
+     * Reglas locales comunes a clientes y vendedores. El nombre comercial solo se usa para comprobar que no
+     * aparece en la contrasena; en clientes es null.
+     */
     private ErroresRegistro validarFormatoComun(DatosComunes datos, String nombreComercial) {
         ErroresRegistro errores = new ErroresRegistro();
         ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
@@ -163,7 +167,7 @@ public class ServicioRegistro {
         }
     }
 
-    // Si el servicio de dominios falla, se aborta el registro con un error controlado (CP-REG-25). 
+    /** Si el servicio de dominios falla, se aborta el registro con un error controlado (CP-REG-25). */
     private void comprobarDominioEmail(String email, ErroresRegistro errores) {
         boolean dominioValido;
         try {
@@ -176,7 +180,7 @@ public class ServicioRegistro {
         }
     }
 
-/* creacion de la cuenta*/
+    // ------------------------------------------------------------------ creacion de la cuenta
 
     private RespuestaRegistroDTO crearCuenta(DatosComunes datos, Rol rol, PerfilUsuario perfil) {
         if (repositorioUsuario.existePorEmail(datos.email())) {
@@ -190,10 +194,13 @@ public class ServicioRegistro {
                 MENSAJE_REGISTRO_CORRECTO);
     }
 
+    /** Un registro simultaneo con el mismo email puede ganar la carrera a la comprobacion previa (CP-REG-41). */
     private Usuario guardar(Usuario usuario) {
         try {
             return repositorioUsuario.save(usuario);
-        } catch (DuplicateKeyException e) { // Puede ocurrir si llegan dos solicitudes simultaneas con el mismo email. No remitir el error a cliente.
+        } catch (DuplicateKeyException e) { // NOSONAR S1166: la causa se descarta a proposito
+            // El mensaje de MongoDB incluye el valor duplicado (el email): no puede llegar al log ni al cliente,
+            // asi que la causa no se encadena ni se registra.
             log.warn("Registro rechazado: clave duplicada al guardar (registro simultaneo)");
             throw new RegistroNoCompletadoException();
         }
@@ -208,32 +215,32 @@ public class ServicioRegistro {
                 .avatarUrl(Objects.requireNonNullElseGet(datos.avatar(), avatarPorDefecto));
     }
 
-    private static Rol rolDeCliente(TipoCliente tipoCliente) {
-        return tipoCliente == TipoCliente.PREMIUM ? Rol.PREMIUM : Rol.CLIENTE;
+    /** Una solicitud de cliente solo llega con CLIENTE o PREMIUM (lo garantiza {@link SolicitudRegistro}). */
+    private static Rol rolDeCliente(TipoCuenta tipoCuenta) {
+        return tipoCuenta == TipoCuenta.PREMIUM ? Rol.PREMIUM : Rol.CLIENTE;
     }
 
     private LocalDate hoy() {
         return LocalDate.now(reloj.withZone(ZONA_APLICACION));
     }
 
-    // Campos comunes a clientes y vendedores, ya normalizados.
+    /** Campos comunes a clientes y vendedores, ya normalizados. */
     private record DatosComunes(String nombre, String apellidos, String dni, String email, String telefono,
                                 String avatar, String contrasena, String repetirContrasena) {
 
-        static DatosComunes normalizar(String nombre, String apellidos, String dni, String email, String telefono,
-                                       String avatar, String contrasena, String repetirContrasena) {
+        static DatosComunes de(SolicitudRegistro solicitud) {
             return new DatosComunes(
-                    NormalizadorRegistro.texto(nombre),
-                    NormalizadorRegistro.texto(apellidos),
-                    NormalizadorRegistro.texto(dni),
-                    NormalizadorRegistro.email(email),
-                    NormalizadorRegistro.texto(telefono),
-                    NormalizadorRegistro.texto(avatar),
-                    NormalizadorRegistro.contrasena(contrasena),
-                    NormalizadorRegistro.contrasena(repetirContrasena));
+                    NormalizadorRegistro.texto(solicitud.nombre()),
+                    NormalizadorRegistro.texto(solicitud.apellidos()),
+                    NormalizadorRegistro.texto(solicitud.dni()),
+                    NormalizadorRegistro.email(solicitud.email()),
+                    NormalizadorRegistro.texto(solicitud.telefono()),
+                    NormalizadorRegistro.texto(solicitud.avatar()),
+                    NormalizadorRegistro.contrasena(solicitud.contrasena()),
+                    NormalizadorRegistro.contrasena(solicitud.repetirContrasena()));
         }
 
-        // Contiene la contrasena: nunca debe acabar en un log.
+        /** Contiene la contrasena: nunca debe acabar en un log. */
         @Override
         public String toString() {
             return "DatosComunes[OCULTO]";

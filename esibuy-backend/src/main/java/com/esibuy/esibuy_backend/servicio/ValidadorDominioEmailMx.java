@@ -19,16 +19,20 @@ import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 
 /**
  * Comprueba que el dominio del email puede recibir correo (decision D6), consultando el DNS:
- *   Con registros MX: valido, salvo que sea un "null MX" ({@code 0 .}, que declara que el dominio no acepta correo.
- *   Sin MX: valido si el dominio tiene direccion A o AAAA, que segun RFC 5321 (5.1) actua como MX
- *       implicito
- *   Dominio inexistente: no valido.
- *   DNS que no responde: {@link ServicioNoDisponibleException}; el registro se aborta con un 503 en vez de rechazar un email que podria ser correcto.
+ * <ul>
+ *   <li>Con registros MX: valido, salvo que sea un "null MX" ({@code 0 .}, RFC 7505), que declara que el
+ *       dominio no acepta correo.</li>
+ *   <li>Sin MX: valido si el dominio tiene direccion A o AAAA, que segun RFC 5321 (5.1) actua como MX
+ *       implicito.</li>
+ *   <li>Dominio inexistente: no valido.</li>
+ *   <li>DNS que no responde: {@link ServicioNoDisponibleException}; el registro se aborta con un 503 en vez de
+ *       rechazar un email que podria ser correcto.</li>
+ * </ul>
  */
 @Component
 public class ValidadorDominioEmailMx implements ValidadorDominioEmail {
 
-    //Consulta de un tipo de registro DNS. Lanza NameNotFoundException si el dominio no existe. 
+    /** Consulta de un tipo de registro DNS. Lanza NameNotFoundException si el dominio no existe. */
     @FunctionalInterface
     interface ConsultaDns {
         List<String> registros(String dominio, String tipo) throws NamingException;
@@ -66,7 +70,7 @@ public class ValidadorDominioEmailMx implements ValidadorDominioEmail {
         }
     }
 
-    //Dominio tras la arroba, en ASCII (los dominios con tildes o ñ se consultan en su forma punycode).
+    /** Dominio tras la arroba, en ASCII (los dominios con tildes o ñ se consultan en su forma punycode). */
     private static String dominioEnAscii(String email) {
         int arroba = email == null ? -1 : email.lastIndexOf('@');
         if (arroba < 0 || arroba == email.length() - 1) {
@@ -79,7 +83,7 @@ public class ValidadorDominioEmailMx implements ValidadorDominioEmail {
         }
     }
 
-    //Un registro MX tiene la forma "preferencia servidor"; el null MX es "0 .".
+    /** Un registro MX tiene la forma "preferencia servidor"; el null MX es "0 .". */
     private static boolean esNullMx(List<String> mx) {
         if (mx.size() != 1) {
             return false;

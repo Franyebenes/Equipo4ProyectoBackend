@@ -19,6 +19,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
@@ -28,12 +29,17 @@ import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 
 import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
-// Traduce las excepciones a respuestas HTTP sin filtrar detalles internos /*
-/* Formatos:
- *   400 de validacion: {"errores": {campo: [codigos]}}</li>
- *   Resto de errores: {"mensaje": ...}, y en 500 y 503 tambien "correlationId". El detalle completo solo va al log, con ese mismo correlationId.</li>
+/**
+ * Traduce las excepciones a respuestas HTTP sin filtrar detalles internos (CP-CTR-02 a 05, CP-SEG-09/10/11,
+ * CP-REG-36). Formatos:
+ * <ul>
+ *   <li>400 de validacion: {"errores": {campo: [codigos]}}</li>
+ *   <li>Resto de errores: {"mensaje": ...}, y en 500 y 503 tambien "correlationId". El detalle completo solo va
+ *       al log, con ese mismo correlationId.</li>
+ * </ul>
  * Las excepciones estandar de Spring MVC (415, 405, 404...) las resuelve ResponseEntityExceptionHandler, con el
  * cuerpo unificado en {@link #handleExceptionInternal}.
  */
@@ -111,15 +117,14 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {
-        String campo = campoConValorIncompatible(ex);
-        if (campo == null) {
+        Map<String, Set<CodigoError>> errores = errorEnCampo(ex);
+        if (errores == null) {
             return handleExceptionInternal(ex, null, headers, status, request);
         }
-        return ResponseEntity.badRequest()
-                .body(Map.of(CLAVE_ERRORES, Map.of(campo, Set.of(CodigoError.FORMATO_INVALIDO))));
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_ERRORES, errores));
     }
 
-    //Cuerpo comun para las excepciones estandar de Spring MVC: solo un mensaje, nunca la excepcion.
+    /** Cuerpo comun para las excepciones estandar de Spring MVC: solo un mensaje, nunca la excepcion. */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
                                                              HttpStatusCode statusCode, WebRequest request) {
@@ -127,12 +132,27 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return super.handleExceptionInternal(ex, cuerpo, headers, statusCode, request);
     }
 
-    // Recorre las causas buscando el error de Jackson, que es el que sabe en que campo fallo.
-    private static String campoConValorIncompatible(HttpMessageNotReadableException ex) {
+    /**
+     * Recorre las causas buscando el error de Jackson, que es el que sabe en que campo fallo:
+     * <ul>
+     *   <li>Falta {@code tipoCuenta} o su valor no es CLIENTE, PREMIUM ni VENDEDOR: error en {@code tipoCuenta}.</li>
+     *   <li>Valor de un campo conocido con formato incorrecto: {@code FORMATO_INVALIDO} en ese campo.</li>
+     *   <li>Campo desconocido o JSON roto: null (mensaje generico, sin repetir lo que envio el cliente).</li>
+     * </ul>
+     */
+    private static Map<String, Set<CodigoError>> errorEnCampo(HttpMessageNotReadableException ex) {
         for (Throwable causa = ex.getCause(); causa != null; causa = causa.getCause()) {
+            if (causa instanceof InvalidTypeIdException tipoInvalido) {
+                CodigoError codigo = tipoInvalido.getTypeId() == null || tipoInvalido.getTypeId().isBlank()
+                        ? CodigoError.OBLIGATORIO
+                        : CodigoError.FORMATO_INVALIDO;
+                return Map.of(SolicitudRegistro.CAMPO_TIPO_CUENTA, Set.of(codigo));
+            }
             if (causa instanceof DatabindException error) {
                 boolean campoConocido = !(error instanceof UnrecognizedPropertyException) && !error.getPath().isEmpty();
-                return campoConocido ? error.getPath().get(0).getPropertyName() : null;
+                return campoConocido
+                        ? Map.of(error.getPath().get(0).getPropertyName(), Set.of(CodigoError.FORMATO_INVALIDO))
+                        : null;
             }
         }
         return null;

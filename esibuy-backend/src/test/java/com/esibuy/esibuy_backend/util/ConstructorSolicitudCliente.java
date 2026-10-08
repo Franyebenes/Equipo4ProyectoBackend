@@ -1,7 +1,7 @@
 package com.esibuy.esibuy_backend.util;
 
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
-import com.esibuy.esibuy_backend.dto.TipoCliente;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 
 import java.time.LocalDate;
 
@@ -23,7 +23,7 @@ public final class ConstructorSolicitudCliente {
     private String avatar = "avatar-01";
     private String contrasena = CONTRASENA_VALIDA;
     private String repetirContrasena = CONTRASENA_VALIDA;
-    private TipoCliente tipoCliente = TipoCliente.NORMAL;
+    private TipoCuenta tipoCuenta = TipoCuenta.CLIENTE;
 
     private ConstructorSolicitudCliente() {
     }
@@ -79,13 +79,14 @@ public final class ConstructorSolicitudCliente {
         return this;
     }
 
-    public ConstructorSolicitudCliente conTipoCliente(TipoCliente valor) {
-        this.tipoCliente = valor;
+    /** CLIENTE o PREMIUM: un cliente nunca se envia como VENDEDOR. */
+    public ConstructorSolicitudCliente conTipoCuenta(TipoCuenta valor) {
+        this.tipoCuenta = valor;
         return this;
     }
 
     public SolicitudRegistroClienteDTO construir() {
-        return new SolicitudRegistroClienteDTO(nombre, apellidos, fechaNacimiento, dni, email,
-                telefono, avatar, contrasena, repetirContrasena, tipoCliente);
+        return new SolicitudRegistroClienteDTO(tipoCuenta, nombre, apellidos, fechaNacimiento, dni, email,
+                telefono, avatar, contrasena, repetirContrasena);
     }
 }

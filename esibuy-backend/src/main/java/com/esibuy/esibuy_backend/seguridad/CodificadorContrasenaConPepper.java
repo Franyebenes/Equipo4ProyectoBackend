@@ -9,6 +9,14 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/**
+ * Anade un pepper secreto a la contrasena antes de delegar en el codificador real (Argon2id).
+ * Tests: CodificadorContrasenaTest (CP-REG-49 y CP-REG-50).
+ *
+ * <p>El pepper se aplica como HMAC-SHA256(pepper, contrasena) y el resultado en Base64 es lo que recibe el
+ * delegado. Asi su entrada tiene longitud fija, y quien tenga la BBDD pero no el pepper no puede verificar los
+ * hashes ni atacarlos por diccionario.
+ */
 public class CodificadorContrasenaConPepper implements PasswordEncoder {
 
     private static final String ALGORITMO_HMAC = "HmacSHA256";
@@ -18,7 +26,8 @@ public class CodificadorContrasenaConPepper implements PasswordEncoder {
 
     public CodificadorContrasenaConPepper(String pepper, PasswordEncoder delegado) {
         if (pepper == null || pepper.isBlank()) {
-            throw new IllegalStateException("El pepper de contrasenas no esta configurado");
+            throw new IllegalStateException(
+                    "Falta el pepper de contrasenas: define la propiedad esibuy.seguridad.pepper (ESIBUY_PEPPER)");
         }
         if (delegado == null) {
             throw new IllegalArgumentException("El codificador delegado es obligatorio");

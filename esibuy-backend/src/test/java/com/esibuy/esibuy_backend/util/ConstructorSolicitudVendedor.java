@@ -1,6 +1,7 @@
 package com.esibuy.esibuy_backend.util;
 
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
+import com.esibuy.esibuy_backend.dto.TipoCuenta;
 
 /**
  * Construye solicitudes de registro de vendedor. Por defecto produce una solicitud
@@ -80,7 +81,7 @@ public final class ConstructorSolicitudVendedor {
     }
 
     public SolicitudRegistroVendedorDTO construir() {
-        return new SolicitudRegistroVendedorDTO(nombre, apellidos, categoriaPrincipalId,
+        return new SolicitudRegistroVendedorDTO(TipoCuenta.VENDEDOR, nombre, apellidos, categoriaPrincipalId,
                 nombreComercial, dni, email, telefono, avatar, contrasena, repetirContrasena);
     }
 }

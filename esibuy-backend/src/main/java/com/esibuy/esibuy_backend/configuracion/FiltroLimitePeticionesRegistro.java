@@ -19,11 +19,17 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-// Limita los registros por IP. El contador es comun a /api/auth/registro/cliente y /api/auth/registro/vendedor; al superar maxPeticiones dentro de la ventana responde 429 con la cabecera
- // Ventana fija por IP, en memoria: suficiente para una sola instancia. Con varias instancias habria que llevar el contador a un almacen compartido.
+/**
+ * Limita los registros por IP (decision D10) en {@code POST /api/auth/registro}, sea cual sea el tipo de cuenta;
+ * al superar maxPeticiones dentro de la ventana responde 429 con la cabecera
+ * Retry-After en segundos. Tests: CP-SEG-13.
+ *
+ * <p>Ventana fija por IP, en memoria: suficiente para una sola instancia. Con varias instancias habria que llevar
+ * el contador a un almacen compartido.
+ */
 public class FiltroLimitePeticionesRegistro extends OncePerRequestFilter {
 
-    static final String PREFIJO_RUTAS_REGISTRO = "/api/auth/registro/";
+    static final String RUTA_REGISTRO = "/api/auth/registro";
     /** A partir de este numero de IPs registradas se purgan las ventanas caducadas para no crecer sin limite. */
     private static final int IPS_ANTES_DE_PURGAR = 10_000;
     private static final String CUERPO_429 =
@@ -50,7 +56,9 @@ public class FiltroLimitePeticionesRegistro extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String ruta = request.getRequestURI().substring(request.getContextPath().length());
-        return !HttpMethod.POST.matches(request.getMethod()) || !ruta.startsWith(PREFIJO_RUTAS_REGISTRO);
+        // Tambien cubre subrutas, por si en el futuro el registro tuviera mas de una
+        boolean esRegistro = ruta.equals(RUTA_REGISTRO) || ruta.startsWith(RUTA_REGISTRO + "/");
+        return !HttpMethod.POST.matches(request.getMethod()) || !esRegistro;
     }
 
     @Override

@@ -14,9 +14,14 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAd
 
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 
-// Rechaza los cuerpos @RequestBody de mas de {@value #TAMANO_MAXIMO_BYTES} bytes antes de deserializarlos. Jackson admite por defecto cadenas de hasta 100 millones de caracteres, asi que sin este limite
- //un JSON enorme se cargaria entero en memoria. comprueba la cabecera Content-Length y, por si no viene (cuerpo por trozos), tambien se cuentan los bytes mientras se leen.
- 
+/**
+ * Rechaza los cuerpos @RequestBody de mas de {@value #TAMANO_MAXIMO_BYTES} bytes antes de deserializarlos
+ * (CP-SEG-11). Jackson admite por defecto cadenas de hasta 100 millones de caracteres, asi que sin este limite un
+ * JSON enorme se cargaria entero en memoria.
+ *
+ * <p>Se comprueba la cabecera Content-Length y, por si no viene (cuerpo por trozos), tambien se cuentan los bytes
+ * mientras se leen.
+ */
 @ControllerAdvice
 public class LimiteTamanoCuerpoPeticion extends RequestBodyAdviceAdapter {
 
@@ -47,7 +52,7 @@ public class LimiteTamanoCuerpoPeticion extends RequestBodyAdviceAdapter {
         };
     }
 
-    // Lanza CuerpoDemasiadoGrandeException en cuanto se lee un byte mas del maximo. 
+    /** Lanza CuerpoDemasiadoGrandeException en cuanto se lee un byte mas del maximo. */
     private static final class FlujoLimitado extends FilterInputStream {
 
         private long leidos;
