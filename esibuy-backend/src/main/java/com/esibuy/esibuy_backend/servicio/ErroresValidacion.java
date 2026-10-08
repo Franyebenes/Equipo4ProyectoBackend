@@ -12,7 +12,7 @@ import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 /**
  * Acumula los errores de validacion por campo para devolverlos todos a la vez (CP-REG-22).
  */
-final class ErroresRegistro {
+final class ErroresValidacion {
     private final Map<String, Set<CodigoError>> errores = new LinkedHashMap<>();
 
     void anadir(String campo, CodigoError codigo) {

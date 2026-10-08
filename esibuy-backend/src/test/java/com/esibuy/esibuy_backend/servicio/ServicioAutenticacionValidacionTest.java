@@ -7,9 +7,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -35,7 +32,7 @@ import com.esibuy.esibuy_backend.util.Constantes;
  * Orden TDD (plan de pruebas, sección 8): paso 1.
  * Casos: CP-LOG-21, CP-LOG-25, CP-LOG-26, CP-LOG-28.
  * Colaboradores: RepositorioUsuario, PasswordEncoder, LimitadorIntentosLogin y AuditoriaSeguridad
- * mockeados; Clock fijo.
+ * mockeados.
  *
  * Desarrollada con el ciclo Red-Green-Refactor: primero el test (Arrange, Act, Assert), después el código
  * mínimo que lo hace pasar. Terminada: ya no lleva la etiqueta @Tag("pendiente-login") y entra en la regresión.
@@ -49,8 +46,6 @@ class ServicioAutenticacionValidacionTest {
     private static final int LONGITUD_MAXIMA_EMAIL = 254;
     private static final String EMOJI = "😀";
 
-    private static final Clock RELOJ_FIJO =
-            Clock.fixed(Instant.parse("2026-10-06T10:00:00Z"), ZoneId.of("Europe/Madrid"));
     private static final ContextoPeticion CONTEXTO = new ContextoPeticion("203.0.113.7", "JUnit");
 
     @Mock
@@ -66,7 +61,7 @@ class ServicioAutenticacionValidacionTest {
 
     @BeforeEach
     void prepararServicio() {
-        servicio = new ServicioAutenticacion(repositorioUsuario, codificador, limitador, auditoria, RELOJ_FIJO);
+        servicio = new ServicioAutenticacion(repositorioUsuario, codificador, limitador, auditoria);
     }
 
     /** Correo con formato válido y exactamente la longitud pedida. */

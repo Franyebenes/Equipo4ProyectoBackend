@@ -14,7 +14,6 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
 
 import org.bson.Document;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,14 +21,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mongodb.MongoDBContainer;
-import org.testcontainers.utility.MountableFile;
 
 import com.esibuy.esibuy_backend.servicio.DiccionarioContrasenasProhibidas;
 import com.esibuy.esibuy_backend.servicio.ValidadorDominioEmail;
@@ -60,28 +53,10 @@ import tools.jackson.databind.ObjectMapper;
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @Testcontainers(disabledWithoutDocker = true)
-class LoginSesionIntegracionTest {
+class LoginSesionIntegracionTest extends IntegracionLoginBase {
 
     private static final String CONTRASENA = ConstructorSolicitudCliente.CONTRASENA_VALIDA;
     private static final String RUTA_PROTEGIDA = "/api/pedidos";
-
-    @Container
-    static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7.0")
-            .withCopyFileToContainer(
-                    MountableFile.forClasspathResource("mongo/init-esibuy.js"), "/tmp/init-esibuy.js");
-
-    @DynamicPropertySource
-    static void configurarPropiedades(DynamicPropertyRegistry registro) {
-        registro.add("spring.mongodb.uri", () -> MONGO.getReplicaSetUrl("ESIBuy"));
-        registro.add("esibuy.seguridad.pepper", () -> "pepper-de-integracion");
-        registro.add("esibuy.limite-registro.max-peticiones", () -> "1000");
-    }
-
-    @BeforeAll
-    static void aplicarElScriptDeBaseDeDatos() throws Exception {
-        ExecResult resultado = MONGO.execInContainer("mongosh", "--quiet", "--file", "/tmp/init-esibuy.js");
-        assertEquals(0, resultado.getExitCode(), "Fallo al ejecutar el script de BBDD: " + resultado.getStderr());
-    }
 
     @Value("${local.server.port}")
     private int puerto;

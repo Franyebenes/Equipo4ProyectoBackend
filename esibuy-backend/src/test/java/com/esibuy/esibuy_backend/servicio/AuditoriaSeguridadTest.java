@@ -171,7 +171,7 @@ class AuditoriaSeguridadTest extends ServicioAutenticacionBaseTest {
         LimitadorIntentosLogin limitadorReal =
                 new LimitadorIntentosLogin(reloj, mock(Pausador.class), auditoriaReal);
         ServicioAutenticacion servicioReal =
-                new ServicioAutenticacion(repositorioUsuario, codificador, limitadorReal, auditoriaReal, reloj);
+                new ServicioAutenticacion(repositorioUsuario, codificador, limitadorReal, auditoriaReal);
         dadoUsuarioRegistrado(usuario(Rol.CLIENTE, EstadoUsuario.ACTIVO));
         dadaContrasenaCorrecta();
 

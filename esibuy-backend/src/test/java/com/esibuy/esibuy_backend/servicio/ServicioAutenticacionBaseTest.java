@@ -4,9 +4,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +35,6 @@ abstract class ServicioAutenticacionBaseTest {
     protected static final String HASH_USUARIO = "hash-del-usuario";
     protected static final String HASH_FICTICIO = "hash-ficticio";
 
-    protected static final Clock RELOJ_FIJO =
-            Clock.fixed(Instant.parse("2026-10-06T10:00:00Z"), ZoneId.of("Europe/Madrid"));
     protected static final ContextoPeticion CONTEXTO = new ContextoPeticion("203.0.113.7", "JUnit");
 
     @Mock
@@ -56,7 +51,7 @@ abstract class ServicioAutenticacionBaseTest {
     @BeforeEach
     void prepararServicio() {
         lenient().when(codificador.encode(anyString())).thenReturn(HASH_FICTICIO);
-        servicio = new ServicioAutenticacion(repositorioUsuario, codificador, limitador, auditoria, RELOJ_FIJO);
+        servicio = new ServicioAutenticacion(repositorioUsuario, codificador, limitador, auditoria);
     }
 
     /** Usuario tal y como lo devolvería la BBDD: con id, un rol, el estado indicado y el hash de la contraseña. */

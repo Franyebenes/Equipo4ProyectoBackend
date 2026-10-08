@@ -287,7 +287,7 @@ class ServicioAutenticacionRechazoTest extends ServicioAutenticacionBaseTest {
         LimitadorIntentosLogin limitadorReal =
                 new LimitadorIntentosLogin(reloj, mock(Pausador.class), mock(AlertasSeguridad.class));
         ServicioAutenticacion servicioConLimitadorReal =
-                new ServicioAutenticacion(repositorioUsuario, codificador, limitadorReal, auditoria, reloj);
+                new ServicioAutenticacion(repositorioUsuario, codificador, limitadorReal, auditoria);
         for (int i = 0; i < 5; i++) {
             limitadorReal.registrarFallo(EMAIL, CONTEXTO.ip());
         }

@@ -23,8 +23,7 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
-import com.esibuy.esibuy_backend.excepcion.DatosLoginInvalidosException;
-import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
+import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -60,13 +59,9 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ManejadorExcepciones.class);
 
-    @ExceptionHandler(DatosRegistroInvalidosException.class)
-    public ResponseEntity<Map<String, Object>> datosInvalidos(DatosRegistroInvalidosException ex) {
-        return ResponseEntity.badRequest().body(Map.of(CLAVE_ERRORES, ex.getErrores()));
-    }
-
-    @ExceptionHandler(DatosLoginInvalidosException.class)
-    public ResponseEntity<Map<String, Object>> datosDeLoginInvalidos(DatosLoginInvalidosException ex) {
+    /** Datos de registro o de inicio de sesion no validos: los mismos errores por campo en ambos casos. */
+    @ExceptionHandler(DatosInvalidosException.class)
+    public ResponseEntity<Map<String, Object>> datosInvalidos(DatosInvalidosException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_ERRORES, ex.getErrores()));
     }
 

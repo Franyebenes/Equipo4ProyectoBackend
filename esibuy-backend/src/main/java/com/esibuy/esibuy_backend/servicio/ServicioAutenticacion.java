@@ -1,12 +1,13 @@
 package com.esibuy.esibuy_backend.servicio;
 
-import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -48,26 +49,36 @@ public class ServicioAutenticacion {
     private final PasswordEncoder codificadorContrasena;
     private final LimitadorIntentosLogin limitador;
     private final AuditoriaSeguridad auditoria;
-    private final Clock reloj;
 
-    //Hash de una contrasena aleatoria, creado con el mismo codificador la primera vez que hace falta. 
+    //Hash de una contrasena aleatoria, creado con el mismo codificador la primera vez que hace falta.
     private volatile String hashFicticio;
 
     public ServicioAutenticacion(RepositorioUsuario repositorioUsuario,
                                  PasswordEncoder codificadorContrasena,
                                  LimitadorIntentosLogin limitador,
-                                 AuditoriaSeguridad auditoria,
-                                 Clock reloj) {
+                                 AuditoriaSeguridad auditoria) {
         this.repositorioUsuario = repositorioUsuario;
         this.codificadorContrasena = codificadorContrasena;
         this.limitador = limitador;
         this.auditoria = auditoria;
-        this.reloj = reloj;
+    }
+
+    /**
+     * Calcula el hash ficticio en cuanto arranca la aplicacion, para que la primera peticion con un correo inexistente
+     * no tarde mas que las demas. Si falla no pasa nada: se calcula cuando haga falta.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void precalcularHashFicticio() {
+        try {
+            hashFicticio();
+        } catch (RuntimeException e) {
+            log.warn("No se pudo precalcular el hash ficticio; se calculara en la primera peticion que lo necesite", e);
+        }
     }
 
     public ResultadoAutenticacion autenticar(SolicitudLoginDTO solicitud, ContextoPeticion contexto) {
-        String email = NormalizadorRegistro.email(solicitud.email());
-        String contrasena = NormalizadorRegistro.contrasena(solicitud.contrasena());
+        String email = Normalizador.email(solicitud.email());
+        String contrasena = Normalizador.contrasena(solicitud.contrasena());
         validarCredenciales(email, contrasena);
 
         comprobarPasoDelLimitador(email, contexto);
@@ -124,8 +135,8 @@ public class ServicioAutenticacion {
      * 400 que distinga una contrasena debil de una incorrecta. Se devuelven todos los errores a la vez.
      */
     private static void validarCredenciales(String email, String contrasena) {
-        ErroresRegistro errores = new ErroresRegistro();
-        ReglasCamposRegistro.validarEmail(CAMPO_EMAIL, email, errores);
+        ErroresValidacion errores = new ErroresValidacion();
+        ReglasCampos.validarEmail(CAMPO_EMAIL, email, errores);
         if (contrasena == null || contrasena.isBlank()) {
             errores.anadir(CAMPO_CONTRASENA, CodigoError.OBLIGATORIO);
         } else if (contrasena.codePointCount(0, contrasena.length()) > Constantes.LONGITUD_MAXIMA) {

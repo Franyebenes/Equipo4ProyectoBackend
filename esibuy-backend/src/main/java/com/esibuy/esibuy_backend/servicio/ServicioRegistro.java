@@ -93,12 +93,12 @@ public class ServicioRegistro {
     public RespuestaRegistroDTO registrarCliente(SolicitudRegistroClienteDTO solicitud) {
         DatosComunes datos = DatosComunes.de(solicitud);
 
-        ErroresRegistro errores = validarFormatoComun(datos, null);
-        ReglasCamposRegistro.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, solicitud.fechaNacimiento(), hoy(),
+        ErroresValidacion errores = validarFormatoComun(datos, null);
+        ReglasCampos.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, solicitud.fechaNacimiento(), hoy(),
                 errores);
         errores.lanzarSiHay();
 
-        ErroresRegistro erroresExternos = new ErroresRegistro();
+        ErroresValidacion erroresExternos = new ErroresValidacion();
         comprobarDominioEmail(datos.email(), erroresExternos);
         erroresExternos.lanzarSiHay();
 
@@ -110,18 +110,18 @@ public class ServicioRegistro {
 
     public RespuestaRegistroDTO registrarVendedor(SolicitudRegistroVendedorDTO solicitud) {
         DatosComunes datos = DatosComunes.de(solicitud);
-        String nombreComercial = NormalizadorRegistro.nombreComercial(solicitud.nombreComercial());
-        String categoriaId = NormalizadorRegistro.texto(solicitud.categoriaPrincipalId());
+        String nombreComercial = Normalizador.nombreComercial(solicitud.nombreComercial());
+        String categoriaId = Normalizador.texto(solicitud.categoriaPrincipalId());
 
-        ErroresRegistro errores = validarFormatoComun(datos, nombreComercial);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE_COMERCIAL, nombreComercial,
+        ErroresValidacion errores = validarFormatoComun(datos, nombreComercial);
+        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE_COMERCIAL, nombreComercial,
                 LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
-        ReglasCamposRegistro.validarCategoriaPrincipal(CAMPO_CATEGORIA_PRINCIPAL, categoriaId, errores);
+        ReglasCampos.validarCategoriaPrincipal(CAMPO_CATEGORIA_PRINCIPAL, categoriaId, errores);
         errores.lanzarSiHay();
 
-        ErroresRegistro erroresExternos = new ErroresRegistro();
+        ErroresValidacion erroresExternos = new ErroresValidacion();
         comprobarDominioEmail(datos.email(), erroresExternos);
-        if (repositorioUsuario.existePorNombreComercial(NormalizadorRegistro.claveNombreComercial(nombreComercial))) {
+        if (repositorioUsuario.existePorNombreComercial(Normalizador.claveNombreComercial(nombreComercial))) {
             erroresExternos.anadir(CAMPO_NOMBRE_COMERCIAL, CodigoError.NOMBRE_COMERCIAL_DUPLICADO);
         }
         if (!repositorioCategoria.existsById(categoriaId)) {
@@ -142,14 +142,14 @@ public class ServicioRegistro {
      * Reglas locales comunes a clientes y vendedores. El nombre comercial solo se usa para comprobar que no
      * aparece en la contrasena; en clientes es null.
      */
-    private ErroresRegistro validarFormatoComun(DatosComunes datos, String nombreComercial) {
-        ErroresRegistro errores = new ErroresRegistro();
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), LONGITUD_MAXIMA_CAMPO_TEXTO,
+    private ErroresValidacion validarFormatoComun(DatosComunes datos, String nombreComercial) {
+        ErroresValidacion errores = new ErroresValidacion();
+        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), LONGITUD_MAXIMA_CAMPO_TEXTO,
                 errores);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_DNI, datos.dni(), LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
-        ReglasCamposRegistro.validarEmail(CAMPO_EMAIL, datos.email(), errores);
-        ReglasCamposRegistro.validarTelefono(CAMPO_TELEFONO, datos.telefono(), errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_DNI, datos.dni(), LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
+        ReglasCampos.validarEmail(CAMPO_EMAIL, datos.email(), errores);
+        ReglasCampos.validarTelefono(CAMPO_TELEFONO, datos.telefono(), errores);
         if (datos.avatar() != null && !catalogoAvatares.esAvatarValido(datos.avatar())) {
             errores.anadir(CAMPO_AVATAR, CodigoError.AVATAR_NO_PERMITIDO);
         }
@@ -157,7 +157,7 @@ public class ServicioRegistro {
         return errores;
     }
 
-    private void validarContrasena(DatosComunes datos, String nombreComercial, ErroresRegistro errores) {
+    private void validarContrasena(DatosComunes datos, String nombreComercial, ErroresValidacion errores) {
         DatosPersonalesContrasena datosPersonales =
                 new DatosPersonalesContrasena(datos.nombre(), datos.apellidos(), datos.email(), nombreComercial);
         errores.anadirTodos(CAMPO_CONTRASENA, validadorContrasena.validar(datos.contrasena(), datosPersonales));
@@ -168,7 +168,7 @@ public class ServicioRegistro {
     }
 
     /** Si el servicio de dominios falla, se aborta el registro con un error controlado (CP-REG-25). */
-    private void comprobarDominioEmail(String email, ErroresRegistro errores) {
+    private void comprobarDominioEmail(String email, ErroresValidacion errores) {
         boolean dominioValido;
         try {
             dominioValido = validadorDominioEmail.tieneDominioValido(email);
@@ -230,14 +230,14 @@ public class ServicioRegistro {
 
         static DatosComunes de(SolicitudRegistro solicitud) {
             return new DatosComunes(
-                    NormalizadorRegistro.texto(solicitud.nombre()),
-                    NormalizadorRegistro.texto(solicitud.apellidos()),
-                    NormalizadorRegistro.texto(solicitud.dni()),
-                    NormalizadorRegistro.email(solicitud.email()),
-                    NormalizadorRegistro.texto(solicitud.telefono()),
-                    NormalizadorRegistro.texto(solicitud.avatar()),
-                    NormalizadorRegistro.contrasena(solicitud.contrasena()),
-                    NormalizadorRegistro.contrasena(solicitud.repetirContrasena()));
+                    Normalizador.texto(solicitud.nombre()),
+                    Normalizador.texto(solicitud.apellidos()),
+                    Normalizador.texto(solicitud.dni()),
+                    Normalizador.email(solicitud.email()),
+                    Normalizador.texto(solicitud.telefono()),
+                    Normalizador.texto(solicitud.avatar()),
+                    Normalizador.contrasena(solicitud.contrasena()),
+                    Normalizador.contrasena(solicitud.repetirContrasena()));
         }
 
         /** Contiene la contrasena: nunca debe acabar en un log. */

@@ -1,7 +1,6 @@
 package com.esibuy.esibuy_backend.integracion;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -21,7 +20,6 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bson.Document;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,18 +31,12 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mongodb.MongoDBContainer;
-import org.testcontainers.utility.MountableFile;
 
 import com.esibuy.esibuy_backend.servicio.DiccionarioContrasenasProhibidas;
 import com.esibuy.esibuy_backend.servicio.ValidadorDominioEmail;
@@ -80,7 +72,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
-class LoginIntegracionMongoTest {
+class LoginIntegracionMongoTest extends IntegracionLoginBase {
 
     private static final String RUTA_REGISTRO = "/api/auth/registro";
     private static final String RUTA_LOGIN = "/api/auth/login";
@@ -92,19 +84,6 @@ class LoginIntegracionMongoTest {
             new RelojMutable(Instant.parse("2026-10-06T10:00:00Z"), ZoneId.of("Europe/Madrid"));
     private static final AtomicInteger CONTADOR_DE_IPS = new AtomicInteger();
 
-    @Container
-    static final MongoDBContainer MONGO = new MongoDBContainer("mongo:7.0")
-            .withCopyFileToContainer(
-                    MountableFile.forClasspathResource("mongo/init-esibuy.js"), "/tmp/init-esibuy.js");
-
-    @DynamicPropertySource
-    static void configurarPropiedades(DynamicPropertyRegistry registro) {
-        registro.add("spring.mongodb.uri", () -> MONGO.getReplicaSetUrl("ESIBuy"));
-        registro.add("esibuy.seguridad.pepper", () -> "pepper-de-integracion");
-        // El limite de peticiones del registro no debe interferir con estas pruebas
-        registro.add("esibuy.limite-registro.max-peticiones", () -> "1000");
-    }
-
     /** Sustituye el reloj de la aplicación por uno que solo avanza cuando la prueba lo pide. */
     @TestConfiguration
     static class ConfiguracionDeReloj {
@@ -113,12 +92,6 @@ class LoginIntegracionMongoTest {
         Clock relojDePrueba() {
             return RELOJ;
         }
-    }
-
-    @BeforeAll
-    static void aplicarElScriptDeBaseDeDatos() throws Exception {
-        ExecResult resultado = MONGO.execInContainer("mongosh", "--quiet", "--file", "/tmp/init-esibuy.js");
-        assertEquals(0, resultado.getExitCode(), "Fallo al ejecutar el script de BBDD: " + resultado.getStderr());
     }
 
     @Autowired
