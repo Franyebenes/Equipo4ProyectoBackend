@@ -1,7 +1,5 @@
 package com.esibuy.esibuy_backend.controlador;
 
-import java.util.Map;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +25,6 @@ public class ControladorAuth {
 
     public ControladorAuth(ServicioRegistro servicioRegistro) {
         this.servicioRegistro = servicioRegistro;
-    }
-
-    // Provisional: el inicio de sesion se implementa en la rama feature/login
-    @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login() {
-        return ResponseEntity.ok(Map.of("mensaje", "login ok (pendiente de implementar)"));
     }
 
     /**

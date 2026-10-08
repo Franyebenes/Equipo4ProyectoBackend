@@ -10,9 +10,9 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 
 /**
  * Reglas de formato de los campos del registro. Son locales (no consultan la BBDD ni servicios externos) y reciben
- * los valores ya normalizados por {@link NormalizadorRegistro}.
+ * los valores ya normalizados por {@link Normalizador}.
  */
-final class ReglasCamposRegistro {
+final class ReglasCampos {
 
     static final int EDAD_MINIMA = 18;
     /** Por encima de esta edad la fecha se considera un error al introducirla (CP-REG-35). */
@@ -26,10 +26,10 @@ final class ReglasCamposRegistro {
     private static final Pattern FORMATO_EMAIL = Pattern.compile("^[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)+[a-z]{2,}$");
     private static final Pattern FORMATO_TELEFONO = Pattern.compile("^[0-9]{9}$");
 
-    private ReglasCamposRegistro() {
+    private ReglasCampos() {
     }
 
-    static void validarTextoObligatorio(String campo, String valor, int longitudMaxima, ErroresRegistro errores) {
+    static void validarTextoObligatorio(String campo, String valor, int longitudMaxima, ErroresValidacion errores) {
         if (valor == null) {
             errores.anadir(campo, CodigoError.OBLIGATORIO);
             return;
@@ -42,7 +42,7 @@ final class ReglasCamposRegistro {
         }
     }
 
-    static void validarEmail(String campo, String email, ErroresRegistro errores) {
+    static void validarEmail(String campo, String email, ErroresValidacion errores) {
         if (email == null) {
             errores.anadir(campo, CodigoError.OBLIGATORIO);
         } else if (email.length() > LONGITUD_MAXIMA_EMAIL) {
@@ -53,14 +53,14 @@ final class ReglasCamposRegistro {
     }
 
     /** El telefono es opcional; si se informa, deben ser exactamente 9 digitos (CP-REG-26). */
-    static void validarTelefono(String campo, String telefono, ErroresRegistro errores) {
+    static void validarTelefono(String campo, String telefono, ErroresValidacion errores) {
         if (telefono != null && !FORMATO_TELEFONO.matcher(telefono).matches()) {
             errores.anadir(campo, CodigoError.TELEFONO_INVALIDO);
         }
     }
 
     /** La categoria debe ser un ObjectId bien formado; su existencia se comprueba despues (CP-REG-45). */
-    static void validarCategoriaPrincipal(String campo, String categoriaId, ErroresRegistro errores) {
+    static void validarCategoriaPrincipal(String campo, String categoriaId, ErroresValidacion errores) {
         if (categoriaId == null) {
             errores.anadir(campo, CodigoError.OBLIGATORIO);
         } else if (!ObjectId.isValid(categoriaId)) {
@@ -69,7 +69,7 @@ final class ReglasCamposRegistro {
     }
 
     static void validarFechaNacimiento(String campo, LocalDate fechaNacimiento, LocalDate hoy,
-                                       ErroresRegistro errores) {
+                                       ErroresValidacion errores) {
         if (fechaNacimiento == null) {
             errores.anadir(campo, CodigoError.OBLIGATORIO);
         } else if (fechaNacimiento.isAfter(hoy) || fechaNacimiento.isBefore(hoy.minusYears(EDAD_MAXIMA))) {
