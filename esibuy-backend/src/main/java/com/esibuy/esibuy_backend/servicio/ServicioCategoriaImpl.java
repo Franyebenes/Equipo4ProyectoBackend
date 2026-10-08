@@ -66,7 +66,7 @@ public class ServicioCategoriaImpl implements ServicioCategoria {
         String descripcion = dto.descripcion().trim();
 
         if (repositorioCategoria.existsByNombreIgnoreCase(nombre)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe una categoría con ese nombre");
+            throw new CategoriaDuplicadaException(nombre);
         }
 
         try {
