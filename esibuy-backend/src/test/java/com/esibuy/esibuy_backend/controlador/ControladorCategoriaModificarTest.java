@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -77,7 +78,7 @@ class ControladorCategoriaModificarTest {
                 .thenReturn(new CategoriaDTO(ID, "Moda y calzado", "Ropa, zapatos y complementos."));
 
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID))
                 .andExpect(jsonPath("$.nombre").value("Moda y calzado"))
@@ -89,7 +90,7 @@ class ControladorCategoriaModificarTest {
     @WithMockUser(roles = "ADMIN")
     void modificar_nombreVacio_devuelve400YNoLlamaAlServicio() throws Exception {
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"   \",\"descripcion\":\"Ropa y complementos.\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value(ManejadorExcepciones.MENSAJE_PETICION_INVALIDA));
@@ -103,7 +104,7 @@ class ControladorCategoriaModificarTest {
         String cuerpo = "{\"nombre\":\"Moda\",\"descripcion\":\"" + "a".repeat(201) + "\"}";
 
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
                 .andExpect(status().isBadRequest());
         verify(servicioCategoria, never()).modificarCategoria(anyString(), any());
     }
@@ -116,7 +117,7 @@ class ControladorCategoriaModificarTest {
                 .thenThrow(new CategoriaDuplicadaException("Moda y calzado"));
 
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje").value("Ya existe una categoría con el nombre «Moda y calzado»"));
     }
@@ -128,18 +129,18 @@ class ControladorCategoriaModificarTest {
         when(servicioCategoria.modificarCategoria(anyString(), any())).thenThrow(new CategoriaNoEncontradaException());
 
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.mensaje").value("La categoría no existe o ya ha sido eliminada"));
     }
 
     @Test
-    void modificar_sinIniciarSesion_devuelve403YNoModifica() throws Exception {
+    void modificar_sinIniciarSesion_devuelve401YNoModifica() throws Exception {
         // Given: visitante anonimo
 
         // When / Then
-        mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
-                .andExpect(status().isForbidden());
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
+                .andExpect(status().isUnauthorized());
         verify(servicioCategoria, never()).modificarCategoria(anyString(), any());
     }
 }
