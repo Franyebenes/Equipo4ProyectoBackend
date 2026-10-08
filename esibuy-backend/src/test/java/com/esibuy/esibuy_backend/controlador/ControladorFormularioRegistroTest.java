@@ -46,8 +46,8 @@ class ControladorFormularioRegistroTest {
     void prepararCatalogos() {
         when(catalogoAvatares.listarAvatares()).thenReturn(List.of("avatar-01", "avatar-02"));
         when(servicioCategoria.listarCategorias()).thenReturn(List.of(
-                new CategoriaDTO("64b7f0c2a1b2c3d4e5f60718", "Electronica"),
-                new CategoriaDTO("64b7f0c2a1b2c3d4e5f60719", "Hogar")));
+                new CategoriaDTO("64b7f0c2a1b2c3d4e5f60718", "Electronica", "Móviles y ordenadores."),
+                new CategoriaDTO("64b7f0c2a1b2c3d4e5f60719", "Hogar", "Muebles y decoración.")));
     }
 
     @Test
