@@ -52,9 +52,10 @@ public class ServicioGestionUsuario {
     private static final String CAMPO_CONTRASENA = "contrasena";
     private static final String CAMPO_REPETIR_CONTRASENA = "repetirContrasena";
 
+    // Estados de usuario que pueden pasar a otro estado mediante la API de administración
     private static final Set<EstadoUsuario> PUEDEN_BLOQUEARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO);
-    private static final Set<EstadoUsuario> PUEDEN_DESBLOQUEARSE = EnumSet.of(EstadoUsuario.BLOQUEADO);
+    private static final Set<EstadoUsuario> PUEDEN_DESBLOQUEARSE = EnumSet.of(EstadoUsuario.BLOQUEADO, EstadoUsuario.DESACTIVADO);
     private static final Set<EstadoUsuario> PUEDEN_ELIMINARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO, EstadoUsuario.BLOQUEADO);
 
