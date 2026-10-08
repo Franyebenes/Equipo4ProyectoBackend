@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,7 +41,7 @@ class ControladorCategoriaTest {
     @WithMockUser(roles = "ADMIN")
     void eliminar_administrador_devuelve204YLlamaAlServicio() throws Exception {
         // When / Then
-        mockMvc.perform(delete(RUTA))
+        mockMvc.perform(delete(RUTA).with(csrf()))
                 .andExpect(status().isNoContent());
         verify(servicioCategoria).eliminarCategoria(ID);
     }
@@ -52,7 +53,7 @@ class ControladorCategoriaTest {
         doThrow(new CategoriaNoEncontradaException()).when(servicioCategoria).eliminarCategoria(ID);
 
         // When / Then
-        mockMvc.perform(delete(RUTA))
+        mockMvc.perform(delete(RUTA).with(csrf()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.mensaje").value("La categoría no existe o ya ha sido eliminada"));
     }
@@ -64,19 +65,19 @@ class ControladorCategoriaTest {
         doThrow(new CategoriaConProductosException("Moda", 3)).when(servicioCategoria).eliminarCategoria(ID);
 
         // When / Then
-        mockMvc.perform(delete(RUTA))
+        mockMvc.perform(delete(RUTA).with(csrf()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje")
                         .value("No se puede eliminar la categoría «Moda» porque tiene 3 productos asociados"));
     }
 
     @Test
-    void eliminar_sinIniciarSesion_devuelve403YNoBorra() throws Exception {
+    void eliminar_sinIniciarSesion_devuelve401YNoBorra() throws Exception {
         // Given: visitante anonimo
 
         // When / Then
-        mockMvc.perform(delete(RUTA))
-                .andExpect(status().isForbidden());
+        mockMvc.perform(delete(RUTA).with(csrf()))
+                .andExpect(status().isUnauthorized());
         verify(servicioCategoria, never()).eliminarCategoria(any());
     }
 }
