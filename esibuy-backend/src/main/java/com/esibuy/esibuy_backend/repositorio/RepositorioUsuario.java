@@ -25,6 +25,10 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
     @Query(value = "{ 'email': ?0 }", exists = true)
     boolean existePorEmail(String email);
 
+    // Hay al menos un usuario con ese rol (el campo "rol" es una lista: Mongo busca el valor dentro de ella)
+    @Query(value = "{ 'rol': ?0 }", exists = true)
+    boolean existePorRol(Rol rol);
+
     @Query(value = "{ 'perfil.nombreComercial': ?0 }", exists = true, collation = COLLATION_NOMBRE_COMERCIAL)
     boolean existePorNombreComercial(String nombreComercial);
 
