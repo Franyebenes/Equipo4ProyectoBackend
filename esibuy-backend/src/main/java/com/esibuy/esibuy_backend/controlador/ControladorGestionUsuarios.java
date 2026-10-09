@@ -38,8 +38,9 @@ public class ControladorGestionUsuarios {
     public PaginaDTO<UsuarioDTO> listar(@RequestParam(defaultValue = "0") int pagina,
                                         @RequestParam(defaultValue = "20") int tamano,
                                         @RequestParam(required = false) Rol rol,
-                                        @RequestParam(required = false) EstadoUsuario estado) {
-        return servicioGestionUsuarios.listar(pagina, tamano, rol, estado);
+                                        @RequestParam(required = false) EstadoUsuario estado,
+                                        @RequestParam(required = false) String busqueda) {
+        return servicioGestionUsuarios.listar(pagina, tamano, rol, estado, busqueda);
     }
 
     @PutMapping(path = RUTA_ID, consumes = MediaType.APPLICATION_JSON_VALUE)

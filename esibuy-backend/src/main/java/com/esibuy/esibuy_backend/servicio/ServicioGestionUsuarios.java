@@ -3,8 +3,11 @@ package com.esibuy.esibuy_backend.servicio;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -14,8 +17,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.data.mongodb.core.query.Query;
 
 import com.esibuy.esibuy_backend.dto.PaginaDTO;
 import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
@@ -39,6 +46,7 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 public class ServicioGestionUsuarios {
 
     static final int TAMANO_MAXIMO_PAGINA = 100;
+    static final int LONGITUD_MAXIMA_BUSQUEDA = 100;
     static final String MENSAJE_ADMINISTRADOR_CREADO = "La cuenta de administrador se ha creado correctamente";
 
     private static final ZoneId ZONA_APLICACION = ZoneId.of("Europe/Madrid");
@@ -68,6 +76,7 @@ public class ServicioGestionUsuarios {
     private final ValidadorContrasena validadorContrasena;
     private final PasswordEncoder codificadorContrasena;
     private final CatalogoAvatares catalogoAvatares;
+    private final MongoTemplate mongoTemplate;
     // para la fecha de incorporacion
     private final Clock reloj;
 
@@ -77,6 +86,7 @@ public class ServicioGestionUsuarios {
                                   ValidadorContrasena validadorContrasena,
                                   PasswordEncoder codificadorContrasena,
                                   CatalogoAvatares catalogoAvatares,
+                                  MongoTemplate mongoTemplate,
                                   Clock reloj) {
         this.repositorioUsuario = repositorioUsuario;
         this.repositorioProducto = repositorioProducto;
@@ -84,6 +94,7 @@ public class ServicioGestionUsuarios {
         this.validadorContrasena = validadorContrasena;
         this.codificadorContrasena = codificadorContrasena;
         this.catalogoAvatares = catalogoAvatares;
+        this.mongoTemplate = mongoTemplate;
         this.reloj = reloj;
     }
 
@@ -111,12 +122,16 @@ public class ServicioGestionUsuarios {
         return crearCuenta(datos, Rol.ADMIN, perfil);
     }
 
-    public PaginaDTO<UsuarioDTO> listar(int pagina, int tamano, Rol rol, EstadoUsuario estado) {
+    public PaginaDTO<UsuarioDTO> listar(int pagina, int tamano, Rol rol, EstadoUsuario estado, String busqueda) {
         // Math.clamp mantiene el tamano dentro del rango permitido; Sort.by usa un campo constante,
         // nunca un valor que venga del cliente.
         Pageable pageable = PageRequest.of(Math.max(0, pagina), Math.clamp(tamano, 1, TAMANO_MAXIMO_PAGINA),
                 Sort.by(CAMPO_EMAIL));
-        return PaginaDTO.desde(buscarPagina(rol, estado, pageable).map(UsuarioDTO::desde));
+        String texto = Normalizador.texto(busqueda);
+        if (texto != null && texto.length() > LONGITUD_MAXIMA_BUSQUEDA) {
+            texto = texto.substring(0, LONGITUD_MAXIMA_BUSQUEDA);
+        }
+        return PaginaDTO.desde(buscarPagina(rol, estado, texto, pageable).map(UsuarioDTO::desde));
     }
 
     public UsuarioDTO modificar(String id, SolicitudModificacionUsuarioDTO solicitud) {
@@ -260,6 +275,36 @@ public class ServicioGestionUsuarios {
         return repositorioUsuario.findByIdAndEstadoNot(id, EstadoUsuario.ELIMINADO)
                 .orElseThrow(UsuarioNoEncontradoException::new);
     }
+
+        /*
+     * Consulta con los filtros que vengan informados. Por defecto excluye los ELIMINADO. La busqueda divide el texto
+     * en palabras y cada palabra debe aparecer en el nombre, los apellidos o el email (sin distinguir mayusculas):
+     * asi "ana lopez" encuentra a Ana Lopez. Cada palabra se escapa con Pattern.quote, de modo que se busca tal cual
+     * y no se interpreta como expresion regular (evita ReDoS y patrones como ".*").
+     */
+    private Page<Usuario> buscarPagina(Rol rol, EstadoUsuario estado, String texto, Pageable pageable) {
+        List<Criteria> condiciones = new ArrayList<>();
+        condiciones.add(estado == null
+                ? Criteria.where("estado").ne(EstadoUsuario.ELIMINADO.name())
+                : Criteria.where("estado").is(estado.name()));
+        if (rol != null) {
+            condiciones.add(Criteria.where("rol").is(rol.name()));
+        }
+        if (texto != null) {
+            for (String palabra : texto.split("\\s+")) {
+                String patron = Pattern.quote(palabra);
+                condiciones.add(new Criteria().orOperator(
+                        Criteria.where("perfil.nombre").regex(patron, "i"),
+                        Criteria.where("perfil.apellidos").regex(patron, "i"),
+                        Criteria.where(CAMPO_EMAIL).regex(patron, "i")));
+            }
+        }
+        Query consulta = new Query(new Criteria().andOperator(condiciones)).with(pageable);
+        List<Usuario> contenido = mongoTemplate.find(consulta, Usuario.class);
+        return PageableExecutionUtils.getPage(contenido, pageable,
+                () -> mongoTemplate.count(Query.of(consulta).limit(-1).skip(-1), Usuario.class));
+    }
+
 
     // Datos del alta de administrador, ya normalizados.
     private record DatosAdministrador(String nombre, String apellidos, String email, String sede, String avatar,

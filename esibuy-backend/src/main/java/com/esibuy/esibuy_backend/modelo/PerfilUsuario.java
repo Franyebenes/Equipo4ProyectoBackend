@@ -1,7 +1,6 @@
 package com.esibuy.esibuy_backend.modelo;
 
 import java.time.LocalDate;
-import java.util.Objects;
 
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -98,9 +97,15 @@ public class PerfilUsuario {
                                           String sede) {
         this.nombre = nombre;
         this.apellidos = apellidos;
-        this.dni = Objects.requireNonNullElse(dni, this.dni);
-        this.telefono = Objects.requireNonNullElse(telefono, this.telefono);
-        this.sede = Objects.requireNonNullElse(sede, this.sede);    
+        // Un campo opcional que llega vacio (null) conserva su valor actual. No se usa Objects.requireNonNullElse:
+        // lanza NullPointerException si el valor actual tambien es null (p. ej. la sede de un cliente).
+        this.dni = conservarSiNulo(dni, this.dni);
+        this.telefono = conservarSiNulo(telefono, this.telefono);
+        this.sede = conservarSiNulo(sede, this.sede);
+    }
+
+    private static String conservarSiNulo(String nuevo, String actual) {
+        return nuevo != null ? nuevo : actual;
     }
 
     /** Sin datos personales: puede acabar en un log. */
