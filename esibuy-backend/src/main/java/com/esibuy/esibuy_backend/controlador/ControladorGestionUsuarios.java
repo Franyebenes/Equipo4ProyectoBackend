@@ -7,7 +7,7 @@ import com.esibuy.esibuy_backend.dto.SolicitudModificacionUsuarioDTO;
 import com.esibuy.esibuy_backend.dto.UsuarioDTO;
 import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
-import com.esibuy.esibuy_backend.servicio.ServicioGestionUsuario;
+import com.esibuy.esibuy_backend.servicio.ServicioGestionUsuarios;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,20 +18,20 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/admin/usuarios")
 @PreAuthorize("hasRole('ADMIN')") // to strict access to admin users only
-public class ControladorGestionUsuario {
+public class ControladorGestionUsuarios {
 
     private static final String RUTA_ID = "/{id}";
 
-    private final ServicioGestionUsuario servicioGestionUsuario;
+    private final ServicioGestionUsuarios servicioGestionUsuarios;
 
-    public ControladorGestionUsuario(ServicioGestionUsuario servicioGestionUsuario) {
-        this.servicioGestionUsuario = servicioGestionUsuario;
+    public ControladorGestionUsuarios(ServicioGestionUsuarios servicioGestionUsuarios) {
+        this.servicioGestionUsuarios = servicioGestionUsuarios;
     }
 
 
     @PostMapping(path = "/administradores", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<RespuestaRegistroDTO> crearAdministrador(@RequestBody SolicitudAltaAdministradorDTO solicitud) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(servicioGestionUsuario.crearAdministrador(solicitud));
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicioGestionUsuarios.crearAdministrador(solicitud));
     }
 
     @GetMapping
@@ -39,27 +39,27 @@ public class ControladorGestionUsuario {
                                         @RequestParam(defaultValue = "20") int tamano,
                                         @RequestParam(required = false) Rol rol,
                                         @RequestParam(required = false) EstadoUsuario estado) {
-        return servicioGestionUsuario.listar(pagina, tamano, rol, estado);
+        return servicioGestionUsuarios.listar(pagina, tamano, rol, estado);
     }
 
     @PutMapping(path = RUTA_ID, consumes = MediaType.APPLICATION_JSON_VALUE)
     public UsuarioDTO modificar(@PathVariable String id, @RequestBody SolicitudModificacionUsuarioDTO solicitud) {
-        return servicioGestionUsuario.modificar(id, solicitud);
+        return servicioGestionUsuarios.modificar(id, solicitud);
     }
 
     @PatchMapping(RUTA_ID + "/bloquear")
     public UsuarioDTO bloquear(@PathVariable String id, Authentication autenticacion) {
-        return servicioGestionUsuario.bloquear(id, autenticacion.getName());
+        return servicioGestionUsuarios.bloquear(id, autenticacion.getName());
     }
 
     @PatchMapping(RUTA_ID + "/desbloquear")
     public UsuarioDTO desbloquear(@PathVariable String id, Authentication autenticacion) {
-        return  servicioGestionUsuario.desbloquear(id, autenticacion.getName());
+        return  servicioGestionUsuarios.desbloquear(id, autenticacion.getName());
     }
 
     @DeleteMapping(RUTA_ID)
     public ResponseEntity<Void> eliminar(@PathVariable String id, Authentication autenticacion) {
-        servicioGestionUsuario.eliminar(id, autenticacion.getName());
+        servicioGestionUsuarios.eliminar(id, autenticacion.getName());
         return ResponseEntity.noContent().build();
     }
     
