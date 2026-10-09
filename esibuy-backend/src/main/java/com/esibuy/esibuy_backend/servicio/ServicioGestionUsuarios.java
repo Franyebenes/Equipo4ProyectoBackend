@@ -26,11 +26,13 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
+import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 
 @Service
@@ -56,12 +58,12 @@ public class ServicioGestionUsuarios {
     private static final Set<EstadoUsuario> PUEDEN_BLOQUEARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO);
     private static final Set<EstadoUsuario> PUEDEN_DESBLOQUEARSE = EnumSet.of(EstadoUsuario.BLOQUEADO, EstadoUsuario.DESACTIVADO);
-    private static final Set<EstadoUsuario> PUEDEN_ELIMINARSE =
-            EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO, EstadoUsuario.BLOQUEADO);
 
     private static final Logger log = LoggerFactory.getLogger(ServicioGestionUsuarios.class);
 
     private final RepositorioUsuario repositorioUsuario;
+    // para no eliminar a un vendedor que aun tiene productos
+    private final RepositorioProducto repositorioProducto;
     private final ValidadorDominioEmail validadorDominioEmail;
     private final ValidadorContrasena validadorContrasena;
     private final PasswordEncoder codificadorContrasena;
@@ -70,12 +72,14 @@ public class ServicioGestionUsuarios {
     private final Clock reloj;
 
     public ServicioGestionUsuarios(RepositorioUsuario repositorioUsuario,
+                                  RepositorioProducto repositorioProducto,
                                   ValidadorDominioEmail validadorDominioEmail,
                                   ValidadorContrasena validadorContrasena,
                                   PasswordEncoder codificadorContrasena,
                                   CatalogoAvatares catalogoAvatares,
                                   Clock reloj) {
         this.repositorioUsuario = repositorioUsuario;
+        this.repositorioProducto = repositorioProducto;
         this.validadorDominioEmail = validadorDominioEmail;
         this.validadorContrasena = validadorContrasena;
         this.codificadorContrasena = codificadorContrasena;
@@ -146,8 +150,21 @@ public class ServicioGestionUsuarios {
         return cambiarEstado(id, idSolicitante, PUEDEN_DESBLOQUEARSE, EstadoUsuario.ACTIVO);
     }
 
+    /*
+     * Borrado fisico: el documento desaparece de la BBDD. Un admin no puede eliminarse a si mismo (asi siempre queda
+     * al menos uno) y un vendedor con productos no se puede eliminar, para no dejar productos sin vendedor.
+     */
     public void eliminar(String id, String idSolicitante) {
-        cambiarEstado(id, idSolicitante, PUEDEN_ELIMINARSE, EstadoUsuario.ELIMINADO);
+        Usuario usuario = buscarNoEliminado(id);
+        if (usuario.getId().equals(idSolicitante)) {
+            throw new OperacionNoPermitidaException();
+        }
+        long productos = repositorioProducto.contarPorVendedor(new ObjectId(usuario.getId()));
+        if (productos > 0) {
+            throw new UsuarioConProductosException(usuario.getEmail(), productos);
+        }
+        repositorioUsuario.deleteById(usuario.getId());
+        log.info("Usuario eliminado: id={}", usuario.getId());
     }
 
     /* validacion */

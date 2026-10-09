@@ -14,4 +14,8 @@ public interface RepositorioProducto extends MongoRepository<Producto, String> {
     // idVendedor_1 del script de BBDD.
     @Query("{ 'idVendedor': ?0 }")
     List<Producto> buscarPorVendedor(ObjectId idVendedor);
+
+    // Numero de productos del vendedor: antes de eliminarlo, para no dejar productos huerfanos.
+    @Query(value = "{ 'idVendedor': ?0 }", count = true)
+    long contarPorVendedor(ObjectId idVendedor);
 }
