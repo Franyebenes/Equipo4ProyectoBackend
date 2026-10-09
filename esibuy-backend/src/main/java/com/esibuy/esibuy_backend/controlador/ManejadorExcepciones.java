@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -30,8 +31,11 @@ import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
+import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
@@ -60,6 +64,10 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
             "El servicio no esta disponible en este momento. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_ERROR_INESPERADO =
             "Se ha producido un error inesperado. Si persiste, indica este codigo al soporte";
+    static final String MENSAJE_ACCESO_DENEGADO = "No tienes permisos para realizar esta accion";
+    static final String MENSAJE_RECURSO_NO_ENCONTRADO = "Recurso no encontrado";
+    static final String MENSAJE_OPERACION_NO_PERMITIDA = "La operacion no esta permitida";
+
 
     private static final String CLAVE_ERRORES = "errores";
     private static final String CLAVE_MENSAJE = "mensaje";
@@ -113,6 +121,11 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
+    @ExceptionHandler(UsuarioConProductosException.class)
+    public ResponseEntity<Map<String, Object>> usuarioConProductos(UsuarioConProductosException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
     @ExceptionHandler(ProductoNoEncontradoException.class)
     public ResponseEntity<Map<String, Object>> productoNoEncontrado(ProductoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
@@ -134,6 +147,23 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> servicioNoDisponible(ServicioNoDisponibleException ex) {
         log.warn("Servicio externo no disponible", ex);
         return conCorrelationId(HttpStatus.SERVICE_UNAVAILABLE, MENSAJE_SERVICIO_NO_DISPONIBLE);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> accesoDenegado() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(CLAVE_MENSAJE, MENSAJE_ACCESO_DENEGADO));
+    }
+
+    @ExceptionHandler(UsuarioNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> usuarioNoEncontrado() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of(CLAVE_MENSAJE, MENSAJE_RECURSO_NO_ENCONTRADO));
+    }
+
+    @ExceptionHandler(OperacionNoPermitidaException.class)
+    public ResponseEntity<Map<String, Object>> operacionNoPermitida() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of(CLAVE_MENSAJE, MENSAJE_OPERACION_NO_PERMITIDA));
     }
 
     @ExceptionHandler(Exception.class)

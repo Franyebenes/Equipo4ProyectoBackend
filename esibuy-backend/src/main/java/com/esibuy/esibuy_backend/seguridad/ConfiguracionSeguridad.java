@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.modelo.Rol;
@@ -28,6 +29,7 @@ import com.esibuy.esibuy_backend.modelo.Rol;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // @PreAuthorize, @Secured, @RolesAllowed
 public class ConfiguracionSeguridad {
 
     /** Un ano: el HSTS que recomienda CCN-CERT BP/28 para que el navegador solo use HTTPS. */
@@ -55,6 +57,7 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/registro/**", "/api/public/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole(Rol.ADMIN.name())
                         .anyRequest().authenticated());
         return http.build();
     }

@@ -12,7 +12,7 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
  * Reglas de formato de los campos del registro. Son locales (no consultan la BBDD ni servicios externos) y reciben
  * los valores ya normalizados por {@link Normalizador}.
  */
-final class ReglasCampos {
+final class ReglasCampos{
 
     static final int EDAD_MINIMA = 18;
     /** Por encima de esta edad la fecha se considera un error al introducirla (CP-REG-35). */
@@ -77,6 +77,17 @@ final class ReglasCampos {
             errores.anadir(campo, CodigoError.FECHA_INVALIDA);
         } else if (Period.between(fechaNacimiento, hoy).getYears() < EDAD_MINIMA) {
             errores.anadir(campo, CodigoError.MENOR_DE_EDAD);
+        }
+    }
+
+    static void validarTextoOpcional(String campo, String valor, int longitudMaxima, ErroresValidacion errores) {
+        if (valor != null) {
+            if (valor.codePointCount(0, valor.length()) > longitudMaxima) {
+                errores.anadir(campo, CodigoError.LONGITUD_EXCESIVA);
+            }
+            if (CARACTERES_PROHIBIDOS.matcher(valor).find()) {
+                errores.anadir(campo, CodigoError.FORMATO_INVALIDO);
+            }
         }
     }
 }

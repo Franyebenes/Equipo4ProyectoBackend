@@ -26,6 +26,11 @@ public class PerfilUsuario {
     private String nombreComercial;
     @Field(name = "idCategoriaPrincipal", targetType = FieldType.OBJECT_ID)
     private String categoriaPrincipalId;
+    // datos del administrador
+    @Field("sede")
+    private String sede;
+    @Field("fechaIncorporacion")
+    private LocalDate fechaIncorporacion;
 
     /** Usado por Spring Data al leer de MongoDB. */
     protected PerfilUsuario() {
@@ -40,6 +45,8 @@ public class PerfilUsuario {
         this.avatarUrl = builder.avatarUrl;
         this.nombreComercial = builder.nombreComercial;
         this.categoriaPrincipalId = builder.categoriaPrincipalId;
+        this.sede = builder.sede;
+        this.fechaIncorporacion = builder.fechaIncorporacion;
     }
 
     public static Builder builder() {
@@ -78,6 +85,29 @@ public class PerfilUsuario {
         return categoriaPrincipalId;
     }
 
+    public String getSede() {
+        return sede;
+    }
+
+    public LocalDate getFechaIncorporacion() {
+        return fechaIncorporacion;
+    }
+
+    public void actualizarDatosPersonales(String nombre, String apellidos, String dni, String telefono,
+                                          String sede) {
+        this.nombre = nombre;
+        this.apellidos = apellidos;
+        // Un campo opcional que llega vacio (null) conserva su valor actual. No se usa Objects.requireNonNullElse:
+        // lanza NullPointerException si el valor actual tambien es null (p. ej. la sede de un cliente).
+        this.dni = conservarSiNulo(dni, this.dni);
+        this.telefono = conservarSiNulo(telefono, this.telefono);
+        this.sede = conservarSiNulo(sede, this.sede);
+    }
+
+    private static String conservarSiNulo(String nuevo, String actual) {
+        return nuevo != null ? nuevo : actual;
+    }
+
     /** Sin datos personales: puede acabar en un log. */
     @Override
     public String toString() {
@@ -95,6 +125,8 @@ public class PerfilUsuario {
         private String avatarUrl;
         private String nombreComercial;
         private String categoriaPrincipalId;
+        private String sede;
+        private LocalDate fechaIncorporacion;
 
         private Builder() {
         }
@@ -139,8 +171,20 @@ public class PerfilUsuario {
             return this;
         }
 
+        public Builder sede(String sede) {
+            this.sede = sede;
+            return this;
+        }
+
+        public Builder fechaIncorporacion(LocalDate fechaIncorporacion) {
+            this.fechaIncorporacion = fechaIncorporacion;
+            return this;
+        }
+
         public PerfilUsuario build() {
             return new PerfilUsuario(this);
         }
+
+        
     }
 }
