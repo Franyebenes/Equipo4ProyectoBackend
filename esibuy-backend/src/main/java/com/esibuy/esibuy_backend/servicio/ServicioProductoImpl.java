@@ -13,8 +13,11 @@ import java.util.stream.Collectors;
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
+
+import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
@@ -27,6 +30,10 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
  */
 @Service
 public class ServicioProductoImpl implements ServicioProducto {
+
+    // HU15.1: valores minimos del alta de producto
+    private static final double PRECIO_MINIMO = 0;
+    private static final int STOCK_MINIMO = 0;
 
     private final RepositorioProducto repositorioProducto;
     private final RepositorioCategoria repositorioCategoria;
@@ -55,6 +62,37 @@ public class ServicioProductoImpl implements ServicioProducto {
                 .filter(encontrado -> idVendedor.equals(encontrado.getIdVendedor()))
                 .orElseThrow(ProductoNoEncontradoException::new);
         return aDTO(producto, nombresDeCategorias(List.of(producto)));
+    }
+
+    // HU15.1 - Alta de producto. Si falta un campo obligatorio o es incorrecto: 400 con el motivo y no se guarda.
+        @Override
+    public ProductoCatalogoDTO crearProducto(String idVendedor, ProductoAltaDTO datos) {
+        if (vacio(datos.nombre()) || vacio(datos.descripcion()) || datos.precio() == null
+                || datos.stock() == null || datos.idCategorias() == null || datos.idCategorias().isEmpty()) {
+            throw new ProductoInvalidoException("Rellena todos los campos obligatorios");
+        }
+        if (datos.precio() <= PRECIO_MINIMO || datos.stock() < STOCK_MINIMO
+                || repositorioCategoria.findAllById(datos.idCategorias()).size() != datos.idCategorias().size()) {
+            throw new ProductoInvalidoException(
+                    "El precio debe ser mayor que 0, el stock no puede ser negativo y las categorías deben existir");
+        }
+
+        Producto producto = Producto.builder()
+                .idVendedor(idVendedor)
+                .idCategorias(datos.idCategorias())
+                .nombre(datos.nombre().strip())
+                .descripcion(datos.descripcion().strip())
+                .imagen(datos.imagen())
+                .precio(new PrecioProducto(datos.precio(), null, null))
+                .stock(datos.stock())
+                .visible(true)
+                .build();
+        Producto guardado = repositorioProducto.save(producto);
+        return aDTO(guardado, nombresDeCategorias(List.of(guardado)));
+    }
+
+    private static boolean vacio(String texto) {
+        return texto == null || texto.isBlank();
     }
 
     // Una sola consulta para las categorias de todos los productos, en vez de una por producto.
