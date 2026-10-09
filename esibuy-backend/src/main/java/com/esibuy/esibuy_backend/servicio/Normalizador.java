@@ -8,11 +8,11 @@ import java.util.regex.Pattern;
  * Normalizacion de las entradas del registro. Los valores ausentes o en blanco se devuelven como null para que
  * los campos opcionales no lleguen al documento.
  */
-final class NormalizadorRegistro {
+final class Normalizador {
 
     private static final Pattern ESPACIOS = Pattern.compile("\\s+");
 
-    private NormalizadorRegistro() {
+    private Normalizador() {
     }
 
     /** Nombres, apellidos, DNI...: sin espacios en los extremos y en NFC. Los espacios internos se mantienen. */

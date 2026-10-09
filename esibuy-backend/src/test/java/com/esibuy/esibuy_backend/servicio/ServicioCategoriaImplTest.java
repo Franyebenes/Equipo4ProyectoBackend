@@ -30,10 +30,10 @@ class ServicioCategoriaImplTest {
     void listarCategorias_devuelveIdYNombreOrdenadosAlfabeticamenteEnEspanol() {
         // Given: MongoDB las devuelve sin orden y una empieza por letra con tilde
         when(repositorioCategoria.findAll()).thenReturn(List.of(
-                new Categoria("3", "Moda"),
-                new Categoria("1", "Électronica"),
-                new Categoria("2", "Hogar"),
-                new Categoria("4", "Alimentación")));
+                                new Categoria("3", "Moda", "Ropa y complementos."),
+                new Categoria("1", "Électronica", "Móviles y ordenadores."),
+                new Categoria("2", "Hogar", "Muebles y decoración."),
+                new Categoria("4", "Alimentación", "Comida y bebida.")));
 
         // When
         List<CategoriaDTO> categorias = servicio.listarCategorias();
@@ -42,6 +42,7 @@ class ServicioCategoriaImplTest {
         assertThat(categorias).extracting(CategoriaDTO::nombre)
                 .containsExactly("Alimentación", "Électronica", "Hogar", "Moda");
         assertThat(categorias.get(0).id()).isEqualTo("4");
+        assertThat(categorias.get(0).descripcion()).isEqualTo("Comida y bebida.");
     }
 
     @Test

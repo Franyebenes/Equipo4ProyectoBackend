@@ -4,4 +4,8 @@ import com.esibuy.esibuy_backend.modelo.Categoria;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface RepositorioCategoria extends MongoRepository<Categoria, String> {
+    boolean existsByNombreIgnoreCase(String nombre);
+
+    // Al modificar, la propia categoria no cuenta como repetida
+    boolean existsByNombreIgnoreCaseAndIdNot(String nombre, String id);
 }

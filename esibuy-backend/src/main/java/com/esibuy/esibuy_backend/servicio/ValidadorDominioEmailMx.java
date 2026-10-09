@@ -72,7 +72,10 @@ public class ValidadorDominioEmailMx implements ValidadorDominioEmail {
 
     /** Dominio tras la arroba, en ASCII (los dominios con tildes o ñ se consultan en su forma punycode). */
     private static String dominioEnAscii(String email) {
-        int arroba = email == null ? -1 : email.lastIndexOf('@');
+        if (email == null) {
+            return null;
+        }
+        int arroba = email.lastIndexOf('@');
         if (arroba < 0 || arroba == email.length() - 1) {
             return null;
         }

@@ -20,8 +20,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
+import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
+import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
+import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
+import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
+import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
@@ -31,6 +39,8 @@ import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
+
+
 
 /**
  * Traduce las excepciones a respuestas HTTP sin filtrar detalles internos (CP-CTR-02 a 05, CP-SEG-09/10/11,
@@ -48,6 +58,7 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     static final String MENSAJE_PETICION_INVALIDA = "La peticion no es valida";
     static final String MENSAJE_CUERPO_DEMASIADO_GRANDE = "La peticion es demasiado grande";
+    static final String MENSAJE_DEMASIADOS_INTENTOS = "Demasiados intentos. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_SERVICIO_NO_DISPONIBLE =
             "El servicio no esta disponible en este momento. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_ERROR_INESPERADO =
@@ -62,15 +73,56 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ManejadorExcepciones.class);
 
-    @ExceptionHandler(DatosRegistroInvalidosException.class)
-    public ResponseEntity<Map<String, Object>> datosInvalidos(DatosRegistroInvalidosException ex) {
+    /** Datos de registro o de inicio de sesion no validos: los mismos errores por campo en ambos casos. */
+    @ExceptionHandler(DatosInvalidosException.class)
+    public ResponseEntity<Map<String, Object>> datosInvalidos(DatosInvalidosException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_ERRORES, ex.getErrores()));
+    }
+
+    /** Siempre el mismo 401 y el mismo mensaje, sin WWW-Authenticate: no distingue el motivo del rechazo. */
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<Map<String, Object>> credencialesInvalidas(CredencialesInvalidasException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    /** Contrasena correcta pero cuenta sin activar: 403 con un codigo estable (un 403 de CSRF no lleva cuerpo). */
+    @ExceptionHandler(CuentaPendienteActivacionException.class)
+    public ResponseEntity<Map<String, Object>> cuentaPendienteDeActivacion(CuentaPendienteActivacionException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of(CLAVE_MENSAJE, ex.getMessage(), "codigo", CuentaPendienteActivacionException.CODIGO));
+    }
+
+    @ExceptionHandler(LoginBloqueadoTemporalmenteException.class)
+    public ResponseEntity<Map<String, Object>> loginBloqueado(LoginBloqueadoTemporalmenteException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosRestantes()))
+                .body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
     }
 
     @ExceptionHandler(RegistroNoCompletadoException.class)
     public ResponseEntity<Map<String, Object>> registroNoCompletado() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of(CLAVE_MENSAJE, RegistroNoCompletadoException.MENSAJE_GENERICO));
+    }
+
+        @ExceptionHandler(CategoriaNoEncontradaException.class)
+    public ResponseEntity<Map<String, Object>> categoriaNoEncontrada(CategoriaNoEncontradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoriaConProductosException.class)
+    public ResponseEntity<Map<String, Object>> categoriaConProductos(CategoriaConProductosException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoriaDuplicadaException.class)
+    public ResponseEntity<Map<String, Object>> categoriaDuplicada(CategoriaDuplicadaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProductoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> productoNoEncontrado(ProductoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     @ExceptionHandler(CuerpoDemasiadoGrandeException.class)
