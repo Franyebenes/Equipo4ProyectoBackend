@@ -33,6 +33,7 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 
 import tools.jackson.databind.DatabindException;
@@ -116,6 +117,11 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CategoriaDuplicadaException.class)
     public ResponseEntity<Map<String, Object>> categoriaDuplicada(CategoriaDuplicadaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(UsuarioConProductosException.class)
+    public ResponseEntity<Map<String, Object>> usuarioConProductos(UsuarioConProductosException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
