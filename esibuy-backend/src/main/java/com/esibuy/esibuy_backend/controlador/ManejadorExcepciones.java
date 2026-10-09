@@ -29,6 +29,7 @@ import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
+import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
@@ -122,6 +123,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ProductoNoEncontradoException.class)
     public ResponseEntity<Map<String, Object>> productoNoEncontrado(ProductoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // HU15.1: faltan campos obligatorios del producto o alguno no es valido
+    @ExceptionHandler(ProductoInvalidoException.class)
+    public ResponseEntity<Map<String, Object>> productoInvalido(ProductoInvalidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     @ExceptionHandler(CuerpoDemasiadoGrandeException.class)
