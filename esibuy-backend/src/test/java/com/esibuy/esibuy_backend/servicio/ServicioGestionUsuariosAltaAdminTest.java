@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -43,7 +44,7 @@ class ServicioGestionUsuariosAltaAdminTest extends ServicioGestionUsuariosBase {
         ArgumentCaptor<Usuario> guardado = ArgumentCaptor.forClass(Usuario.class);
         verify(repositorioUsuario).save(guardado.capture());
         assertThat(guardado.getValue().getRoles()).containsExactly(Rol.ADMIN);
-        assertThat(guardado.getValue().getPerfil().getFechaIncorporacion()).isEqualTo(LocalDate.of(2026, 10, 9));
+        assertThat(guardado.getValue().getPerfil().getFechaIncorporacion()).isEqualTo(LocalDate.of(2026, Month.OCTOBER, 9));
         assertThat(respuesta.email()).isEqualTo(EMAIL_NUEVO_ADMIN);
     }
 
@@ -52,17 +53,21 @@ class ServicioGestionUsuariosAltaAdminTest extends ServicioGestionUsuariosBase {
         // Given
         when(validadorDominioEmail.tieneDominioValido(EMAIL_NUEVO_ADMIN)).thenReturn(true);
         when(repositorioUsuario.existePorEmail(EMAIL_NUEVO_ADMIN)).thenReturn(true);
+        var solicitud = solicitudAlta(CONTRASENA, CONTRASENA);
 
         // When / Then
-        assertThatThrownBy(() -> servicio.crearAdministrador(solicitudAlta(CONTRASENA, CONTRASENA)))
+        assertThatThrownBy(() -> servicio.crearAdministrador(solicitud))
                 .isInstanceOf(RegistroNoCompletadoException.class);
         verify(repositorioUsuario, never()).save(any());
     }
 
     @Test
     void crearAdministrador_contrasenasDistintas_rechazaAntesDeComprobarElEmail() {
+        // Given
+        var solicitud = solicitudAlta(CONTRASENA, "Otra.Contrasena2026");
+
         // When / Then
-        assertThatThrownBy(() -> servicio.crearAdministrador(solicitudAlta(CONTRASENA, "Otra.Contrasena2026")))
+        assertThatThrownBy(() -> servicio.crearAdministrador(solicitud))
                 .isInstanceOf(RuntimeException.class);
         verifyNoInteractions(validadorDominioEmail);
         verify(repositorioUsuario, never()).save(any());
@@ -72,9 +77,10 @@ class ServicioGestionUsuariosAltaAdminTest extends ServicioGestionUsuariosBase {
     void crearAdministrador_dominioDeEmailInexistente_rechazaYNoGuarda() {
         // Given
         when(validadorDominioEmail.tieneDominioValido(EMAIL_NUEVO_ADMIN)).thenReturn(false);
+        var solicitud = solicitudAlta(CONTRASENA, CONTRASENA);
 
         // When / Then
-        assertThatThrownBy(() -> servicio.crearAdministrador(solicitudAlta(CONTRASENA, CONTRASENA)))
+        assertThatThrownBy(() -> servicio.crearAdministrador(solicitud))
                 .isInstanceOf(RuntimeException.class);
         verify(repositorioUsuario, never()).save(any());
     }
@@ -83,9 +89,10 @@ class ServicioGestionUsuariosAltaAdminTest extends ServicioGestionUsuariosBase {
     void crearAdministrador_servicioDeDominiosCaido_devuelveServicioNoDisponible() {
         // Given
         when(validadorDominioEmail.tieneDominioValido(anyString())).thenThrow(new RuntimeException("DNS caido"));
+        var solicitud = solicitudAlta(CONTRASENA, CONTRASENA);
 
         // When / Then
-        assertThatThrownBy(() -> servicio.crearAdministrador(solicitudAlta(CONTRASENA, CONTRASENA)))
+        assertThatThrownBy(() -> servicio.crearAdministrador(solicitud))
                 .isInstanceOf(ServicioNoDisponibleException.class);
         verify(repositorioUsuario, never()).save(any());
     }
