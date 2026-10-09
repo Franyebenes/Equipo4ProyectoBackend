@@ -34,7 +34,7 @@ import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 
 @Service
-public class ServicioGestionUsuario {
+public class ServicioGestionUsuarios {
 
     static final int TAMANO_MAXIMO_PAGINA = 100;
     static final String MENSAJE_ADMINISTRADOR_CREADO = "La cuenta de administrador se ha creado correctamente";
@@ -59,7 +59,7 @@ public class ServicioGestionUsuario {
     private static final Set<EstadoUsuario> PUEDEN_ELIMINARSE =
             EnumSet.of(EstadoUsuario.ACTIVO, EstadoUsuario.DESACTIVADO, EstadoUsuario.BLOQUEADO);
 
-    private static final Logger log = LoggerFactory.getLogger(ServicioGestionUsuario.class);
+    private static final Logger log = LoggerFactory.getLogger(ServicioGestionUsuarios.class);
 
     private final RepositorioUsuario repositorioUsuario;
     private final ValidadorDominioEmail validadorDominioEmail;
@@ -69,7 +69,7 @@ public class ServicioGestionUsuario {
     // para la fecha de incorporacion
     private final Clock reloj;
 
-    public ServicioGestionUsuario(RepositorioUsuario repositorioUsuario,
+    public ServicioGestionUsuarios(RepositorioUsuario repositorioUsuario,
                                   ValidadorDominioEmail validadorDominioEmail,
                                   ValidadorContrasena validadorContrasena,
                                   PasswordEncoder codificadorContrasena,
@@ -90,10 +90,10 @@ public class ServicioGestionUsuario {
                 solicitud.repetirContrasena());
 
         // Validar los datos personales y la contraseña, acumulando errores
-        ErroresRegistro errores = validarAltaAdministrador(datos);
+        ErroresValidacion errores = validarAltaAdministrador(datos);
         errores.lanzarSiHay();
 
-        ErroresRegistro erroresExternos = new ErroresRegistro();
+        ErroresValidacion erroresExternos = new ErroresValidacion();
         comprobarDominioEmail(datos.email(), erroresExternos);
         erroresExternos.lanzarSiHay();
 
@@ -116,19 +116,19 @@ public class ServicioGestionUsuario {
     }
 
     public UsuarioDTO modificar(String id, SolicitudModificacionUsuarioDTO solicitud) {
-        String nombre = NormalizadorRegistro.texto(solicitud.nombre());
-        String apellidos = NormalizadorRegistro.texto(solicitud.apellidos());
-        String dni = NormalizadorRegistro.texto(solicitud.dni());
-        String telefono = NormalizadorRegistro.texto(solicitud.telefono());
-        String sede = NormalizadorRegistro.texto(solicitud.sede());
+        String nombre = Normalizador.texto(solicitud.nombre());
+        String apellidos = Normalizador.texto(solicitud.apellidos());
+        String dni = Normalizador.texto(solicitud.dni());
+        String telefono = Normalizador.texto(solicitud.telefono());
+        String sede = Normalizador.texto(solicitud.sede());
 
         int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
-        ErroresRegistro errores = new ErroresRegistro();
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, nombre, max, errores);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, apellidos, max, errores);
-        ReglasCamposRegistro.validarTextoOpcional(CAMPO_DNI, dni, max, errores);
-        ReglasCamposRegistro.validarTelefono(CAMPO_TELEFONO, telefono, errores);
-        ReglasCamposRegistro.validarTextoOpcional(CAMPO_SEDE, sede, max, errores);
+        ErroresValidacion errores = new ErroresValidacion();
+        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE, nombre, max, errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_APELLIDOS, apellidos, max, errores);
+        ReglasCampos.validarTextoOpcional(CAMPO_DNI, dni, max, errores);
+        ReglasCampos.validarTelefono(CAMPO_TELEFONO, telefono, errores);
+        ReglasCampos.validarTextoOpcional(CAMPO_SEDE, sede, max, errores);
         errores.lanzarSiHay();
 
         Usuario usuario = buscarNoEliminado(id);
@@ -152,13 +152,13 @@ public class ServicioGestionUsuario {
 
     /* validacion */
 
-    private ErroresRegistro validarAltaAdministrador(DatosAdministrador datos) {
-        ErroresRegistro errores = new ErroresRegistro();
+    private ErroresValidacion validarAltaAdministrador(DatosAdministrador datos) {
+        ErroresValidacion errores = new ErroresValidacion();
         int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), max, errores);
-        ReglasCamposRegistro.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), max, errores);
-        ReglasCamposRegistro.validarEmail(CAMPO_EMAIL, datos.email(), errores);
-        ReglasCamposRegistro.validarTextoOpcional(CAMPO_SEDE, datos.sede(), max, errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE, datos.nombre(), max, errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_APELLIDOS, datos.apellidos(), max, errores);
+        ReglasCampos.validarEmail(CAMPO_EMAIL, datos.email(), errores);
+        ReglasCampos.validarTextoOpcional(CAMPO_SEDE, datos.sede(), max, errores);
         if (datos.avatar() != null && !catalogoAvatares.esAvatarValido(datos.avatar())) {
             errores.anadir(CAMPO_AVATAR, CodigoError.AVATAR_NO_PERMITIDO);
         }
@@ -166,7 +166,7 @@ public class ServicioGestionUsuario {
         return errores;
     }
 
-    private void validarContrasena(DatosAdministrador datos, ErroresRegistro errores) {
+    private void validarContrasena(DatosAdministrador datos, ErroresValidacion errores) {
         DatosPersonalesContrasena datosPersonales =
                 new DatosPersonalesContrasena(datos.nombre(), datos.apellidos(), datos.email(), null);
         errores.anadirTodos(CAMPO_CONTRASENA, validadorContrasena.validar(datos.contrasena(), datosPersonales));
@@ -177,7 +177,7 @@ public class ServicioGestionUsuario {
     }
 
     // Si el servicio de dominios falla, se aborta el alta con un error controlado (CP-REG-25).
-    private void comprobarDominioEmail(String email, ErroresRegistro errores) {
+    private void comprobarDominioEmail(String email, ErroresValidacion errores) {
         boolean dominioValido;
         try {
             dominioValido = validadorDominioEmail.tieneDominioValido(email);
@@ -251,13 +251,13 @@ public class ServicioGestionUsuario {
         static DatosAdministrador normalizar(String nombre, String apellidos, String email, String sede,
                                              String avatar, String contrasena, String repetirContrasena) {
             return new DatosAdministrador(
-                    NormalizadorRegistro.texto(nombre),
-                    NormalizadorRegistro.texto(apellidos),
-                    NormalizadorRegistro.email(email),
-                    NormalizadorRegistro.texto(sede),
-                    NormalizadorRegistro.texto(avatar),
-                    NormalizadorRegistro.contrasena(contrasena),
-                    NormalizadorRegistro.contrasena(repetirContrasena));
+                 Normalizador.texto(nombre),
+                 Normalizador.texto(apellidos),
+                 Normalizador.email(email),
+                 Normalizador.texto(sede),
+                 Normalizador.texto(avatar),
+                 Normalizador.contrasena(contrasena),
+                 Normalizador.contrasena(repetirContrasena));
         }
 
         // Contiene la contrasena: nunca debe acabar en un log.
