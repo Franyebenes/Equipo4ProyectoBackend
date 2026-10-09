@@ -7,7 +7,6 @@ import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

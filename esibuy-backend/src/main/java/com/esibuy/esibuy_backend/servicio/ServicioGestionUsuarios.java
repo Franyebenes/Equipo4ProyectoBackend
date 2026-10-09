@@ -138,16 +138,16 @@ public class ServicioGestionUsuarios {
         return UsuarioDTO.desde(guardado);
     }
 
-    public UsuarioDTO bloquear(String id, String emailSolicitante) {
-        return cambiarEstado(id, emailSolicitante, PUEDEN_BLOQUEARSE, EstadoUsuario.BLOQUEADO);
+     public UsuarioDTO bloquear(String id, String idSolicitante) {
+        return cambiarEstado(id, idSolicitante, PUEDEN_BLOQUEARSE, EstadoUsuario.BLOQUEADO);
     }
 
-    public UsuarioDTO desbloquear(String id, String emailSolicitante) {
-        return cambiarEstado(id, emailSolicitante, PUEDEN_DESBLOQUEARSE, EstadoUsuario.ACTIVO);
+    public UsuarioDTO desbloquear(String id, String idSolicitante) {
+        return cambiarEstado(id, idSolicitante, PUEDEN_DESBLOQUEARSE, EstadoUsuario.ACTIVO);
     }
 
-    public void eliminar(String id, String emailSolicitante) {
-        cambiarEstado(id, emailSolicitante, PUEDEN_ELIMINARSE, EstadoUsuario.ELIMINADO);
+    public void eliminar(String id, String idSolicitante) {
+        cambiarEstado(id, idSolicitante, PUEDEN_ELIMINARSE, EstadoUsuario.ELIMINADO);
     }
 
     /* validacion */
@@ -212,11 +212,11 @@ public class ServicioGestionUsuarios {
         }
     }
 
-    private UsuarioDTO cambiarEstado(String id, String emailSolicitante, Set<EstadoUsuario> origenesValidos,
+    private UsuarioDTO cambiarEstado(String id, String idSolicitante, Set<EstadoUsuario> origenesValidos,
                                      EstadoUsuario destino) {
         Usuario usuario = buscarNoEliminado(id);
-        // Sin distinguir mayusculas: el email se guarda en minusculas, pero el nombre autenticado puede variar.
-        if (usuario.getEmail().equalsIgnoreCase(emailSolicitante) || !origenesValidos.contains(usuario.getEstado())) {
+        // El principal de la sesion es el id del usuario (EstablecedorSesion): un admin no puede cambiarse a si mismo.
+        if (usuario.getId().equals(idSolicitante) || !origenesValidos.contains(usuario.getEstado())) {
             throw new OperacionNoPermitidaException();
         }
         usuario.cambiarEstado(destino);
