@@ -94,7 +94,7 @@ public class PerfilUsuario {
     }
 
     public void actualizarDatosPersonales(String nombre, String apellidos, String dni, String telefono,
-                                          String sede) {
+                                          String sede, LocalDate fechaNacimiento, String nombreComercial, String categoriaPrincipalId, String avatarUrl) {
         this.nombre = nombre;
         this.apellidos = apellidos;
         // Un campo opcional que llega vacio (null) conserva su valor actual. No se usa Objects.requireNonNullElse:
@@ -102,9 +102,14 @@ public class PerfilUsuario {
         this.dni = conservarSiNulo(dni, this.dni);
         this.telefono = conservarSiNulo(telefono, this.telefono);
         this.sede = conservarSiNulo(sede, this.sede);
+        this.fechaNacimiento = conservarSiNulo(fechaNacimiento, this.fechaNacimiento);
+        this.nombreComercial = conservarSiNulo(nombreComercial, this.nombreComercial);
+        this.categoriaPrincipalId = conservarSiNulo(categoriaPrincipalId, this.categoriaPrincipalId);
+        this.avatarUrl = conservarSiNulo(avatarUrl, this.avatarUrl);
     }
 
-    private static String conservarSiNulo(String nuevo, String actual) {
+    // para aceptar localdate tambien
+    private static <T> T conservarSiNulo(T nuevo, T actual) {
         return nuevo != null ? nuevo : actual;
     }
 
