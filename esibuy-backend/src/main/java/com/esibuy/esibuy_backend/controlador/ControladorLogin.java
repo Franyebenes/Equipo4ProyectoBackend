@@ -59,7 +59,7 @@ public class ControladorLogin {
         establecedorSesion.establecer(peticion, resultado);
 
         return ResponseEntity.ok(new RespuestaLoginDTO(resultado.id(), resultado.email(), resultado.nombre(),
-                resultado.rol(), MENSAJE_LOGIN_CORRECTO));
+                resultado.rol(), resultado.avatar(), MENSAJE_LOGIN_CORRECTO));
     }
 
     //Token CSRF que el formulario de login debe enviar en la cabecera indicada. 

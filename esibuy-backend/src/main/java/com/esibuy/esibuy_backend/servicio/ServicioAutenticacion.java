@@ -109,7 +109,7 @@ public class ServicioAutenticacion {
         limitador.registrarExito(email);
         auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
         return new ResultadoAutenticacion(usuario.getId(), usuario.getEmail(), usuario.getPerfil().getNombre(),
-                rol.get());
+                rol.get(), usuario.getPerfil().getAvatarUrl());
     }
 
     // Un bloqueo temporal (cuenta o IP) se rechaza tal cual, pero antes queda constancia en la auditoria.
