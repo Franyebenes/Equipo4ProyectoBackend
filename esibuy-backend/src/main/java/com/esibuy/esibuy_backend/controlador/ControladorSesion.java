@@ -27,11 +27,11 @@ public class ControladorSesion {
     public ResponseEntity<UsuarioActualDTO> usuarioActual(HttpServletRequest peticion) {
         HttpSession sesion = peticion.getSession(false);
         if (sesion == null
-                || !(sesion.getAttribute(EstablecedorSesion.ATRIBUTO_USUARIO) instanceof ResultadoAutenticacion usuario)) {
+                || !(sesion.getAttribute(EstablecedorSesion.ATRIBUTO_USUARIO)
+                        instanceof ResultadoAutenticacion(var id, var email, var nombre, var rol, var avatar))) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(new UsuarioActualDTO(usuario.id(), usuario.email(), usuario.nombre(), usuario.rol(),
-                usuario.avatar()));
+        return ResponseEntity.ok(new UsuarioActualDTO(id, email, nombre, rol, avatar));
     }
 
     /** Invalida la sesion. Exige token CSRF y es idempotente: sin sesion tambien responde 204. */

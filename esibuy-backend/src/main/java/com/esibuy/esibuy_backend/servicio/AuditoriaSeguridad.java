@@ -11,6 +11,7 @@ import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
  * Eventos de auditoria y alertas de seguridad del inicio de sesion. Una linea por evento, con una palabra clave y los
  * datos en forma clave=valor. El correo siempre va enmascarado y los textos que controla el cliente, saneados; nunca
  * se escribe una contrasena ni un hash. Tambien es el {@link AlertasSeguridad} real del limitador de login.
+ * Cada evento comprueba antes si su nivel de log esta activo, para no enmascarar ni sanear datos que no se van a escribir.
  */
 @Component
 public class AuditoriaSeguridad implements AlertasSeguridad {
@@ -18,25 +19,33 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     private static final Logger log = LoggerFactory.getLogger(AuditoriaSeguridad.class);
 
     public void registrarLoginCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
-        log.info("LOGIN_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
-                EnmascaradorDatosLog.texto(idUsuario));
+        if (log.isInfoEnabled()) {
+            log.info("LOGIN_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
     }
 
     /** El motivo interno solo queda en este evento: la respuesta al cliente es siempre la misma. */
     public void registrarLoginFallido(ContextoPeticion contexto, String correo, MotivoFalloLogin motivo) {
-        log.warn("LOGIN_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo), motivo);
+        if (log.isWarnEnabled()) {
+            log.warn("LOGIN_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo), motivo);
+        }
     }
 
     @Override
     public void ipEnModoAdaptativo(String ip, int usuariosDistintos) {
-        log.warn("ALERTA_SEGURIDAD tipo=IP_MODO_ADAPTATIVO ip={} usuarios={}", EnmascaradorDatosLog.texto(ip),
-                usuariosDistintos);
+        if (log.isWarnEnabled()) {
+            log.warn("ALERTA_SEGURIDAD tipo=IP_MODO_ADAPTATIVO ip={} usuarios={}", EnmascaradorDatosLog.texto(ip),
+                    usuariosDistintos);
+        }
     }
 
     @Override
     public void cuentaBloqueada(String correo, String ip, long segundosDeBloqueo) {
-        log.warn("ALERTA_SEGURIDAD tipo=BLOQUEO_CUENTA email={} ip={} segundos={}",
-                EnmascaradorDatosLog.correo(correo), EnmascaradorDatosLog.texto(ip), segundosDeBloqueo);
+        if (log.isWarnEnabled()) {
+            log.warn("ALERTA_SEGURIDAD tipo=BLOQUEO_CUENTA email={} ip={} segundos={}",
+                    EnmascaradorDatosLog.correo(correo), EnmascaradorDatosLog.texto(ip), segundosDeBloqueo);
+        }
     }
 
     private static String datosDeLaPeticion(ContextoPeticion contexto, String correo) {

@@ -95,7 +95,7 @@ class ControladorSesionTest {
 
         // Then: exactamente esos campos, sin identificador de sesión ni secretos
         Map<String, Object> campos = JsonPath.read(resultado.getResponse().getContentAsString(StandardCharsets.UTF_8), "$");
-        assertThat(campos.keySet()).containsExactlyInAnyOrder("id", "email", "nombre", "rol");
+                assertThat(campos.keySet()).containsExactlyInAnyOrder("id", "email", "nombre", "rol", "avatar");
     }
 
     @Test

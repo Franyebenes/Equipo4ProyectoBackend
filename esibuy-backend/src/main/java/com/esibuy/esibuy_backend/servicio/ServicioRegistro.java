@@ -37,8 +37,6 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
  *   <li>Solo con datos bien formados: comprobar el dominio del email y, en vendedores, el nombre comercial y la
  *       categoria. Asi no se lanzan consultas con datos basura ni esperas DNS innecesarias.</li>
  *   <li>Comprobar que el email no esta registrado ({@link RegistroNoCompletadoException}, mensaje generico).</li>
- *   <li>Codificar la contrasena (solo ahora, cuando todo es valido) y guardar la cuenta con un unico rol y
- *       desactivada.</li>
  * </ol>
  */
 @Service

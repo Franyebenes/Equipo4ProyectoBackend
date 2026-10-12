@@ -25,7 +25,7 @@ final class ReglasCampos{
     /** Formato basico de email ya en minusculas: parte local, arroba unica y dominio con TLD. */
     private static final Pattern FORMATO_EMAIL =
             Pattern.compile("^[a-z0-9._%+-]+@(?:[a-z0-9]++(?:-++[a-z0-9]++)*+\\.)++[a-z]{2,}$");
-    private static final Pattern FORMATO_TELEFONO = Pattern.compile("^[0-9]{9}$");
+    private static final Pattern FORMATO_TELEFONO = Pattern.compile("^\\d{9}$");
 
     private ReglasCampos() {
     }

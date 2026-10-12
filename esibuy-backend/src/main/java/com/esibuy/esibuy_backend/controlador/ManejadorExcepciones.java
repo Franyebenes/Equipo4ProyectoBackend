@@ -182,7 +182,7 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {
         Map<String, Set<CodigoError>> errores = errorEnCampo(ex);
-        if (errores == null) {
+        if (errores.isEmpty()) {
             return handleExceptionInternal(ex, null, headers, status, request);
         }
         return ResponseEntity.badRequest().body(Map.of(CLAVE_ERRORES, errores));
@@ -201,7 +201,7 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
      * <ul>
      *   <li>Falta {@code tipoCuenta} o su valor no es CLIENTE, PREMIUM ni VENDEDOR: error en {@code tipoCuenta}.</li>
      *   <li>Valor de un campo conocido con formato incorrecto: {@code FORMATO_INVALIDO} en ese campo.</li>
-     *   <li>Campo desconocido o JSON roto: null (mensaje generico, sin repetir lo que envio el cliente).</li>
+     *   <li>Campo desconocido o JSON roto: mapa vacio (mensaje generico, sin repetir lo que envio el cliente).</li>
      * </ul>
      */
     private static Map<String, Set<CodigoError>> errorEnCampo(HttpMessageNotReadableException ex) {
@@ -216,10 +216,10 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
                 boolean campoConocido = !(error instanceof UnrecognizedPropertyException) && !error.getPath().isEmpty();
                 return campoConocido
                         ? Map.of(error.getPath().get(0).getPropertyName(), Set.of(CodigoError.FORMATO_INVALIDO))
-                        : null;
+                        : Map.of();
             }
         }
-        return null;
+        return Map.of();
     }
 
     private static String mensajePara(HttpStatusCode estado) {
