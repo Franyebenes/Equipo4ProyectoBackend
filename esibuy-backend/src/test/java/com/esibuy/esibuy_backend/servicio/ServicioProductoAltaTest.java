@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
@@ -27,6 +28,7 @@ import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.util.Constantes;
 
 /**
  * HU-15.1 Alta de producto: se guarda con el vendedor de la sesion, visible y sin descuentos; y no se guarda nada si
@@ -158,5 +160,46 @@ class ServicioProductoAltaTest {
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(MENSAJE_VALORES);
         verify(repositorioProducto, never()).save(any());
+    }
+        @ParameterizedTest
+    @ValueSource(strings = {"Lámpara <b>", "Moda & Co", "Bolso$", "Camiseta_2", "Café!", "{\"$gt\": \"\"}"})
+    void crearProducto_nombreConCaracteresEspeciales_lanzaExcepcionYNoGuarda(String nombre) {
+        // Given
+        ProductoAltaDTO datos = alta(nombre, "Lámpara de sobremesa.", 10.0, List.of(ID_HOGAR), 1);
+
+        // When / Then
+        assertThatThrownBy(() -> servicio.crearProducto(ID_VENDEDOR, datos))
+                .isInstanceOf(ProductoInvalidoException.class)
+                .hasMessage(Constantes.MENSAJE_NOMBRE_NO_PERMITIDO);
+        verify(repositorioProducto, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<script>alert(1)</script>", "100% algodón", "Escríbeme a correo@dominio.com", "Precio: $10"})
+    void crearProducto_descripcionConCaracteresEspeciales_lanzaExcepcionYNoGuarda(String descripcion) {
+        // Given
+        ProductoAltaDTO datos = alta("Lámpara", descripcion, 10.0, List.of(ID_HOGAR), 1);
+
+        // When / Then
+        assertThatThrownBy(() -> servicio.crearProducto(ID_VENDEDOR, datos))
+                .isInstanceOf(ProductoInvalidoException.class)
+                .hasMessage(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
+        verify(repositorioProducto, never()).save(any());
+    }
+
+    @Test
+    void crearProducto_conTildesEnesYPuntuacionBasica_seGuarda() {
+        // Given: las letras del espanol y los signos basicos si estan permitidos
+        when(repositorioCategoria.findAllById(any()))
+                .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
+        when(repositorioProducto.save(any(Producto.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
+        ProductoAltaDTO datos = alta("Pañuelo de algodón 2", "¿Buscas regalo? ¡Ideal para niños! (talla única), "
+                + "color: azul; lavable a 30 grados - sin secadora.", 10.0, List.of(ID_HOGAR), 1);
+
+        // When
+        servicio.crearProducto(ID_VENDEDOR, datos);
+
+        // Then
+        verify(repositorioProducto).save(any(Producto.class));
     }
 }

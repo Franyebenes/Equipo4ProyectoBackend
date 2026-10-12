@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.util.Constantes;
 
 /**
  * Productos del vendedor de la sesion: su catalogo propio (listado y detalle). Solo se leen los productos cuyo
@@ -34,7 +36,11 @@ public class ServicioProductoImpl implements ServicioProducto {
     // HU15.1: valores minimos del alta de producto
     private static final double PRECIO_MINIMO = 0;
     private static final int STOCK_MINIMO = 0;
-
+    
+    // Sin caracteres especiales en el nombre ni en la descripcion (mismas reglas que las categorias)
+    private static final Pattern NOMBRE_PERMITIDO = Pattern.compile(Constantes.PATRON_NOMBRE);
+    private static final Pattern DESCRIPCION_PERMITIDA = Pattern.compile(Constantes.PATRON_DESCRIPCION);
+    
     private final RepositorioProducto repositorioProducto;
     private final RepositorioCategoria repositorioCategoria;
 
@@ -70,6 +76,12 @@ public class ServicioProductoImpl implements ServicioProducto {
         if (vacio(datos.nombre()) || vacio(datos.descripcion()) || datos.precio() == null
                 || datos.stock() == null || datos.idCategorias() == null || datos.idCategorias().isEmpty()) {
             throw new ProductoInvalidoException("Rellena todos los campos obligatorios");
+        }
+        if (!NOMBRE_PERMITIDO.matcher(datos.nombre().strip()).matches()) {
+            throw new ProductoInvalidoException(Constantes.MENSAJE_NOMBRE_NO_PERMITIDO);
+        }
+        if (!DESCRIPCION_PERMITIDA.matcher(datos.descripcion().strip()).matches()) {
+            throw new ProductoInvalidoException(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
         }
         if (datos.precio() <= PRECIO_MINIMO || datos.stock() < STOCK_MINIMO
                 || repositorioCategoria.findAllById(datos.idCategorias()).size() != datos.idCategorias().size()) {
