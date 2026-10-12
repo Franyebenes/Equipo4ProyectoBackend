@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.modelo;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -65,8 +66,10 @@ public class Usuario {
     }
 
     public void actualizarDatosPersonales(String nombre, String apellidos, String dni, String telefono,
-                                          String sede) {
-        perfil.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede);
+                                          String sede, LocalDate fechaNacimiento, String nombreComercial,
+                                          String categoriaPrincipalId, String avatarUrl) {
+        perfil.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede,
+                fechaNacimiento, nombreComercial, categoriaPrincipalId, avatarUrl);
     }
 
     @Override

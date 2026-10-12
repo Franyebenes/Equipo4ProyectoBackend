@@ -26,7 +26,8 @@ class ServicioGestionUsuariosModificarTest extends ServicioGestionUsuariosBase {
         existeEnBaseDeDatos(usuario);
         guardarDevuelveLoMismo();
         SolicitudModificacionUsuarioDTO solicitud =
-                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", "12345678Z", "612345678", "Ciudad Real");
+                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", "12345678Z", "612345678", "Ciudad Real",
+                        null, null, null, null);
 
         // When
         UsuarioDTO resultado = servicio.modificar(ID_USUARIO, solicitud);
@@ -43,7 +44,7 @@ class ServicioGestionUsuariosModificarTest extends ServicioGestionUsuariosBase {
     void modificar_nombreVacio_rechazaSinTocarLaBaseDeDatos() {
         // Given
         SolicitudModificacionUsuarioDTO solicitud =
-                new SolicitudModificacionUsuarioDTO("", "Garcia", null, null, null);
+                new SolicitudModificacionUsuarioDTO("", "Garcia", null, null, null, null, null, null, null);
 
         // When / Then
         assertThatThrownBy(() -> servicio.modificar(ID_USUARIO, solicitud))
@@ -55,7 +56,7 @@ class ServicioGestionUsuariosModificarTest extends ServicioGestionUsuariosBase {
     void modificar_telefonoInvalido_rechazaSinTocarLaBaseDeDatos() {
         // Given
         SolicitudModificacionUsuarioDTO solicitud =
-                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", null, "123", null);
+                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", null, "123", null, null, null, null, null);
 
         // When / Then
         assertThatThrownBy(() -> servicio.modificar(ID_USUARIO, solicitud))
@@ -68,7 +69,7 @@ class ServicioGestionUsuariosModificarTest extends ServicioGestionUsuariosBase {
         // Given
         noExisteEnBaseDeDatos(ID_USUARIO);
         SolicitudModificacionUsuarioDTO solicitud =
-                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", null, null, null);
+                new SolicitudModificacionUsuarioDTO("Ana", "Garcia", null, null, null, null, null, null, null);
 
         // When / Then
         assertThatThrownBy(() -> servicio.modificar(ID_USUARIO, solicitud))

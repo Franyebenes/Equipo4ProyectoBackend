@@ -23,6 +23,7 @@ import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
+import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 
@@ -48,13 +49,15 @@ abstract class ServicioGestionUsuariosBase {
     @Mock protected PasswordEncoder codificadorContrasena;
     @Mock protected CatalogoAvatares catalogoAvatares;
     @Mock protected MongoTemplate mongoTemplate;
+    @Mock protected RepositorioCategoria repositorioCategoria;
 
     protected ServicioGestionUsuarios servicio;
 
     @BeforeEach
     void crearServicio() {
         servicio = new ServicioGestionUsuarios(repositorioUsuario, repositorioProducto, validadorDominioEmail,
-                validadorContrasena, codificadorContrasena, catalogoAvatares, mongoTemplate, RELOJ);
+                validadorContrasena, codificadorContrasena, catalogoAvatares, mongoTemplate,
+                repositorioCategoria, RELOJ);
     }
 
     protected Usuario usuario(String id, Rol rol, EstadoUsuario estado) {

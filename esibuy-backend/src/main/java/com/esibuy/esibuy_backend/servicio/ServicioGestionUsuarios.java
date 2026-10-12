@@ -41,6 +41,7 @@ import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
+import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 
 @Service
 public class ServicioGestionUsuarios {
@@ -61,6 +62,9 @@ public class ServicioGestionUsuarios {
     private static final String CAMPO_AVATAR = "avatar";
     private static final String CAMPO_CONTRASENA = "contrasena";
     private static final String CAMPO_REPETIR_CONTRASENA = "repetirContrasena";
+    private static final String CAMPO_CATEGORIA_PRINCIPAL = "categoriaPrincipalId";
+    private static final String CAMPO_FECHA_NACIMIENTO = "fechaNacimiento";
+    private static final String CAMPO_NOMBRE_COMERCIAL = "nombreComercial";
 
     // Estados de usuario que pueden pasar a otro estado mediante la API de administración
     private static final Set<EstadoUsuario> PUEDEN_BLOQUEARSE =
@@ -77,6 +81,7 @@ public class ServicioGestionUsuarios {
     private final PasswordEncoder codificadorContrasena;
     private final CatalogoAvatares catalogoAvatares;
     private final MongoTemplate mongoTemplate;
+    private final RepositorioCategoria repositorioCategoria;
     // para la fecha de incorporacion
     private final Clock reloj;
 
@@ -87,6 +92,7 @@ public class ServicioGestionUsuarios {
                                   PasswordEncoder codificadorContrasena,
                                   CatalogoAvatares catalogoAvatares,
                                   MongoTemplate mongoTemplate,
+                                  RepositorioCategoria repositorioCategoria,
                                   Clock reloj) {
         this.repositorioUsuario = repositorioUsuario;
         this.repositorioProducto = repositorioProducto;
@@ -95,6 +101,7 @@ public class ServicioGestionUsuarios {
         this.codificadorContrasena = codificadorContrasena;
         this.catalogoAvatares = catalogoAvatares;
         this.mongoTemplate = mongoTemplate;
+        this.repositorioCategoria = repositorioCategoria;
         this.reloj = reloj;
     }
 
@@ -140,7 +147,12 @@ public class ServicioGestionUsuarios {
         String dni = Normalizador.texto(solicitud.dni());
         String telefono = Normalizador.texto(solicitud.telefono());
         String sede = Normalizador.texto(solicitud.sede());
+        String nombreComercial = Normalizador.nombreComercial(solicitud.nombreComercial());
+        String categoriaPrincipalId = Normalizador.texto(solicitud.categoriaPrincipalId());
+        String avatar = Normalizador.texto(solicitud.avatar());
+        LocalDate fechaNacimiento = solicitud.fechaNacimiento();
 
+        // fromato de los campos
         int max = ServicioRegistro.LONGITUD_MAXIMA_CAMPO_TEXTO;
         ErroresValidacion errores = new ErroresValidacion();
         ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE, nombre, max, errores);
@@ -148,10 +160,46 @@ public class ServicioGestionUsuarios {
         ReglasCampos.validarTextoOpcional(CAMPO_DNI, dni, max, errores);
         ReglasCampos.validarTelefono(CAMPO_TELEFONO, telefono, errores);
         ReglasCampos.validarTextoOpcional(CAMPO_SEDE, sede, max, errores);
+        ReglasCampos.validarTextoOpcional(CAMPO_NOMBRE_COMERCIAL, nombreComercial, max, errores);
+        if (fechaNacimiento != null) {
+            ReglasCampos.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, fechaNacimiento,
+                    LocalDate.now(reloj.withZone(ZONA_APLICACION)), errores);
+        }
+        if (categoriaPrincipalId != null) {
+            ReglasCampos.validarCategoriaPrincipal(CAMPO_CATEGORIA_PRINCIPAL, categoriaPrincipalId, errores);
+        }
+        if (avatar != null && !catalogoAvatares.esAvatarValido(avatar)) {
+            errores.anadir(CAMPO_AVATAR, CodigoError.AVATAR_NO_PERMITIDO);
+        }
         errores.lanzarSiHay();
 
         Usuario usuario = buscarNoEliminado(id);
-        usuario.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede);
+        boolean esVendedor = usuario.getRoles().contains(Rol.VENDEDOR);
+        boolean esCliente = usuario.getRoles().contains(Rol.CLIENTE) || usuario.getRoles().contains(Rol.PREMIUM);
+        // solo se aplican los campos propios de cada tipo de usuario
+        if(!esCliente){
+            fechaNacimiento = null;
+        }
+        if(!esVendedor){
+            nombreComercial = null;
+            categoriaPrincipalId = null;
+        }
+
+        // 2) Comprobaciones contra la BBDD
+        ErroresValidacion erroresExternos = new ErroresValidacion();
+        // Si el vendedor mantiene su propio nombre, no cuenta como duplicado
+        if (nombreComercial != null
+                && !nombreComercial.equalsIgnoreCase(usuario.getPerfil().getNombreComercial())
+                && repositorioUsuario.existePorNombreComercial(Normalizador.claveNombreComercial(nombreComercial))) {
+            erroresExternos.anadir(CAMPO_NOMBRE_COMERCIAL, CodigoError.NOMBRE_COMERCIAL_DUPLICADO);
+        }
+        if (categoriaPrincipalId != null && !repositorioCategoria.existsById(categoriaPrincipalId)) {
+            erroresExternos.anadir(CAMPO_CATEGORIA_PRINCIPAL, CodigoError.CATEGORIA_INEXISTENTE);
+        }
+        erroresExternos.lanzarSiHay();
+
+        usuario.actualizarDatosPersonales(nombre, apellidos, dni, telefono, sede,
+                fechaNacimiento, nombreComercial, categoriaPrincipalId, avatar);
         Usuario guardado = repositorioUsuario.save(usuario);
         log.info("Usuario modificado: id={}", guardado.getId());
         return UsuarioDTO.desde(guardado);
@@ -255,17 +303,6 @@ public class ServicioGestionUsuarios {
         Usuario guardado = repositorioUsuario.save(usuario);
         log.info("Estado de usuario cambiado: id={}, nuevoEstado={}", guardado.getId(), destino);
         return UsuarioDTO.desde(guardado);
-    }
-
-    private Page<Usuario> buscarPagina(Rol rol, EstadoUsuario estado, Pageable pageable) {
-        if (rol == null) {
-            return estado == null
-                    ? repositorioUsuario.findByEstadoNot(EstadoUsuario.ELIMINADO, pageable)
-                    : repositorioUsuario.findByEstado(estado, pageable);
-        }
-        return estado == null
-                ? repositorioUsuario.findPorRolExcluyendoEstado(rol, EstadoUsuario.ELIMINADO, pageable)
-                : repositorioUsuario.findPorRolYEstado(rol, estado, pageable);
     }
 
     private Usuario buscarNoEliminado(String id) {
