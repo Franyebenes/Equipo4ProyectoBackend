@@ -30,7 +30,8 @@ public class ControladorSesion {
                 || !(sesion.getAttribute(EstablecedorSesion.ATRIBUTO_USUARIO) instanceof ResultadoAutenticacion usuario)) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(new UsuarioActualDTO(usuario.id(), usuario.email(), usuario.nombre(), usuario.rol()));
+        return ResponseEntity.ok(new UsuarioActualDTO(usuario.id(), usuario.email(), usuario.nombre(), usuario.rol(),
+                usuario.avatar()));
     }
 
     /** Invalida la sesion. Exige token CSRF y es idempotente: sin sesion tambien responde 204. */
