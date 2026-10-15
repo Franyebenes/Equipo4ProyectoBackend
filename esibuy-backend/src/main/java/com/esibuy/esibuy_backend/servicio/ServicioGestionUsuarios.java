@@ -213,13 +213,13 @@ public class ServicioGestionUsuarios {
         return cambiarEstado(id, idSolicitante, PUEDEN_DESBLOQUEARSE, EstadoUsuario.ACTIVO);
     }
 
-    /*
-     * Borrado fisico: el documento desaparece de la BBDD. Un admin no puede eliminarse a si mismo (asi siempre queda
-     * al menos uno) y un vendedor con productos no se puede eliminar, para no dejar productos sin vendedor.
+        /*
+     * Borrado fisico: solo se pueden eliminar otros administradores, nunca a uno mismo
+     * (asi siempre queda al menos uno). Clientes y vendedores no se eliminan desde aqui.
      */
     public void eliminar(String id, String idSolicitante) {
         Usuario usuario = buscarNoEliminado(id);
-        if (usuario.getId().equals(idSolicitante)) {
+        if (usuario.getId().equals(idSolicitante) || !usuario.getRoles().contains(Rol.ADMIN)) {
             throw new OperacionNoPermitidaException();
         }
         long productos = repositorioProducto.contarPorVendedor(new ObjectId(usuario.getId()));
@@ -229,7 +229,6 @@ public class ServicioGestionUsuarios {
         repositorioUsuario.deleteById(usuario.getId());
         log.info("Usuario eliminado: id={}", usuario.getId());
     }
-
     /* validacion */
 
     private ErroresValidacion validarAltaAdministrador(DatosAdministrador datos) {
