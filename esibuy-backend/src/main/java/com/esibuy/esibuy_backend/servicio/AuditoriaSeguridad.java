@@ -25,6 +25,17 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
+    /**
+     * Contrasena correcta pero cuenta aun sin activar. No es un login fallido (no suma al limitador ni sale como
+     * LOGIN_FALLIDO), pero queda constancia: el cliente recibe la respuesta generica y este evento es el unico lugar
+     * donde se ve por que no pudo entrar.
+     */
+    public void registrarLoginCuentaNoActiva(ContextoPeticion contexto, String correo) {
+        if (log.isInfoEnabled()) {
+            log.info("LOGIN_CUENTA_NO_ACTIVA {}", datosDeLaPeticion(contexto, correo));
+        }
+    }
+
     /** El motivo interno solo queda en este evento: la respuesta al cliente es siempre la misma. */
     public void registrarLoginFallido(ContextoPeticion contexto, String correo, MotivoFalloLogin motivo) {
         if (log.isWarnEnabled()) {
