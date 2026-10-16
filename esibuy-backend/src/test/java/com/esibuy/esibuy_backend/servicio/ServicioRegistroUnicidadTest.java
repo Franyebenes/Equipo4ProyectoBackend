@@ -123,6 +123,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
                 () -> servicio.registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida().construir()));
 
         // Then
+        
         assertThat(porComprobacionPrevia.getMessage())
                 .isEqualTo(RegistroNoCompletadoException.MENSAJE_GENERICO)
                 .isEqualTo(porMayusculas.getMessage())
