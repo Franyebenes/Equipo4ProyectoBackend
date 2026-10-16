@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
+import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 
 /*
  * Eventos de auditoria y alertas de seguridad del inicio de sesion. Una linea por evento, con una palabra clave y los
@@ -25,7 +26,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    /**
+    /*
      * Contrasena correcta pero cuenta aun sin activar. No es un login fallido (no suma al limitador ni sale como
      * LOGIN_FALLIDO), pero queda constancia: el cliente recibe la respuesta generica y este evento es el unico lugar
      * donde se ve por que no pudo entrar.
@@ -36,7 +37,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    /**
+    /*
      * Un correo no pudo entregarse. Solo se escribe el NOMBRE de la clase del fallo: su mensaje puede traer
      * direcciones, servidores o credenciales, y el cuerpo del correo lleva el token de recuperacion.
      */
@@ -45,6 +46,36 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
             log.warn("CORREO_ENVIO_FALLIDO email={} causa={} correlationId={}", EnmascaradorDatosLog.correo(destinatario),
                     causa == null ? "desconocida" : causa.getClass().getSimpleName(),
                     EnmascaradorDatosLog.texto(MDC.get(FiltroCorrelacionId.CLAVE_MDC)));
+        }
+    }
+
+    /** Cuenta activa que pide recuperar la contrasena: se le envia el enlace. Tests: CP-REC-30. */
+    public void registrarRecuperacionSolicitada(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("RECUPERACION_SOLICITADA {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    /** Cuenta pendiente de activacion: se le envia el aviso, sin enlace. Tests: CP-REC-31. */
+    public void registrarRecuperacionCuentaNoActiva(ContextoPeticion contexto, String correo) {
+        if (log.isInfoEnabled()) {
+            log.info("RECUPERACION_CUENTA_NO_ACTIVA {}", datosDeLaPeticion(contexto, correo));
+        }
+    }
+
+    /** Cuenta bloqueada (u otro estado que no puede recuperar): no se envia nada. Tests: CP-REC-32. */
+    public void registrarRecuperacionCuentaNoApta(ContextoPeticion contexto, String correo, EstadoUsuario estado) {
+        if (log.isWarnEnabled()) {
+            log.warn("RECUPERACION_CUENTA_NO_APTA {} estado={}", datosDeLaPeticion(contexto, correo),
+                    estado == null ? "(desconocido)" : estado.name());
+        }
+    }
+
+    /** Correo no registrado: no se envia nada y el cliente no lo sabe. Tests: CP-REC-33. */
+    public void registrarRecuperacionEmailDesconocido(ContextoPeticion contexto, String correo) {
+        if (log.isInfoEnabled()) {
+            log.info("RECUPERACION_EMAIL_DESCONOCIDO {}", datosDeLaPeticion(contexto, correo));
         }
     }
 
