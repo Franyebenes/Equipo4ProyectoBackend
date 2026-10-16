@@ -8,6 +8,7 @@ db.productos.drop();
 db.pedidos.drop();
 db.valoraciones.drop();
 db.incidencias.drop();
+db.tokens_recuperacion.drop();
 
 // ==========================================
 // 1. COLECCIÓN: USUARIOS (users)
@@ -181,3 +182,33 @@ db.createCollection("incidencias", {
       }
    }
 });
+
+// ==========================================
+// 7. COLECCIÓN: TOKENS_RECUPERACION (recuperación de contraseña)
+// Debe ser idéntica a scripts_auxiliares/migracion-recuperacion-contrasena.js (lo comprueba un test).
+// ==========================================
+db.createCollection("tokens_recuperacion", {
+   validator: {
+      $jsonSchema: {
+         bsonType: "object",
+         required: [ "idUsuario", "hashToken", "estado", "creadoEn", "caducaEn" ],
+         additionalProperties: false, // por ejemplo, impide guardar un campo "token" con el valor en claro
+         properties: {
+            _id: { bsonType: "objectId" },
+            idUsuario: { bsonType: "objectId" },
+            hashToken: { bsonType: "string", pattern: "^[0-9a-f]{64}$" }, // SHA-256 en hexadecimal minúscula
+            estado: { enum: [ "VIGENTE", "USADO", "INVALIDADO" ] },
+            creadoEn: { bsonType: "date" },
+            caducaEn: { bsonType: "date" },
+            usadoEn: { bsonType: "date" }
+         }
+      }
+   }
+});
+
+db.tokens_recuperacion.createIndex({ "hashToken": 1 }, { unique: true });
+// MongoDB borra el documento 24 h después de caducaEn (así un enlace ya usado reutilizado al día siguiente sigue
+// identificándose como "ya usado")
+db.tokens_recuperacion.createIndex({ "caducaEn": 1 }, { expireAfterSeconds: 86400 });
+// Un solo token VIGENTE por usuario, garantizado por la base de datos aunque dos solicitudes coincidan
+db.tokens_recuperacion.createIndex({ "idUsuario": 1, "estado": 1 }, { unique: true, partialFilterExpression: { "estado": "VIGENTE" } });
