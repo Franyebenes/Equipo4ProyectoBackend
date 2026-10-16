@@ -33,3 +33,6 @@ build/
 .vscode/
 .scannerwork/
 .env
+
+#documentación interna
+.docx

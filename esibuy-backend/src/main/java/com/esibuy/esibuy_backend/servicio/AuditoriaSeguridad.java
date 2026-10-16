@@ -36,6 +36,18 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
+    /**
+     * Un correo no pudo entregarse. Solo se escribe el NOMBRE de la clase del fallo: su mensaje puede traer
+     * direcciones, servidores o credenciales, y el cuerpo del correo lleva el token de recuperacion.
+     */
+    public void registrarFalloEnvioCorreo(String destinatario, Throwable causa) {
+        if (log.isWarnEnabled()) {
+            log.warn("CORREO_ENVIO_FALLIDO email={} causa={} correlationId={}", EnmascaradorDatosLog.correo(destinatario),
+                    causa == null ? "desconocida" : causa.getClass().getSimpleName(),
+                    EnmascaradorDatosLog.texto(MDC.get(FiltroCorrelacionId.CLAVE_MDC)));
+        }
+    }
+
     /** El motivo interno solo queda en este evento: la respuesta al cliente es siempre la misma. */
     public void registrarLoginFallido(ContextoPeticion contexto, String correo, MotivoFalloLogin motivo) {
         if (log.isWarnEnabled()) {
