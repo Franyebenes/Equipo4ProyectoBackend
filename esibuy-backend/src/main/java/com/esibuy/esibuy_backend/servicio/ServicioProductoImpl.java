@@ -36,6 +36,10 @@ public class ServicioProductoImpl implements ServicioProducto {
     // HU15.1: valores minimos del alta de producto
     private static final double PRECIO_MINIMO = 0;
     private static final int STOCK_MINIMO = 0;
+    // Descuento en porcentaje, con el mismo rango que el esquema de la BBDD (precio.descuento)
+    private static final double DESCUENTO_MINIMO = 0;
+    private static final double DESCUENTO_MAXIMO = 100;
+    static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
     
     // Sin caracteres especiales en el nombre ni en la descripcion (mismas reglas que las categorias)
     private static final Pattern NOMBRE_PERMITIDO = Pattern.compile(Constantes.PATRON_NOMBRE);
@@ -71,6 +75,7 @@ public class ServicioProductoImpl implements ServicioProducto {
     }
 
     // HU15.1 - Alta de producto. Si falta un campo obligatorio o es incorrecto: 400 con el motivo y no se guarda.
+    // El vendedor elige si el producto queda activo y, opcionalmente, un descuento (porcentaje sobre el precio).
         @Override
     public ProductoCatalogoDTO crearProducto(String idVendedor, ProductoAltaDTO datos) {
         if (vacio(datos.nombre()) || vacio(datos.descripcion()) || datos.precio() == null
@@ -82,6 +87,10 @@ public class ServicioProductoImpl implements ServicioProducto {
         }
         if (!DESCRIPCION_PERMITIDA.matcher(datos.descripcion().strip()).matches()) {
             throw new ProductoInvalidoException(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
+        }
+        if (datos.descuento() != null
+                && (datos.descuento() < DESCUENTO_MINIMO || datos.descuento() > DESCUENTO_MAXIMO)) {
+            throw new ProductoInvalidoException(MENSAJE_DESCUENTO_INVALIDO);
         }
         if (datos.precio() <= PRECIO_MINIMO || datos.stock() < STOCK_MINIMO
                 || repositorioCategoria.findAllById(datos.idCategorias()).size() != datos.idCategorias().size()) {
@@ -95,9 +104,10 @@ public class ServicioProductoImpl implements ServicioProducto {
                 .nombre(datos.nombre().strip())
                 .descripcion(datos.descripcion().strip())
                 .imagen(datos.imagen())
-                .precio(new PrecioProducto(datos.precio(), null, null))
+                .precio(new PrecioProducto(datos.precio(), datos.descuento(), null))
                 .stock(datos.stock())
-                .visible(true)
+                // Si el vendedor no lo indica, el producto se crea activo (visible para los clientes)
+                .visible(!Boolean.FALSE.equals(datos.activo()))
                 .build();
         Producto guardado = repositorioProducto.save(producto);
         return aDTO(guardado, nombresDeCategorias(List.of(guardado)));

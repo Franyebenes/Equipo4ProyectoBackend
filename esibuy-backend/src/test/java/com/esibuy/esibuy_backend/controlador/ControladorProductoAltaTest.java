@@ -44,7 +44,7 @@ class ControladorProductoAltaTest {
     private static final String RUTA = "/api/vendedor/productos";
 
     private static final ProductoAltaDTO ALTA_VALIDA =
-            new ProductoAltaDTO("Lampara", "Lampara de sobremesa.", 80.0, List.of(ID_HOGAR), 4, null);
+            new ProductoAltaDTO("Lampara", "Lampara de sobremesa.", 80.0, List.of(ID_HOGAR), 4, null, null, null);
     private static final ProductoCatalogoDTO LAMPARA = new ProductoCatalogoDTO(ID_PRODUCTO, "Lampara",
             "Lampara de sobremesa.", null, List.of("Hogar"), 80.0, null, null, 4, true);
 
@@ -75,6 +75,22 @@ class ControladorProductoAltaTest {
                 .andExpect(jsonPath("$.stock").value(4))
                 .andExpect(jsonPath("$.visible").value(true));
         verify(servicioProducto).crearProducto(ID_VENDEDOR, ALTA_VALIDA);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void crear_conActivoYDescuento_pasaLosValoresAlServicio() throws Exception {
+        // Given: el vendedor lo crea desactivado y con un 15 % de descuento
+        ProductoAltaDTO esperado = new ProductoAltaDTO("Lampara", "Lampara de sobremesa.", 80.0, List.of(ID_HOGAR), 4,
+                null, false, 15.0);
+        String sinCerrar = cuerpo(null).substring(0, cuerpo(null).length() - 1);
+        String cuerpo = sinCerrar + ",\"activo\":false,\"descuento\":15.0}";
+        when(servicioProducto.crearProducto(ID_VENDEDOR, esperado)).thenReturn(LAMPARA);
+
+        // When / Then
+        mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isCreated());
+        verify(servicioProducto).crearProducto(ID_VENDEDOR, esperado);
     }
 
     @Test
