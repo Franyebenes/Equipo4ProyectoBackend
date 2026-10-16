@@ -178,14 +178,16 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
 
     @Test
     void login_tras_registrarseConLasMismasCredenciales_devuelve200YCreaLaSesion() throws Exception { // CP-LIN-01
-        // Given: un cliente recién registrado; hasta que un administrador lo activa no puede entrar (403 pendiente)
+        // Given: un cliente recién registrado; hasta que un administrador lo activa no puede entrar
         String email = "lin01@ejemplo.es";
         mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
                 objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
                         .conEmail(email).construir()))).andExpect(status().isCreated());
-        // Con la contraseña correcta se le dice que su cuenta está pendiente; con una incorrecta no se revela nada
-        login(email, CONTRASENA).andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("CUENTA_PENDIENTE_DE_ACTIVACION"));
+        // Con la contraseña correcta o con una incorrecta recibe el mismo rechazo genérico: no se le dice que la
+        // cuenta está desactivada
+        login(email, CONTRASENA).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje").value("Credenciales invalidas"))
+                .andExpect(jsonPath("$.codigo").doesNotExist());
         login(email, CONTRASENA_INCORRECTA).andExpect(status().isUnauthorized());
 
         // When: se activa la cuenta y se inicia sesión con las mismas credenciales del registro
@@ -220,6 +222,25 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
                 .isEqualTo(cabecerasComparables(correoDesconocido.getResponse()));
         assertThat(cuerpoDe(contrasenaMala)).doesNotContain("$argon2id").doesNotContain(hashGuardado);
         assertThat(cuerpoDe(correoDesconocido)).doesNotContain("$argon2id");
+    }
+
+    @Test
+    void login_cuentaDesactivadaConContrasenaCorrecta_respondeExactamenteIgualQueContrasenaIncorrecta() throws Exception { // CP-LIN-03
+        // Given: una cuenta recién registrada, sin activar
+        String email = "lin03b@ejemplo.es";
+        mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
+                objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
+                        .conEmail(email).construir()))).andExpect(status().isCreated());
+
+        // When
+        MvcResult desactivada = login(email, CONTRASENA).andExpect(status().isUnauthorized()).andReturn();
+        MvcResult contrasenaMala = login(email, CONTRASENA_INCORRECTA).andExpect(status().isUnauthorized()).andReturn();
+
+        // Then: mismo cuerpo y mismas cabeceras (salvo correlationId y fecha), y sin sesión
+        assertThat(cuerpoDe(desactivada)).isEqualTo(cuerpoDe(contrasenaMala));
+        assertThat(cabecerasComparables(desactivada.getResponse()))
+                .isEqualTo(cabecerasComparables(contrasenaMala.getResponse()));
+        assertThat(desactivada.getRequest().getSession(false)).isNull();
     }
 
     // ------------------------------------------------------------------ CP-LIN-05

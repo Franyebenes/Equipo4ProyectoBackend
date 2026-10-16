@@ -411,6 +411,57 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
     }
 
     @Test
+    void registrarCliente_contrasenaSinComposicion_rechazaEnElCampoContrasenaSinCodificar() { // CP-PWD-19
+        // Given: 12 letras minusculas, sin mayuscula, numero ni caracter especial
+        SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida()
+                .conContrasena("abcdefghijkl").construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarClienteEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getErrores().get("contrasena")).containsExactlyInAnyOrder(
+                CodigoError.CONTRASENA_SIN_MAYUSCULA,
+                CodigoError.CONTRASENA_SIN_NUMERO,
+                CodigoError.CONTRASENA_SIN_CARACTER_ESPECIAL);
+        verify(codificador, never()).encode(any());
+        verificarQueNoSeGuardoNingunUsuario();
+    }
+
+    @Test
+    void registrarVendedor_contrasenaSinComposicion_rechazaEnElCampoContrasenaSinCodificar() { // CP-PWD-19
+        // Given: 12 letras mayusculas, sin minuscula, numero ni caracter especial
+        SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida()
+                .conContrasena("ABCDEFGHIJKL").construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarVendedorEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getErrores().get("contrasena")).containsExactlyInAnyOrder(
+                CodigoError.CONTRASENA_SIN_MINUSCULA,
+                CodigoError.CONTRASENA_SIN_NUMERO,
+                CodigoError.CONTRASENA_SIN_CARACTER_ESPECIAL);
+        verify(codificador, never()).encode(any());
+        verificarQueNoSeGuardoNingunUsuario();
+    }
+
+    @Test
+    void registrarCliente_contrasenaSinComposicion_elMensajeNoIncluyeLaContrasena() { // CP-PWD-13
+        // Given
+        String contrasenaDebil = "abcdefghijkl";
+        SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida()
+                .conContrasena(contrasenaDebil).construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarClienteEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getMessage()).doesNotContain(contrasenaDebil);
+        assertThat(excepcion.toString()).doesNotContain(contrasenaDebil);
+    }
+
+    @Test
     void registrarCliente_contrasenaInvalida_losErroresNuncaIncluyenLaContrasenaIntroducida() { // CP-PWD-13
         // Given
         String contrasenaComun = "password1";
