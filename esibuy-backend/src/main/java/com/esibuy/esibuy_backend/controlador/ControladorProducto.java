@@ -34,12 +34,18 @@ public class ControladorProducto {
         this.servicioProducto = servicioProducto;
     }
 
-    // Buscar en catalogo propio: ?busqueda= filtra por nombre (completo o parcial). Sin parametros, todo el catalogo.
+    // Buscar y filtrar el catalogo propio. Todos los parametros son opcionales y se pueden combinar: busqueda (nombre
+    // completo o parcial), idCategoria, activo (true/false) y rango de precio. Sin parametros, todo el catalogo.
     @GetMapping
     @PreAuthorize("hasRole('VENDEDOR')")
-    public ResponseEntity<List<ProductoCatalogoDTO>> listarMisProductos(Authentication autenticacion,
-                                                                        @RequestParam(required = false) String busqueda) {
-        FiltroCatalogo filtro = new FiltroCatalogo(busqueda);
+    public ResponseEntity<List<ProductoCatalogoDTO>> listarMisProductos(
+            Authentication autenticacion,
+            @RequestParam(required = false) String busqueda,
+            @RequestParam(required = false) String idCategoria,
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) Double precioMinimo,
+            @RequestParam(required = false) Double precioMaximo) {
+        FiltroCatalogo filtro = new FiltroCatalogo(busqueda, idCategoria, activo, precioMinimo, precioMaximo);
         return ResponseEntity.ok(servicioProducto.listarProductosDelVendedor(autenticacion.getName(), filtro));
     }
 

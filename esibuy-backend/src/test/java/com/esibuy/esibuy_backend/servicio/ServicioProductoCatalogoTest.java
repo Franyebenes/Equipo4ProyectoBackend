@@ -28,7 +28,7 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 
 /**
  * HU-15.2 Ver catalogo propio: solo los productos del vendedor, con sus categorias por nombre y ordenados; detalle
- * de un producto propio, de otro vendedor e inexistente. HU Buscar en catalogo propio: solo los que coinciden.
+ * de un producto propio, de otro vendedor e inexistente. HU Buscar y Filtrar catalogo propio: solo los que cumplen.
  */
 @ExtendWith(MockitoExtension.class)
 class ServicioProductoCatalogoTest {
@@ -105,7 +105,7 @@ class ServicioProductoCatalogoTest {
 
         // When
         List<ProductoCatalogoDTO> productos =
-                servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara"));
+                servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara", null, null, null, null));
 
         // Then: el bolso no aparece y solo se piden las categorias de los productos encontrados
         assertThat(productos).extracting(ProductoCatalogoDTO::nombre)
@@ -120,8 +120,27 @@ class ServicioProductoCatalogoTest {
                 producto("2", ID_VENDEDOR, "Bolso de piel", List.of(ID_MODA))));
 
         // When / Then
-        assertThat(servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara"))).isEmpty();
+        assertThat(servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara", null, null, null, null))).isEmpty();
         verify(repositorioCategoria, never()).findAllById(any());
+    }
+
+    @Test
+    void listarProductosDelVendedor_conVariosFiltros_devuelveSoloLosQueLosCumplenTodos() {
+        // Given: dos productos de Hogar (uno inactivo) y uno de Moda
+        Producto inactivo = Producto.builder().id("4").idVendedor(ID_VENDEDOR).idCategorias(List.of(ID_HOGAR))
+                .nombre("Mesa de centro").precio(new PrecioProducto(90.0, null, null)).stock(1).visible(false).build();
+        when(repositorioProducto.buscarPorVendedor(new ObjectId(ID_VENDEDOR))).thenReturn(List.of(
+                producto("3", ID_VENDEDOR, "Lámpara de pie", List.of(ID_HOGAR)), inactivo,
+                producto("2", ID_VENDEDOR, "Bolso de piel", List.of(ID_MODA))));
+        when(repositorioCategoria.findAllById(any()))
+                .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
+
+        // When: categoria Hogar, solo activos y precio hasta 50 euros
+        List<ProductoCatalogoDTO> productos = servicio.listarProductosDelVendedor(ID_VENDEDOR,
+                new FiltroCatalogo(null, ID_HOGAR, true, null, 50.0));
+
+        // Then
+        assertThat(productos).extracting(ProductoCatalogoDTO::nombre).containsExactly("Lámpara de pie");
     }
 
     @Test
