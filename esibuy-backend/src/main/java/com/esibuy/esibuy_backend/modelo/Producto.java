@@ -89,6 +89,11 @@ public class Producto {
         return visible;
     }
 
+    /** Activa (visible para los clientes) o desactiva el producto sin borrarlo. */
+    public void cambiarVisibilidad(boolean visible) {
+        this.visible = visible;
+    }
+
     @Override
     public String toString() {
         return "Producto[id=" + id + ", idVendedor=" + idVendedor + ", nombre=" + nombre + "]";
