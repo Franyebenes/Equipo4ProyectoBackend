@@ -40,6 +40,7 @@ public class ServicioProductoImpl implements ServicioProducto {
     private static final double DESCUENTO_MINIMO = 0;
     private static final double DESCUENTO_MAXIMO = 100;
     static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
+    static final String MENSAJE_ESTADO_OBLIGATORIO = "Indica si el producto queda activo o inactivo";
     
     // Sin caracteres especiales en el nombre ni en la descripcion (mismas reglas que las categorias)
     private static final Pattern NOMBRE_PERMITIDO = Pattern.compile(Constantes.PATRON_NOMBRE);
@@ -68,13 +69,30 @@ public class ServicioProductoImpl implements ServicioProducto {
                 .toList();
     }
 
-    // Un producto de otro vendedor se trata igual que uno inexistente (404).
     @Override
     public ProductoCatalogoDTO obtenerProductoDelVendedor(String idVendedor, String idProducto) {
-        Producto producto = repositorioProducto.findById(idProducto)
+        Producto producto = productoDelVendedor(idVendedor, idProducto);
+        return aDTO(producto, nombresDeCategorias(List.of(producto)));
+    }
+
+    // Activar/Desactivar producto: cambia su visibilidad para los clientes sin borrarlo.
+    @Override
+    public ProductoCatalogoDTO cambiarEstado(String idVendedor, String idProducto, Boolean activo) {
+        if (activo == null) {
+            throw new ProductoInvalidoException(MENSAJE_ESTADO_OBLIGATORIO);
+        }
+        Producto producto = productoDelVendedor(idVendedor, idProducto);
+        producto.cambiarVisibilidad(activo);
+        Producto guardado = repositorioProducto.save(producto);
+        return aDTO(guardado, nombresDeCategorias(List.of(guardado)));
+    }
+
+    // Producto del catalogo del vendedor. Uno de otro vendedor se trata igual que uno inexistente (404), para no
+    // revelar que existe.
+    private Producto productoDelVendedor(String idVendedor, String idProducto) {
+        return repositorioProducto.findById(idProducto)
                 .filter(encontrado -> idVendedor.equals(encontrado.getIdVendedor()))
                 .orElseThrow(ProductoNoEncontradoException::new);
-        return aDTO(producto, nombresDeCategorias(List.of(producto)));
     }
 
     // HU15.1 - Alta de producto. Si falta un campo obligatorio o es incorrecto: 400 con el motivo y no se guarda.
