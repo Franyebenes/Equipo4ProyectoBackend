@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 
 /**
  * HU-15.2 Ver catalogo propio: solo los productos del vendedor, con sus categorias por nombre y ordenados; detalle
- * de un producto propio, de otro vendedor e inexistente.
+ * de un producto propio, de otro vendedor e inexistente. HU Buscar en catalogo propio: solo los que coinciden.
  */
 @ExtendWith(MockitoExtension.class)
 class ServicioProductoCatalogoTest {
@@ -70,7 +71,7 @@ class ServicioProductoCatalogoTest {
                 new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
 
         // When
-        List<ProductoCatalogoDTO> productos = servicio.listarProductosDelVendedor(ID_VENDEDOR);
+        List<ProductoCatalogoDTO> productos = servicio.listarProductosDelVendedor(ID_VENDEDOR, FiltroCatalogo.sinFiltros());
 
         // Then: la tilde no manda el producto al final y cada uno lleva los nombres de sus categorias
         assertThat(productos).extracting(ProductoCatalogoDTO::nombre)
@@ -88,7 +89,38 @@ class ServicioProductoCatalogoTest {
         when(repositorioProducto.buscarPorVendedor(new ObjectId(ID_VENDEDOR))).thenReturn(List.of());
 
         // When / Then
-        assertThat(servicio.listarProductosDelVendedor(ID_VENDEDOR)).isEmpty();
+        assertThat(servicio.listarProductosDelVendedor(ID_VENDEDOR, FiltroCatalogo.sinFiltros())).isEmpty();
+        verify(repositorioCategoria, never()).findAllById(any());
+    }
+
+    @Test
+    void listarProductosDelVendedor_conBusqueda_devuelveSoloLosQueCoincidenYSoloConsultaSusCategorias() {
+        // Given: tres productos del vendedor y una busqueda parcial, en minusculas y sin tilde
+        when(repositorioProducto.buscarPorVendedor(new ObjectId(ID_VENDEDOR))).thenReturn(List.of(
+                producto("3", ID_VENDEDOR, "Lámpara de pie", List.of(ID_HOGAR)),
+                producto("1", ID_VENDEDOR, "Lámpara de mesa", List.of(ID_HOGAR)),
+                producto("2", ID_VENDEDOR, "Bolso de piel", List.of(ID_MODA))));
+        when(repositorioCategoria.findAllById(any()))
+                .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
+
+        // When
+        List<ProductoCatalogoDTO> productos =
+                servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara"));
+
+        // Then: el bolso no aparece y solo se piden las categorias de los productos encontrados
+        assertThat(productos).extracting(ProductoCatalogoDTO::nombre)
+                .containsExactly("Lámpara de mesa", "Lámpara de pie");
+        verify(repositorioCategoria).findAllById(Set.of(ID_HOGAR));
+    }
+
+    @Test
+    void listarProductosDelVendedor_busquedaSinCoincidencias_devuelveListaVaciaYNoConsultaCategorias() {
+        // Given
+        when(repositorioProducto.buscarPorVendedor(new ObjectId(ID_VENDEDOR))).thenReturn(List.of(
+                producto("2", ID_VENDEDOR, "Bolso de piel", List.of(ID_MODA))));
+
+        // When / Then
+        assertThat(servicio.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("lampara"))).isEmpty();
         verify(repositorioCategoria, never()).findAllById(any());
     }
 

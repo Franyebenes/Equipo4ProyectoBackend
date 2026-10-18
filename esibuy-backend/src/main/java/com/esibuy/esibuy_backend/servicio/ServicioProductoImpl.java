@@ -53,10 +53,13 @@ public class ServicioProductoImpl implements ServicioProducto {
         this.repositorioCategoria = repositorioCategoria;
     }
 
-    // Ordenados por nombre con las reglas del espanol, igual que el listado de categorias.
+    // Solo los productos del vendedor que cumplen el filtro, ordenados por nombre con las reglas del espanol, igual
+    // que el listado de categorias. El filtro se aplica sobre su catalogo (consulta por idVendedor, sin imagenes).
     @Override
-    public List<ProductoCatalogoDTO> listarProductosDelVendedor(String idVendedor) {
-        List<Producto> productos = repositorioProducto.buscarPorVendedor(new ObjectId(idVendedor));
+    public List<ProductoCatalogoDTO> listarProductosDelVendedor(String idVendedor, FiltroCatalogo filtro) {
+        List<Producto> productos = repositorioProducto.buscarPorVendedor(new ObjectId(idVendedor)).stream()
+                .filter(filtro::admite)
+                .toList();
         Map<String, String> nombresCategorias = nombresDeCategorias(productos);
         Collator ordenEspanol = Collator.getInstance(Locale.of("es", "ES"));
         return productos.stream()
