@@ -41,6 +41,8 @@ public class ServicioProductoImpl implements ServicioProducto {
     private static final double DESCUENTO_MAXIMO = 100;
     static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
     static final String MENSAJE_ESTADO_OBLIGATORIO = "Indica si el producto queda activo o inactivo";
+    static final String MENSAJE_STOCK_OBLIGATORIO = "Indica la cantidad de stock";
+    static final String MENSAJE_STOCK_NEGATIVO = "El stock debe ser un número entero no negativo";
     
     // Sin caracteres especiales en el nombre ni en la descripcion (mismas reglas que las categorias)
     private static final Pattern NOMBRE_PERMITIDO = Pattern.compile(Constantes.PATRON_NOMBRE);
@@ -83,6 +85,26 @@ public class ServicioProductoImpl implements ServicioProducto {
         }
         Producto producto = productoDelVendedor(idVendedor, idProducto);
         producto.cambiarVisibilidad(activo);
+        return guardar(producto);
+    }
+
+    // Gestion de stock: el vendedor fija las unidades disponibles (las aumenta o las disminuye). Con 0 el producto
+    // deja de estar disponible para la venta.
+    @Override
+    public ProductoCatalogoDTO cambiarStock(String idVendedor, String idProducto, Integer stock) {
+        if (stock == null) {
+            throw new ProductoInvalidoException(MENSAJE_STOCK_OBLIGATORIO);
+        }
+        if (stock < STOCK_MINIMO) {
+            throw new ProductoInvalidoException(MENSAJE_STOCK_NEGATIVO);
+        }
+        Producto producto = productoDelVendedor(idVendedor, idProducto);
+        producto.cambiarStock(stock);
+        return guardar(producto);
+    }
+
+    // Guarda el producto y lo devuelve como en el listado, con sus categorias por nombre
+    private ProductoCatalogoDTO guardar(Producto producto) {
         Producto guardado = repositorioProducto.save(producto);
         return aDTO(guardado, nombresDeCategorias(List.of(guardado)));
     }
@@ -130,8 +152,7 @@ public class ServicioProductoImpl implements ServicioProducto {
                 // Si el vendedor no lo indica, el producto se crea activo (visible para los clientes)
                 .visible(!Boolean.FALSE.equals(datos.activo()))
                 .build();
-        Producto guardado = repositorioProducto.save(producto);
-        return aDTO(guardado, nombresDeCategorias(List.of(guardado)));
+        return guardar(producto);
     }
 
     private static boolean vacio(String texto) {
