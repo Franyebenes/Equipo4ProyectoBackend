@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
@@ -180,7 +180,10 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         log.error("Error inesperado al procesar la peticion", ex);
         return conCorrelationId(HttpStatus.INTERNAL_SERVER_ERROR, MENSAJE_ERROR_INESPERADO);
     }
-
+    @ExceptionHandler(ProductoNoEnCarritoException.class)
+    public ResponseEntity<Map<String, Object>> productoNoEnCarrito(ProductoNoEnCarritoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     /**
      * JSON ilegible. Si el fallo esta en el valor de un campo conocido (fecha con formato incorrecto, objeto
      * donde se esperaba texto...) se indica ese campo; si no (JSON roto, cuerpo vacio, campo desconocido),

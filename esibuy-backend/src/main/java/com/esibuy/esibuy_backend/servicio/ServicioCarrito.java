@@ -19,6 +19,7 @@ import com.esibuy.esibuy_backend.dto.CarritoDTO;
 import com.esibuy.esibuy_backend.dto.LineaCarritoDTO;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
 import com.esibuy.esibuy_backend.modelo.LineaCarrito;
@@ -35,6 +36,7 @@ import com.mongodb.client.result.UpdateResult;
 public class ServicioCarrito {
 
     private static final Logger log = LoggerFactory.getLogger(ServicioCarrito.class);
+    private static final String CAMPO_STOCK = "stock";
 
     private final RepositorioCarrito repositorioCarrito;
     private final RepositorioProducto repositorioProducto;
@@ -85,6 +87,35 @@ public class ServicioCarrito {
         log.info("Producto anadido al carrito: cliente={} producto={} cantidad={}", idCliente, idProducto, cantidad);
     }
 
+    // HU-22.3 Modificar cantidad: si sube se reserva la diferencia; si baja, se devuelve al stock
+    public void cambiarCantidad(String idCliente, String idProducto, int cantidad) {
+        if (cantidad < 1) {
+            throw new CantidadNoValidaException();
+        }
+        Carrito carrito = buscarCarrito(idCliente);
+        LineaCarrito linea = carrito.buscarLinea(idProducto).orElseThrow(ProductoNoEnCarritoException::new);
+        int diferencia = cantidad - linea.getCantidad();
+        if (diferencia > 0) {
+            buscarDisponible(idProducto);
+            reservarStock(idProducto, diferencia);
+        } else if (diferencia < 0) {
+            liberarStock(idProducto, -diferencia);
+        }
+        linea.cambiarCantidad(cantidad);
+        repositorioCarrito.save(carrito);
+        log.info("Cantidad cambiada en el carrito: cliente={} producto={} cantidad={}", idCliente, idProducto, cantidad);
+    }
+
+    // HU-22.4 Eliminar del carrito: se devuelven al stock todas las unidades reservadas
+    public void eliminar(String idCliente, String idProducto) {
+        Carrito carrito = buscarCarrito(idCliente);
+        LineaCarrito linea = carrito.buscarLinea(idProducto).orElseThrow(ProductoNoEnCarritoException::new);
+        liberarStock(idProducto, linea.getCantidad());
+        carrito.quitar(idProducto);
+        repositorioCarrito.save(carrito);
+        log.info("Producto eliminado del carrito: cliente={} producto={}", idCliente, idProducto);
+    }
+
     /**
      * Precio por unidad con descuento. Un cliente normal tiene el descuento general; un premium, el mayor entre el
      * general y el premium (no se suman), para que nunca pague mas que un cliente normal.
@@ -98,6 +129,11 @@ public class ServicioCarrito {
             descuento = Math.max(descuento, valor(precio.getDescuentoPremium()));
         }
         return redondear(precio.getBase() * (1 - descuento / 100));
+    }
+
+    private Carrito buscarCarrito(String idCliente) {
+        return repositorioCarrito.buscarPorCliente(new ObjectId(idCliente))
+                .orElseThrow(ProductoNoEnCarritoException::new);
     }
 
     private LineaCarritoDTO aLinea(Producto producto, int cantidad, boolean premium) {
@@ -123,11 +159,17 @@ public class ServicioCarrito {
      * pueden reservar la misma unidad a la vez.
      */
     private void reservarStock(String idProducto, int cantidad) {
-        Query consulta = new Query(Criteria.where("_id").is(new ObjectId(idProducto)).and("stock").gte(cantidad));
-        UpdateResult resultado = mongoTemplate.updateFirst(consulta, new Update().inc("stock", -cantidad), Producto.class);
+        Query consulta = new Query(Criteria.where("_id").is(new ObjectId(idProducto)).and(CAMPO_STOCK).gte(cantidad));
+        UpdateResult resultado = mongoTemplate.updateFirst(consulta, new Update().inc(CAMPO_STOCK, -cantidad), Producto.class);
         if (resultado.getModifiedCount() == 0) {
             throw new StockInsuficienteException();
         }
+    }
+
+    /** Devuelve unidades al stock. Si el producto ya no existe, no hay nada que devolver. */
+    private void liberarStock(String idProducto, int cantidad) {
+        Query consulta = new Query(Criteria.where("_id").is(new ObjectId(idProducto)));
+        mongoTemplate.updateFirst(consulta, new Update().inc(CAMPO_STOCK, cantidad), Producto.class);
     }
 
     private static double valor(Double numero) {
