@@ -27,6 +27,9 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
+import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
@@ -157,7 +160,21 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of(CLAVE_MENSAJE, MENSAJE_OPERACION_NO_PERMITIDA));
     }
+    // HU-22.x Carrito
+    @ExceptionHandler(CantidadNoValidaException.class)
+    public ResponseEntity<Map<String, Object>> cantidadNoValida(CantidadNoValidaException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
 
+    @ExceptionHandler(ProductoNoDisponibleException.class)
+    public ResponseEntity<Map<String, Object>> productoNoDisponible(ProductoNoDisponibleException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(StockInsuficienteException.class)
+    public ResponseEntity<Map<String, Object>> stockInsuficiente(StockInsuficienteException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> errorInesperado(Exception ex) {
         log.error("Error inesperado al procesar la peticion", ex);
