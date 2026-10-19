@@ -49,7 +49,15 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    /** Cuenta activa que pide recuperar la contrasena: se le envia el enlace. Tests: CP-REC-30. */
+    // Solicitud de recuperacion descartada por los limites (el cliente no lo sabe). Tests: CP-LIM-30 a CP-LIM-32. 
+    public void registrarRecuperacionLimitada(ContextoPeticion contexto, String correo, MotivoLimiteRecuperacion motivo) {
+        if (log.isWarnEnabled()) {
+            log.warn("RECUPERACION_LIMITADA {} motivo={}", datosDeLaPeticion(contexto, correo),
+                    motivo == null ? "(desconocido)" : motivo.name());
+        }
+    }
+
+    // Cuenta activa que pide recuperar la contrasena: se le envia el enlace. Tests: CP-REC-30. 
     public void registrarRecuperacionSolicitada(ContextoPeticion contexto, String correo, String idUsuario) {
         if (log.isInfoEnabled()) {
             log.info("RECUPERACION_SOLICITADA {} userId={}", datosDeLaPeticion(contexto, correo),
@@ -57,14 +65,14 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    /** Cuenta pendiente de activacion: se le envia el aviso, sin enlace. Tests: CP-REC-31. */
+    // Cuenta pendiente de activacion: se le envia el aviso, sin enlace. Tests: CP-REC-31. 
     public void registrarRecuperacionCuentaNoActiva(ContextoPeticion contexto, String correo) {
         if (log.isInfoEnabled()) {
             log.info("RECUPERACION_CUENTA_NO_ACTIVA {}", datosDeLaPeticion(contexto, correo));
         }
     }
 
-    /** Cuenta bloqueada (u otro estado que no puede recuperar): no se envia nada. Tests: CP-REC-32. */
+    // Cuenta bloqueada (u otro estado que no puede recuperar): no se envia nada. Tests: CP-REC-32. 
     public void registrarRecuperacionCuentaNoApta(ContextoPeticion contexto, String correo, EstadoUsuario estado) {
         if (log.isWarnEnabled()) {
             log.warn("RECUPERACION_CUENTA_NO_APTA {} estado={}", datosDeLaPeticion(contexto, correo),
@@ -79,7 +87,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    /** El motivo interno solo queda en este evento: la respuesta al cliente es siempre la misma. */
+    // El motivo interno solo queda en este evento: la respuesta al cliente es siempre la misma. */
     public void registrarLoginFallido(ContextoPeticion contexto, String correo, MotivoFalloLogin motivo) {
         if (log.isWarnEnabled()) {
             log.warn("LOGIN_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo), motivo);

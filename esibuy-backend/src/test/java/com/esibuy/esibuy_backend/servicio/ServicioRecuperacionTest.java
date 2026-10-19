@@ -74,6 +74,9 @@ class ServicioRecuperacionTest {
     private ServicioTokensRecuperacion tokens;
     @Mock
     private AuditoriaSeguridad auditoria;
+    // Sin configurar: un mock devuelve Optional.empty(), es decir, "permitido". Los limites se prueban aparte (fase 3)
+    @Mock
+    private LimitadorRecuperacion limitador;
 
     private final List<MensajeCorreo> enviados = new ArrayList<>();
     private final List<Runnable> tareasPendientes = new ArrayList<>();
@@ -92,7 +95,7 @@ class ServicioRecuperacionTest {
         // El enviador y el ejecutor se consultan en cada uso: un test puede sustituirlos despues de crear el servicio
         NotificadorCorreo notificador = new NotificadorCorreo(mensaje -> enviador.enviar(mensaje), tarea -> ejecutor.execute(tarea),
                 auditoriaUsada);
-        return new ServicioRecuperacion(repositorioUsuario, tokens, plantillas, notificador, auditoriaUsada);
+        return new ServicioRecuperacion(repositorioUsuario, tokens, plantillas, notificador, auditoriaUsada, limitador);
     }
 
     private static Usuario usuario(EstadoUsuario estado) {

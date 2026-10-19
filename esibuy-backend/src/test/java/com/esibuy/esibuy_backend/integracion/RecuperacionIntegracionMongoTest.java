@@ -31,6 +31,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -90,6 +92,17 @@ class RecuperacionIntegracionMongoTest extends IntegracionLoginBase {
         }
     }
 
+    /*
+     * Esta clase prueba la solicitud, no los limites (eso lo hace RecuperacionLimitesIntegracionMongoTest): se los
+     * deja tan altos que no intervienen, pues todas las peticiones salen de la misma IP y varias repiten cuenta.
+     */
+    @DynamicPropertySource
+    static void limitesQueNoIntervienen(DynamicPropertyRegistry registro) {
+        registro.add("esibuy.recuperacion.max-por-cuenta", () -> "1000");
+        registro.add("esibuy.recuperacion.cooldown", () -> "PT0.001S");
+        registro.add("esibuy.recuperacion.max-por-ip", () -> "1000");
+    }
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -136,8 +149,9 @@ class RecuperacionIntegracionMongoTest extends IntegracionLoginBase {
         return coincidencia.group(1);
     }
 
-    private static void esperarUnPoco() throws InterruptedException {
-        Thread.sleep(300);
+    // Margen antes de comprobar que NO ha llegado nada (en esos casos no hay ninguna tarea encolada).
+    private static void esperarUnPoco() {
+        await().pollDelay(Duration.ofMillis(300)).atMost(Duration.ofSeconds(2)).until(() -> true);
     }
 
     // ------------------------------------------------------------------ CP-REC-50 / 51 / 52 / 53
