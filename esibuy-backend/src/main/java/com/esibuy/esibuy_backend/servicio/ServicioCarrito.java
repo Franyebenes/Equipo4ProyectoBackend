@@ -1,5 +1,11 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,10 +15,14 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
+import com.esibuy.esibuy_backend.dto.CarritoDTO;
+import com.esibuy.esibuy_backend.dto.LineaCarritoDTO;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
+import com.esibuy.esibuy_backend.modelo.LineaCarrito;
+import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCarrito;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
@@ -37,6 +47,30 @@ public class ServicioCarrito {
         this.mongoTemplate = mongoTemplate;
     }
 
+    // HU-22.1 Ver carrito: precios actuales del producto, con el descuento que le toca al cliente
+    public CarritoDTO obtener(String idCliente, boolean premium) {
+        Optional<Carrito> carrito = repositorioCarrito.buscarPorCliente(new ObjectId(idCliente));
+        if (carrito.isEmpty() || carrito.get().getLineas().isEmpty()) {
+            return CarritoDTO.vacio();
+        }
+        List<String> ids = carrito.get().getLineas().stream().map(LineaCarrito::getIdProducto).toList();
+        Map<String, Producto> productos = new HashMap<>();
+        repositorioProducto.findAllById(ids).forEach(p -> productos.put(p.getId(), p));
+
+        List<LineaCarritoDTO> lineas = new ArrayList<>();
+        for (LineaCarrito linea : carrito.get().getLineas()) {
+            Producto producto = productos.get(linea.getIdProducto());
+            // Si el producto se ha borrado de la base de datos, la linea no se muestra
+            if (producto != null) {
+                lineas.add(aLinea(producto, linea.getCantidad(), premium));
+            }
+        }
+        double total = redondear(lineas.stream()
+                .filter(LineaCarritoDTO::disponible).mapToDouble(LineaCarritoDTO::subtotal).sum());
+        int articulos = lineas.stream().filter(LineaCarritoDTO::disponible).mapToInt(LineaCarritoDTO::cantidad).sum();
+        return new CarritoDTO(lineas, articulos, total);
+    }
+
     // HU-22.2 Anadir al carrito: si ya estaba, suma la cantidad
     public void anadir(String idCliente, String idProducto, int cantidad) {
         if (cantidad < 1) {
@@ -49,6 +83,30 @@ public class ServicioCarrito {
         carrito.anadir(producto.getId(), cantidad);
         repositorioCarrito.save(carrito);
         log.info("Producto anadido al carrito: cliente={} producto={} cantidad={}", idCliente, idProducto, cantidad);
+    }
+
+    /**
+     * Precio por unidad con descuento. Un cliente normal tiene el descuento general; un premium, el mayor entre el
+     * general y el premium (no se suman), para que nunca pague mas que un cliente normal.
+     */
+    static double precioFinal(PrecioProducto precio, boolean premium) {
+        if (precio == null || precio.getBase() == null) {
+            return 0.0;
+        }
+        double descuento = valor(precio.getDescuento());
+        if (premium) {
+            descuento = Math.max(descuento, valor(precio.getDescuentoPremium()));
+        }
+        return redondear(precio.getBase() * (1 - descuento / 100));
+    }
+
+    private LineaCarritoDTO aLinea(Producto producto, int cantidad, boolean premium) {
+        PrecioProducto precio = producto.getPrecio();
+        double original = precio == null ? 0.0 : valor(precio.getBase());
+        double unitario = precioFinal(precio, premium);
+        boolean disponible = Boolean.TRUE.equals(producto.getVisible());
+        return new LineaCarritoDTO(producto.getId(), producto.getNombre(), producto.getImagen(), unitario, original,
+                cantidad, redondear(unitario * cantidad), disponible);
     }
 
     private Producto buscarDisponible(String idProducto) {
@@ -70,5 +128,13 @@ public class ServicioCarrito {
         if (resultado.getModifiedCount() == 0) {
             throw new StockInsuficienteException();
         }
+    }
+
+    private static double valor(Double numero) {
+        return numero == null ? 0.0 : numero;
+    }
+
+    private static double redondear(double importe) {
+        return Math.round(importe * 100) / 100.0;
     }
 }
