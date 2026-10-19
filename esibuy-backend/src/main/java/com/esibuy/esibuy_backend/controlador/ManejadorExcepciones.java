@@ -26,6 +26,7 @@ import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
+import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -90,6 +91,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosRestantes()))
                 .body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
+    }
+
+    // Una IP agoto sus intentos de restablecer la contrasena: 429 sin detalles (ni la IP ni el token).
+    @ExceptionHandler(DemasiadosIntentosRestablecimientoException.class)
+    public ResponseEntity<Map<String, Object>> demasiadosIntentosRestablecimiento() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
     }
 
     @ExceptionHandler(RegistroNoCompletadoException.class)

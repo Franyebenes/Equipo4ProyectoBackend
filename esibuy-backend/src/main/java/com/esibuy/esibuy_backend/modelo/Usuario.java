@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.modelo;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +24,8 @@ public class Usuario {
     private EstadoUsuario estado;
     @Field("perfil")
     private PerfilUsuario perfil;
+    @Field("contrasenaCambiadaEn")
+    private Instant contrasenaCambiadaEn;
 
     /** Usado por Spring Data al leer de MongoDB. */
     protected Usuario() {
@@ -60,6 +63,17 @@ public class Usuario {
     public PerfilUsuario getPerfil() {
         return perfil;
     } 
+
+    // Instante del ultimo cambio de contrasena por recuperacion; null si nunca ha cambiado. Las sesiones iniciadas antes quedan invalidas.
+    public Instant getContrasenaCambiadaEn() {
+        return contrasenaCambiadaEn;
+    }
+
+    // Sustituye el hash de la contrasena y anota cuando, para invalidar las sesiones iniciadas antes.
+    public void cambiarContrasena(String nuevoHash, Instant cuando) {
+        this.passwordHash = Objects.requireNonNull(nuevoHash, "nuevoHash");
+        this.contrasenaCambiadaEn = Objects.requireNonNull(cuando, "cuando");
+    }
 
     public void cambiarEstado(EstadoUsuario nuevoEstado) {
         this.estado = Objects.requireNonNull(nuevoEstado, "estado");

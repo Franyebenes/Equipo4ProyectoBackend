@@ -173,7 +173,7 @@ public class ServicioGestionUsuarios {
         }
         errores.lanzarSiHay();
 
-        Usuario usuario = buscarNoEliminado(id);
+        Usuario usuario = buscarUsuario(id);
         boolean esVendedor = usuario.getRoles().contains(Rol.VENDEDOR);
         boolean esCliente = usuario.getRoles().contains(Rol.CLIENTE) || usuario.getRoles().contains(Rol.PREMIUM);
         // solo se aplican los campos propios de cada tipo de usuario
@@ -218,7 +218,7 @@ public class ServicioGestionUsuarios {
      * (asi siempre queda al menos uno). Clientes y vendedores no se eliminan desde aqui.
      */
     public void eliminar(String id, String idSolicitante) {
-        Usuario usuario = buscarNoEliminado(id);
+        Usuario usuario = buscarUsuario(id);
         if (usuario.getId().equals(idSolicitante) || !usuario.getRoles().contains(Rol.ADMIN)) {
             throw new OperacionNoPermitidaException();
         }
@@ -293,7 +293,7 @@ public class ServicioGestionUsuarios {
 
     private UsuarioDTO cambiarEstado(String id, String idSolicitante, Set<EstadoUsuario> origenesValidos,
                                      EstadoUsuario destino) {
-        Usuario usuario = buscarNoEliminado(id);
+        Usuario usuario = buscarUsuario(id);
         // El principal de la sesion es el id del usuario (EstablecedorSesion): un admin no puede cambiarse a si mismo.
         if (usuario.getId().equals(idSolicitante) || !origenesValidos.contains(usuario.getEstado())) {
             throw new OperacionNoPermitidaException();
@@ -304,25 +304,25 @@ public class ServicioGestionUsuarios {
         return UsuarioDTO.desde(guardado);
     }
 
-    private Usuario buscarNoEliminado(String id) {
+    private Usuario buscarUsuario(String id) {
         if (id == null || !ObjectId.isValid(id)) {
             throw new UsuarioNoEncontradoException();
         }
-        return repositorioUsuario.findByIdAndEstadoNot(id, EstadoUsuario.ELIMINADO)
+        return repositorioUsuario.findById(id)
                 .orElseThrow(UsuarioNoEncontradoException::new);
     }
 
         /*
-     * Consulta con los filtros que vengan informados. Por defecto excluye los ELIMINADO. La busqueda divide el texto
+     * Consulta con los filtros que vengan informados. Sin filtro de estado devuelve todos (la eliminacion es fisica). La busqueda divide el texto
      * en palabras y cada palabra debe aparecer en el nombre, los apellidos o el email (sin distinguir mayusculas):
      * asi "ana lopez" encuentra a Ana Lopez. Cada palabra se escapa con Pattern.quote, de modo que se busca tal cual
      * y no se interpreta como expresion regular (evita ReDoS y patrones como ".*").
      */
     private Page<Usuario> buscarPagina(Rol rol, EstadoUsuario estado, String texto, Pageable pageable) {
         List<Criteria> condiciones = new ArrayList<>();
-        condiciones.add(estado == null
-                ? Criteria.where("estado").ne(EstadoUsuario.ELIMINADO.name())
-                : Criteria.where("estado").is(estado.name()));
+        if (estado != null) {
+            condiciones.add(Criteria.where("estado").is(estado.name()));
+        }
         if (rol != null) {
             condiciones.add(Criteria.where("rol").is(rol.name()));
         }
@@ -335,7 +335,8 @@ public class ServicioGestionUsuarios {
                         Criteria.where(CAMPO_EMAIL).regex(patron, "i")));
             }
         }
-        Query consulta = new Query(new Criteria().andOperator(condiciones)).with(pageable);
+        Criteria filtro = condiciones.isEmpty() ? new Criteria() : new Criteria().andOperator(condiciones);
+        Query consulta = new Query(filtro).with(pageable);
         List<Usuario> contenido = mongoTemplate.find(consulta, Usuario.class);
         return PageableExecutionUtils.getPage(contenido, pageable,
                 () -> mongoTemplate.count(Query.of(consulta).limit(-1).skip(-1), Usuario.class));
