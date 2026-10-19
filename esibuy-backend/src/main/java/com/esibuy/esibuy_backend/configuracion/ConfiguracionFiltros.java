@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
 import com.esibuy.esibuy_backend.seguridad.PoliticaSesion;
+import com.esibuy.esibuy_backend.servicio.ValidadorSesionUsuario;
 
 /*
  * Registro de los filtros propios y su orden:
@@ -22,6 +23,7 @@ import com.esibuy.esibuy_backend.seguridad.PoliticaSesion;
  *       por el filtro CORS y no llevaria las cabeceras Access-Control-*: el navegador la bloquearia y el
  *       frontend veria un error de red en lugar de un 429 con su Retry-After. Test: LimitePeticionesRegistroCorsTest.</li>
  *   <li>Caducidad de sesion: tras Spring Security y el limite de peticiones (FiltroCaducidadSesion).</li>
+ *   <li>Sesion posterior a un cambio de contrasena: despues de la caducidad (FiltroSesionTrasCambioContrasena).</li>
  * </ol>
  */
 @Configuration
@@ -40,6 +42,16 @@ public class ConfiguracionFiltros {
         FilterRegistrationBean<FiltroCaducidadSesion> registro = new FilterRegistrationBean<>(
                 new FiltroCaducidadSesion(politica, reloj));
         registro.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER + 2);
+        return registro;
+    }
+
+    // Invalida las sesiones iniciadas antes de un cambio de contrasena. Tras la caducidad, por la misma razon CORS.
+    @Bean
+    public FilterRegistrationBean<FiltroSesionTrasCambioContrasena> filtroSesionTrasCambioContrasena(
+            ValidadorSesionUsuario validador) {
+        FilterRegistrationBean<FiltroSesionTrasCambioContrasena> registro = new FilterRegistrationBean<>(
+                new FiltroSesionTrasCambioContrasena(validador));
+        registro.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER + 3);
         return registro;
     }
 

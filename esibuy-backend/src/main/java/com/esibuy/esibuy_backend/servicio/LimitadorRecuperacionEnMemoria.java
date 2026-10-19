@@ -3,7 +3,6 @@ package com.esibuy.esibuy_backend.servicio;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
 import java.util.Optional;
@@ -49,7 +48,7 @@ public class LimitadorRecuperacionEnMemoria implements LimitadorRecuperacion {
 
         AtomicReference<Optional<MotivoLimiteRecuperacion>> resultado = new AtomicReference<>(Optional.empty());
         solicitudesPorIp.compute(clave, (k, solicitudes) -> {
-            Deque<Instant> vigentes = solicitudesVigentes(solicitudes, ahora, propiedades.ventanaIp());
+            Deque<Instant> vigentes = VentanasDeslizantes.vigentes(solicitudes, ahora, propiedades.ventanaIp());
             if (vigentes.size() >= propiedades.maxPorIp()) {
                 resultado.set(Optional.of(MotivoLimiteRecuperacion.IP_AGOTADA));
             } else {
@@ -70,7 +69,7 @@ public class LimitadorRecuperacionEnMemoria implements LimitadorRecuperacion {
 
         AtomicReference<Optional<MotivoLimiteRecuperacion>> resultado = new AtomicReference<>(Optional.empty());
         solicitudesPorCuenta.compute(email, (k, solicitudes) -> {
-            Deque<Instant> vigentes = solicitudesVigentes(solicitudes, ahora, propiedades.ventanaCuenta());
+            Deque<Instant> vigentes = VentanasDeslizantes.vigentes(solicitudes, ahora, propiedades.ventanaCuenta());
             if (vigentes.size() >= propiedades.maxPorCuenta()) {
                 resultado.set(Optional.of(MotivoLimiteRecuperacion.LIMITE_DIARIO));
             } else if (!vigentes.isEmpty() && ahora.isBefore(vigentes.peekLast().plus(propiedades.cooldown()))) {
@@ -88,33 +87,12 @@ public class LimitadorRecuperacionEnMemoria implements LimitadorRecuperacion {
         return solicitudesPorCuenta.size() + solicitudesPorIp.size();
     }
 
-    // Las solicitudes de la clave que siguen dentro de la ventana (una cola nueva si no habia ninguna).
-    private static Deque<Instant> solicitudesVigentes(Deque<Instant> solicitudes, Instant ahora, Duration ventana) {
-        Deque<Instant> vigentes = solicitudes == null ? new ArrayDeque<>() : solicitudes;
-        while (!vigentes.isEmpty() && haSalidoDeLaVentana(vigentes.peekFirst(), ahora, ventana)) {
-            vigentes.removeFirst();
-        }
-        return vigentes;
-    }
-
-    private static boolean haSalidoDeLaVentana(Instant solicitud, Instant ahora, Duration ventana) {
-        return !ahora.isBefore(solicitud.plus(ventana));
-    }
-
     private void purgarSiToca(Instant ahora) {
         Instant anterior = ultimaPurga.get();
         if (ahora.isBefore(anterior.plus(PERIODO_PURGA)) || !ultimaPurga.compareAndSet(anterior, ahora)) {
             return;
         }
-        purgar(solicitudesPorCuenta, ahora, propiedades.ventanaCuenta());
-        purgar(solicitudesPorIp, ahora, propiedades.ventanaIp());
-    }
-
-    // Cada clave se revisa con una operacion atomica, para no perder una solicitud que llegue justo a la vez.
-    private static void purgar(Map<String, Deque<Instant>> solicitudes, Instant ahora, Duration ventana) {
-        for (String clave : solicitudes.keySet()) {
-            solicitudes.computeIfPresent(clave, (k, cola) ->
-                    cola.isEmpty() || haSalidoDeLaVentana(cola.peekLast(), ahora, ventana) ? null : cola);
-        }
+        VentanasDeslizantes.purgar(solicitudesPorCuenta, ahora, propiedades.ventanaCuenta());
+        VentanasDeslizantes.purgar(solicitudesPorIp, ahora, propiedades.ventanaIp());
     }
 }

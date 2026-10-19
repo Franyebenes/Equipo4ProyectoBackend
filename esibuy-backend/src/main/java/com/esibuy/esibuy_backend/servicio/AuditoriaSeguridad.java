@@ -1,11 +1,15 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
+import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 
 /*
@@ -46,6 +50,55 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
             log.warn("CORREO_ENVIO_FALLIDO email={} causa={} correlationId={}", EnmascaradorDatosLog.correo(destinatario),
                     causa == null ? "desconocida" : causa.getClass().getSimpleName(),
                     EnmascaradorDatosLog.texto(MDC.get(FiltroCorrelacionId.CLAVE_MDC)));
+        }
+    }
+
+    // Contrasena restablecida con un enlace valido. Tests: CP-RST-50.
+    public void registrarRestablecimientoCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("RESTABLECIMIENTO_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Enlace que no vale (desconocido, caducado, anulado). No hay correo: el token no es de nadie. Tests: CP-RST-51.
+    public void registrarRestablecimientoTokenInvalido(ContextoPeticion contexto, ResultadoToken.Motivo motivo) {
+        if (log.isWarnEnabled()) {
+            log.warn("RESTABLECIMIENTO_TOKEN_INVALIDO {} motivo={}", datosSinCorreo(contexto),
+                    motivo == null ? "(desconocido)" : motivo.name());
+        }
+    }
+
+    // Alguien usa un enlace que ya se gasto: alerta de seguridad. Tests: CP-RST-52.
+    public void registrarRestablecimientoTokenReutilizado(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("ALERTA_SEGURIDAD tipo=TOKEN_RECUPERACION_REUTILIZADO {}", datosSinCorreo(contexto));
+        }
+    }
+
+    // La cuenta del enlace ya no esta activa (estado) o ya no existe (estado nulo). Tests: CP-RST-53.
+    public void registrarRestablecimientoCuentaNoApta(ContextoPeticion contexto, String correo, EstadoUsuario estado) {
+        if (log.isWarnEnabled()) {
+            log.warn("RESTABLECIMIENTO_CUENTA_NO_APTA {} estado={}", datosDeLaPeticion(contexto, correo),
+                    estado == null ? "(inexistente)" : estado.name());
+        }
+    }
+
+    // La contrasena nueva incumple la politica: solo se escriben los codigos, nunca la contrasena. Tests: CP-RST-54.
+    public void registrarRestablecimientoContrasenaRechazada(ContextoPeticion contexto, String correo,
+            String idUsuario, Set<CodigoError> motivos) {
+        if (log.isInfoEnabled()) {
+            String codigos = motivos == null ? "(ninguno)"
+                    : motivos.stream().map(CodigoError::name).sorted().collect(Collectors.joining(","));
+            log.info("RESTABLECIMIENTO_CONTRASENA_RECHAZADA {} userId={} errores={}",
+                    datosDeLaPeticion(contexto, correo), EnmascaradorDatosLog.texto(idUsuario), codigos);
+        }
+    }
+
+    // La IP agoto sus intentos de restablecer. Tests: CP-RST-55.
+    public void registrarRestablecimientoLimitado(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("RESTABLECIMIENTO_LIMITADO {}", datosSinCorreo(contexto));
         }
     }
 
@@ -108,6 +161,13 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
             log.warn("ALERTA_SEGURIDAD tipo=BLOQUEO_CUENTA email={} ip={} segundos={}",
                     EnmascaradorDatosLog.correo(correo), EnmascaradorDatosLog.texto(ip), segundosDeBloqueo);
         }
+    }
+
+    // Los mismos datos de la peticion cuando no hay correo (el restablecimiento por token desconocido).
+    private static String datosSinCorreo(ContextoPeticion contexto) {
+        return "ip=" + EnmascaradorDatosLog.texto(contexto.ip())
+                + " userAgent=" + EnmascaradorDatosLog.texto(contexto.userAgent())
+                + " correlationId=" + EnmascaradorDatosLog.texto(MDC.get(FiltroCorrelacionId.CLAVE_MDC));
     }
 
     private static String datosDeLaPeticion(ContextoPeticion contexto, String correo) {

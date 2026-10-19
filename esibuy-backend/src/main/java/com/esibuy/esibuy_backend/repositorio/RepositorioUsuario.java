@@ -36,6 +36,10 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
     @Query("{ 'email': ?0 }")
     Optional<Usuario> buscarPorEmail(String email);
 
+    // Solo la marca de cambio de contrasena del usuario (proyeccion): se consulta en cada peticion autenticada.
+    @Query(value = "{ '_id': ?0 }", fields = "{ 'contrasenaCambiadaEn': 1 }")
+    Optional<Usuario> buscarMarcaDeCredenciales(String id);
+
     //listado por defecto de todos los usuarios, sin filtrar por estado
     Page<Usuario> findByEstadoNot(EstadoUsuario estado, Pageable paginacion);
 
