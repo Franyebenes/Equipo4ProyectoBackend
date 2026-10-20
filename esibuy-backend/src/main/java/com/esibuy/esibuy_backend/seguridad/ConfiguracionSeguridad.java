@@ -36,7 +36,7 @@ public class ConfiguracionSeguridad {
     private static final long SEGUNDOS_HSTS = 31_536_000L;
 
     @Bean
-    public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
+       public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
                 // Hay sesion (la crea el login), asi que el login exige token CSRF. El registro no crea sesion ni
@@ -52,6 +52,8 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
                         // Operaciones del vendedor (su catalogo propio): solo rol VENDEDOR, el resto recibe 403
                         .requestMatchers("/api/vendedor/**").hasRole(Rol.VENDEDOR.name())
+                        // Carrito: solo clientes y premium, el resto recibe 403
+                        .requestMatchers("/api/carrito", "/api/carrito/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
                         // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()

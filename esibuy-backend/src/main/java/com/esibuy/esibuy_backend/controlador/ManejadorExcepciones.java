@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
@@ -28,6 +28,9 @@ import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
+import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
@@ -164,13 +167,30 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of(CLAVE_MENSAJE, MENSAJE_OPERACION_NO_PERMITIDA));
     }
+    // HU-22.x Carrito
+    @ExceptionHandler(CantidadNoValidaException.class)
+    public ResponseEntity<Map<String, Object>> cantidadNoValida(CantidadNoValidaException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
 
+    @ExceptionHandler(ProductoNoDisponibleException.class)
+    public ResponseEntity<Map<String, Object>> productoNoDisponible(ProductoNoDisponibleException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(StockInsuficienteException.class)
+    public ResponseEntity<Map<String, Object>> stockInsuficiente(StockInsuficienteException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> errorInesperado(Exception ex) {
         log.error("Error inesperado al procesar la peticion", ex);
         return conCorrelationId(HttpStatus.INTERNAL_SERVER_ERROR, MENSAJE_ERROR_INESPERADO);
     }
-
+    @ExceptionHandler(ProductoNoEnCarritoException.class)
+    public ResponseEntity<Map<String, Object>> productoNoEnCarrito(ProductoNoEnCarritoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     /**
      * JSON ilegible. Si el fallo esta en el valor de un campo conocido (fecha con formato incorrecto, objeto
      * donde se esperaba texto...) se indica ese campo; si no (JSON roto, cuerpo vacio, campo desconocido),
