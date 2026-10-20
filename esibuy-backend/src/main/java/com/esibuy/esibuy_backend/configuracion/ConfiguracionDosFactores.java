@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import com.esibuy.esibuy_backend.servicio.CifradorSecretos;
 import com.esibuy.esibuy_backend.servicio.GeneradorCodigosRecuperacion;
 import com.esibuy.esibuy_backend.servicio.GeneradorTotp;
+import com.esibuy.esibuy_backend.servicio.LimitadorDosFactores;
 import com.esibuy.esibuy_backend.servicio.PropiedadesDosFactores;
 
 /*
@@ -30,6 +31,11 @@ public class ConfiguracionDosFactores {
     @Bean
     public GeneradorTotp generadorTotp(Clock reloj) {
         return new GeneradorTotp(reloj);
+    }
+
+    @Bean
+    public LimitadorDosFactores limitadorDosFactores(PropiedadesDosFactores propiedades, Clock reloj) {
+        return new LimitadorDosFactores(propiedades, reloj);
     }
 
     @Bean

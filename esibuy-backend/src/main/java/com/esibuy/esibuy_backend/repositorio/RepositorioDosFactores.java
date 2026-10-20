@@ -144,6 +144,17 @@ public class RepositorioDosFactores {
         return aplicar(Filters.and(Filters.eq("_id", id), Filters.exists(DOS_FACTORES)), Updates.unset(DOS_FACTORES));
     }
 
+    /*
+     * Anota la marca de cambio de las credenciales (contrasenaCambiadaEn, la misma que usa el restablecimiento de contrasena):
+     * las sesiones iniciadas antes de ese instante dejan de valer. Solo toca ese campo. False si el usuario no existe.
+     */
+    public boolean marcarCredencialesCambiadas(String idUsuario, Instant instante) {
+        ObjectId id = exigirObjectId(idUsuario);
+        exigirNoNulo(instante, "instante");
+
+        return aplicar(Filters.eq("_id", id), Updates.set("contrasenaCambiadaEn", Date.from(instante)));
+    }
+
     /* auxiliares*/
 
     private boolean aplicar(Bson condicion, Bson cambio) {

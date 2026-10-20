@@ -26,6 +26,7 @@ import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
+import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosDosFactoresException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
@@ -99,6 +100,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     // Una IP agoto sus intentos de restablecer la contrasena: 429 sin detalles (ni la IP ni el token).
     @ExceptionHandler(DemasiadosIntentosRestablecimientoException.class)
     public ResponseEntity<Map<String, Object>> demasiadosIntentosRestablecimiento() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
+    }
+
+    // Una cuenta o una IP agoto sus fallos con el segundo factor: 429 sin detalles (ni la cuenta, ni la IP, ni el codigo).
+    @ExceptionHandler(DemasiadosIntentosDosFactoresException.class)
+    public ResponseEntity<Map<String, Object>> demasiadosIntentosDosFactores() {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
     }
 
