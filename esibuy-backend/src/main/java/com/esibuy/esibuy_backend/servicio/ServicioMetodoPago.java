@@ -1,6 +1,8 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 
@@ -18,7 +20,8 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioMetodoPago;
 
 /**
  * Metodos de pago del cliente (HU-24.x). Son "de juguete": no se comprueba que la tarjeta exista, solo que los datos
- * tengan un formato razonable. Se guardan los 4 ultimos digitos; el numero completo no se guarda ni se escribe en logs.
+ * tengan un formato razonable y que no este caducada. Se guardan los 4 ultimos digitos; el numero completo y el CVV
+ * no se guardan ni se escriben en logs.
  */
 @Service
 public class ServicioMetodoPago {
@@ -30,10 +33,13 @@ public class ServicioMetodoPago {
     private static final String PATRON_NUMERO = "\\d{12,19}";
     private static final String PATRON_CADUCIDAD = "(0[1-9]|1[0-2])/\\d{2}";
     private static final String PATRON_CVV = "\\d{3,4}";
-    private final RepositorioMetodoPago repositorio;
 
-    public ServicioMetodoPago(RepositorioMetodoPago repositorio) {
+    private final RepositorioMetodoPago repositorio;
+    private final Clock reloj;
+
+    public ServicioMetodoPago(RepositorioMetodoPago repositorio, Clock reloj) {
         this.repositorio = repositorio;
+        this.reloj = reloj;
     }
 
     // HU-24.1 Ver mis metodos de pago (del mas antiguo al mas nuevo)
@@ -62,7 +68,10 @@ public class ServicioMetodoPago {
         if (!caducidad.matches(PATRON_CADUCIDAD)) {
             throw new MetodoPagoInvalidoException("La caducidad debe tener el formato MM/AA");
         }
-                // El CVV se comprueba como en un pago normal, pero no se guarda nunca
+        if (estaCaducada(caducidad)) {
+            throw new MetodoPagoInvalidoException("La tarjeta esta caducada");
+        }
+        // El CVV se comprueba como en un pago normal, pero no se guarda nunca
         String cvv = datos.cvv() == null ? "" : datos.cvv().trim();
         if (!cvv.matches(PATRON_CVV)) {
             throw new MetodoPagoInvalidoException("El CVV debe tener 3 o 4 digitos");
@@ -72,7 +81,7 @@ public class ServicioMetodoPago {
         }
         String ultimosDigitos = numero.substring(numero.length() - 4);
         MetodoPago guardado = repositorio.save(
-                new MetodoPago(idCliente, titular, ultimosDigitos, caducidad, Instant.now()));
+                new MetodoPago(idCliente, titular, ultimosDigitos, caducidad, Instant.now(reloj)));
         log.info("Metodo de pago anadido: cliente={} ultimosDigitos={}", idCliente, ultimosDigitos);
         return aDTO(guardado);
     }
@@ -86,6 +95,13 @@ public class ServicioMetodoPago {
                 .orElseThrow(MetodoPagoNoEncontradoException::new);
         repositorio.delete(metodo);
         log.info("Metodo de pago eliminado: cliente={} id={}", idCliente, idMetodoPago);
+    }
+
+    /** La tarjeta vale hasta el ultimo dia del mes indicado: "10/26" sigue valiendo durante todo octubre de 2026. */
+    private boolean estaCaducada(String caducidad) {
+        int mes = Integer.parseInt(caducidad.substring(0, 2));
+        int anio = 2000 + Integer.parseInt(caducidad.substring(3));
+        return YearMonth.of(anio, mes).isBefore(YearMonth.now(reloj));
     }
 
     private static MetodoPagoDTO aDTO(MetodoPago metodo) {

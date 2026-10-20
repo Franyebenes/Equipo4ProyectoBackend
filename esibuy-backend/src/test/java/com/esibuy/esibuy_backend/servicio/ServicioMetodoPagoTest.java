@@ -7,7 +7,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import java.time.Clock;
+import java.time.ZoneOffset;
 
+import org.junit.jupiter.api.BeforeEach;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +22,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -39,11 +41,17 @@ class ServicioMetodoPagoTest {
     private static final MetodoPagoAltaDTO TARJETA_VALIDA =
             new MetodoPagoAltaDTO("Carlos Ruiz", "4111 1111 1111 4242", "12/28", "123");
 
+      // "Hoy" fijo en los tests: 20 de octubre de 2026
+    private static final Clock RELOJ = Clock.fixed(Instant.parse("2026-10-20T10:00:00Z"), ZoneOffset.UTC);
+
     @Mock
     private RepositorioMetodoPago repositorio;
-    @InjectMocks
     private ServicioMetodoPago servicio;
 
+    @BeforeEach
+    void crearServicio() {
+        servicio = new ServicioMetodoPago(repositorio, RELOJ);
+    }
     // ---------- HU-24.1 Ver ----------
 
     @Test
@@ -131,6 +139,26 @@ class ServicioMetodoPagoTest {
                 .isInstanceOf(MetodoPagoInvalidoException.class)
                 .hasMessage("La caducidad debe tener el formato MM/AA");
         verifyNoInteractions(repositorio);
+    }
+        @ParameterizedTest
+    @ValueSource(strings = {"12/22", "09/26"})
+    void anadirTarjetaCaducadaLanzaInvalido(String caducidad) {
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, new MetodoPagoAltaDTO("Carlos", "4111111111114242", caducidad, "123")))
+                .isInstanceOf(MetodoPagoInvalidoException.class)
+                .hasMessage("La tarjeta esta caducada");
+        verifyNoInteractions(repositorio);
+    }
+
+    @Test
+    void anadirTarjetaQueCaducaEsteMesSeAcepta() {
+        // Given: hoy es octubre de 2026, y "10/26" vale hasta el 31 de octubre
+        when(repositorio.contarPorCliente(new ObjectId(ID_CLIENTE))).thenReturn(0L);
+        when(repositorio.save(any(MetodoPago.class))).thenAnswer(inv -> inv.getArgument(0));
+        // When
+        MetodoPagoDTO resultado = servicio.anadir(ID_CLIENTE,
+                new MetodoPagoAltaDTO("Carlos", "4111111111114242", "10/26", "123"));
+        // Then
+        assertThat(resultado.caducidad()).isEqualTo("10/26");
     }
 
     @ParameterizedTest
