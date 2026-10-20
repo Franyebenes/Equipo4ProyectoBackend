@@ -34,3 +34,6 @@ build/
 .scannerwork/
 .env
 config/
+
+#documentación interna
+.docx
