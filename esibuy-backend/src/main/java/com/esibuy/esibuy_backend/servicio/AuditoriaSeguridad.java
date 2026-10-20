@@ -221,6 +221,29 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
+    // Contrasena correcta de una cuenta con 2FA, a falta del codigo: no es un login correcto. Tests: CP-2FA-329.
+    public void registrarLoginPrimerFactorCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("LOGIN_PRIMER_FACTOR_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Segundo paso del login sin un desafio valido (no habia, caduco o la cuenta cambio). Sin correo ni id. Tests: CP-2FA-330.
+    public void registrarLoginSegundoFactorNoVigente(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("LOGIN_SEGUNDO_FACTOR_NO_VIGENTE {}", datosSinCorreo(contexto));
+        }
+    }
+
+    // Se fallaron todos los intentos de un desafio y se descarto. Tests: CP-2FA-331.
+    public void registrarLoginSegundoFactorAgotado(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isWarnEnabled()) {
+            log.warn("LOGIN_SEGUNDO_FACTOR_AGOTADO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
     // Los mismos datos de la peticion cuando no hay correo (el restablecimiento por token desconocido).
     private static String datosSinCorreo(ContextoPeticion contexto) {
         return "ip=" + EnmascaradorDatosLog.texto(contexto.ip())

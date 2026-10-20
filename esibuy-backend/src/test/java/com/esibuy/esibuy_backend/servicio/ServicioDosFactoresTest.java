@@ -836,7 +836,14 @@ class ServicioDosFactoresTest {
             List<String> secretosYCodigos = new ArrayList<>(codigos.codigosRecuperacion());
             secretosYCodigos.addAll(List.of(CONTRASENA, errada, codigoDeActivacion, activacion.secreto(),
                     Base32.codificar(SECRETO), "000000", "654321"));
-            assertThat(logs.textosCompletos()).isNotEmpty().allSatisfy(texto -> {
+            // Solo los logs de la aplicacion: el capturador recoge todo el proceso, incluidos hilos de fondo de otras pruebas
+            // (el driver de MongoDB escribe latidos con identificadores que pueden contener cualquier numero)
+            List<String> deLaAplicacion = logs.eventos().stream()
+                    .filter(evento -> evento.getLoggerName().startsWith("com.esibuy"))
+                    .map(evento -> evento.getFormattedMessage()
+                            + (evento.getThrowableProxy() == null ? "" : evento.getThrowableProxy().getMessage()))
+                    .toList();
+            assertThat(deLaAplicacion).isNotEmpty().allSatisfy(texto -> {
                 for (String secreto : secretosYCodigos) {
                     assertThat(texto).doesNotContain(secreto);
                 }

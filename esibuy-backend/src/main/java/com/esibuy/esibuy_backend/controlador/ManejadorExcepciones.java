@@ -37,6 +37,7 @@ import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
+import com.esibuy.esibuy_backend.excepcion.SegundoFactorNoVigenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
@@ -63,6 +64,8 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     static final String MENSAJE_PETICION_INVALIDA = "La peticion no es valida";
     static final String MENSAJE_CUERPO_DEMASIADO_GRANDE = "La peticion es demasiado grande";
+    static final String MENSAJE_SEGUNDO_FACTOR_NO_VIGENTE =
+            "La verificacion en dos pasos no es valida o ha caducado. Vuelve a iniciar sesion";
     static final String MENSAJE_DEMASIADOS_INTENTOS = "Demasiados intentos. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_SERVICIO_NO_DISPONIBLE =
             "El servicio no esta disponible en este momento. Vuelve a intentarlo mas tarde";
@@ -88,6 +91,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CredencialesInvalidasException.class)
     public ResponseEntity<Map<String, Object>> credencialesInvalidas(CredencialesInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // Siempre el mismo 401 y el mismo mensaje, sea cual sea el motivo: no hay desafio, caduco o la cuenta cambio.
+    @ExceptionHandler(SegundoFactorNoVigenteException.class)
+    public ResponseEntity<Map<String, Object>> segundoFactorNoVigente() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, MENSAJE_SEGUNDO_FACTOR_NO_VIGENTE));
     }
 
     @ExceptionHandler(LoginBloqueadoTemporalmenteException.class)

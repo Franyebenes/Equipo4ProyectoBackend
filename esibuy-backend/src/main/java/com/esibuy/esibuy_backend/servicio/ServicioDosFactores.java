@@ -21,9 +21,11 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.DatosDosFactoresInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosDosFactoresException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
+import com.esibuy.esibuy_backend.excepcion.SegundoFactorNoVigenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
 import com.esibuy.esibuy_backend.modelo.DosFactores;
+import com.esibuy.esibuy_backend.modelo.EstadoUsuario;
 import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioDosFactores;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
@@ -190,6 +192,26 @@ public class ServicioDosFactores {
         auditoria.registrarDosFactoresCodigosRegenerados(contexto, usuario.getEmail(), idUsuario);
         avisar(() -> plantillas.codigosRecuperacionRegenerados(usuario.getEmail()));
         return respuestaCon(codigos);
+    }
+
+    /*
+     * Verifica el codigo del segundo paso del login (el desafio lo gestiona el controlador). Es la misma comprobacion que
+     * desactivar y regenerar: un TOTP se acepta una sola vez por paso (compartido con esas operaciones) y un codigo de
+     * recuperacion se consume. No pide la contrasena (ya se comprobo en el primer paso) ni marca las credenciales como
+     * cambiadas ni avisa por correo: entrar no cambia nada de la cuenta. Si entre los dos pasos la cuenta dejo de poder entrar
+     * (borrada, bloqueada, desactivada) o ya no tiene el 2FA activo, el desafio no es vigente. Tests: ServicioDosFactoresLoginTest.
+     */
+    public void verificarParaLogin(String idUsuario, String codigo, ContextoPeticion contexto) {
+        exigirCodigo(codigo);
+        comprobarLimite(idUsuario, contexto);
+        Usuario usuario = protegido(() -> repositorioUsuario.findById(idUsuario)).orElse(null);
+        if (usuario == null || usuario.getEstado() != EstadoUsuario.ACTIVO || !usuario.tieneDosFactoresActivo()) {
+            auditoria.registrarLoginSegundoFactorNoVigente(contexto);
+            throw new SegundoFactorNoVigenteException();
+        }
+        comprobarCodigo(usuario, codigo, reloj.instant(), contexto);
+        limitador.registrarExito(idUsuario);
+        auditoria.registrarLoginCorrecto(contexto, usuario.getEmail(), idUsuario);
     }
 
     // ------------------------------------------------------------------ auxiliares
