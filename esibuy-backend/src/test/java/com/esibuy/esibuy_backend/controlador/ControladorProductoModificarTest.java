@@ -28,6 +28,7 @@ import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
 import com.esibuy.esibuy_backend.servicio.ServicioProducto;
 
@@ -67,7 +68,7 @@ class ControladorProductoModificarTest {
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void modificar_vendedor_devuelve200ConElProductoActualizadoYUsaElVendedorDeLaSesion() throws Exception {
         // Given
-        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS)).thenReturn(LAMPARA_LED);
+        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, null)).thenReturn(LAMPARA_LED);
 
         // When / Then
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
@@ -79,14 +80,41 @@ class ControladorProductoModificarTest {
                 .andExpect(jsonPath("$.descuento").value(20.0))
                 .andExpect(jsonPath("$.stock").value(12))
                 .andExpect(jsonPath("$.visible").value(false));
-        verify(servicioProducto).modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS);
+        verify(servicioProducto).modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, null);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void modificar_conStockAnterior_pasaAlServicioLaCantidadQueVioElVendedor() throws Exception {
+        // Given
+        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, 4)).thenReturn(LAMPARA_LED);
+
+        // When / Then
+        mockMvc.perform(put(RUTA).param("stockAnterior", "4").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
+                .andExpect(status().isOk());
+        verify(servicioProducto).modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, 4);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void modificar_stockCambiadoMientrasLoEditaba_devuelve409ConLaCantidadActual() throws Exception {
+        // Given
+        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, 4))
+                .thenThrow(new StockModificadoException(3));
+
+        // When / Then
+        mockMvc.perform(put(RUTA).param("stockAnterior", "4").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.stockActual").value(3));
     }
 
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void modificar_datosInvalidos_devuelve400ConElMensajeDelServicio() throws Exception {
         // Given
-        when(servicioProducto.modificarProducto(anyString(), anyString(), any()))
+        when(servicioProducto.modificarProducto(anyString(), anyString(), any(), any()))
                 .thenThrow(new ProductoInvalidoException("Rellena todos los campos obligatorios"));
 
         // When / Then
@@ -99,7 +127,7 @@ class ControladorProductoModificarTest {
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void modificar_productoAjenoOInexistente_devuelve404ConMensaje() throws Exception {
         // Given
-        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS))
+        when(servicioProducto.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS, null))
                 .thenThrow(new ProductoNoEncontradoException());
 
         // When / Then
@@ -119,7 +147,7 @@ class ControladorProductoModificarTest {
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value(ManejadorExcepciones.MENSAJE_PETICION_INVALIDA));
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 
     @Test
@@ -131,7 +159,7 @@ class ControladorProductoModificarTest {
         // When / Then
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
                 .andExpect(status().isBadRequest());
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 
     @Test
@@ -139,7 +167,8 @@ class ControladorProductoModificarTest {
     void modificar_conImagenDeMasDe16KB_seAceptaPorqueTieneElLimiteDelAlta() throws Exception {
         // Given: el resto de peticiones se limita a 16 KB, pero la modificacion puede llevar la imagen en base64
         String imagen = "data:image/jpeg;base64," + "A".repeat(50_000);
-        when(servicioProducto.modificarProducto(eq(ID_VENDEDOR), eq(ID_PRODUCTO), any())).thenReturn(LAMPARA_LED);
+        when(servicioProducto.modificarProducto(eq(ID_VENDEDOR), eq(ID_PRODUCTO), any(), any()))
+                .thenReturn(LAMPARA_LED);
 
         // When / Then
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo(imagen)))
@@ -157,7 +186,7 @@ class ControladorProductoModificarTest {
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo(imagen)))
                 .andExpect(status().is(413))
                 .andExpect(jsonPath("$.mensaje").value(ManejadorExcepciones.MENSAJE_CUERPO_DEMASIADO_GRANDE));
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 
     @Test
@@ -166,7 +195,7 @@ class ControladorProductoModificarTest {
         // When / Then
         mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 
     @Test
@@ -175,7 +204,7 @@ class ControladorProductoModificarTest {
         // When / Then
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 
     @Test
@@ -183,6 +212,6 @@ class ControladorProductoModificarTest {
         // When / Then
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo(null)))
                 .andExpect(status().isUnauthorized());
-        verify(servicioProducto, never()).modificarProducto(any(), any(), any());
+        verify(servicioProducto, never()).modificarProducto(any(), any(), any(), any());
     }
 }

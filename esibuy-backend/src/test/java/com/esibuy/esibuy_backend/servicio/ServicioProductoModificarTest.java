@@ -89,7 +89,7 @@ class ServicioProductoModificarTest {
         // When: nombre y descripcion llegan con espacios sobrantes; se activa y se cambia el stock
         ProductoCatalogoDTO resultado = servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
                 new ProductoAltaDTO("  Lámpara LED  ", "  Lámpara de sobremesa con luz cálida.  ", 95.5,
-                        List.of(ID_HOGAR, ID_ILUMINACION), 12, IMAGEN_NUEVA, true, 20.0));
+                        List.of(ID_HOGAR, ID_ILUMINACION), 12, IMAGEN_NUEVA, true, 20.0), null);
 
         // Then: se guardan los datos nuevos, limpios, sobre el mismo producto
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -124,7 +124,7 @@ class ServicioProductoModificarTest {
 
         // When
         servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, new ProductoAltaDTO("Lampara", "Lampara de sobremesa.",
-                80.0, List.of(ID_HOGAR), 0, null, false, null));
+                80.0, List.of(ID_HOGAR), 0, null, false, null), null);
 
         // Then
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -142,7 +142,7 @@ class ServicioProductoModificarTest {
 
         // When
         servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
-                cambios("Lampara", "Lampara de sobremesa.", 80.0, List.of(ID_HOGAR), 4));
+                cambios("Lampara", "Lampara de sobremesa.", 80.0, List.of(ID_HOGAR), 4), null);
 
         // Then
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -168,7 +168,7 @@ class ServicioProductoModificarTest {
     @MethodSource("faltaUnCampoObligatorio")
     void modificarProducto_faltaUnCampoObligatorio_lanzaExcepcionConElMensajeYNoGuarda(ProductoAltaDTO datos) {
         // When / Then: se valida antes de buscar el producto
-        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos))
+        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_CAMPOS_OBLIGATORIOS);
         verify(repositorioProducto, never()).findById(anyString());
@@ -186,7 +186,7 @@ class ServicioProductoModificarTest {
     @MethodSource("precioOStockIncorrecto")
     void modificarProducto_precioOStockIncorrecto_lanzaExcepcionConElMensajeYNoGuarda(ProductoAltaDTO datos) {
         // When / Then
-        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos))
+        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_VALORES_INCORRECTOS);
         verify(repositorioProducto, never()).save(any());
@@ -199,7 +199,7 @@ class ServicioProductoModificarTest {
         ProductoAltaDTO datos = cambios("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR, ID_INEXISTENTE), 1);
 
         // When / Then
-        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos))
+        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_VALORES_INCORRECTOS);
         verify(repositorioProducto, never()).save(any());
@@ -210,7 +210,7 @@ class ServicioProductoModificarTest {
     void modificarProducto_nombreConCaracteresEspeciales_lanzaExcepcionYNoGuarda(String nombre) {
         // When / Then
         assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
-                cambios(nombre, "Descripción", 10.0, List.of(ID_HOGAR), 1)))
+                cambios(nombre, "Descripción", 10.0, List.of(ID_HOGAR), 1), null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(Constantes.MENSAJE_NOMBRE_NO_PERMITIDO);
         verify(repositorioProducto, never()).save(any());
@@ -221,7 +221,7 @@ class ServicioProductoModificarTest {
     void modificarProducto_descripcionConCaracteresEspeciales_lanzaExcepcionYNoGuarda(String descripcion) {
         // When / Then
         assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
-                cambios("Lámpara", descripcion, 10.0, List.of(ID_HOGAR), 1)))
+                cambios("Lámpara", descripcion, 10.0, List.of(ID_HOGAR), 1), null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
         verify(repositorioProducto, never()).save(any());
@@ -235,7 +235,7 @@ class ServicioProductoModificarTest {
                 descuento);
 
         // When / Then
-        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos))
+        assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_DESCUENTO_INVALIDO);
         verify(repositorioProducto, never()).save(any());
@@ -249,7 +249,7 @@ class ServicioProductoModificarTest {
 
         // When / Then: igual que si no existiera, para no revelar que existe
         assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
-                cambios("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1)))
+                cambios("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1), null))
                 .isInstanceOf(ProductoNoEncontradoException.class)
                 .hasMessage("El producto no existe en tu catálogo");
         verify(repositorioProducto, never()).save(any());
@@ -263,7 +263,7 @@ class ServicioProductoModificarTest {
 
         // When / Then
         assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
-                cambios("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1)))
+                cambios("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1), null))
                 .isInstanceOf(ProductoNoEncontradoException.class);
         verify(repositorioProducto, never()).save(any());
     }

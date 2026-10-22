@@ -79,25 +79,30 @@ public class ControladorProducto {
         return ResponseEntity.ok(servicioProducto.cambiarEstado(autenticacion.getName(), id, estado.activo()));
     }
 
-    // Gestion de stock: {"stock": 12} fija las unidades disponibles (entero no negativo; con 0 deja de estar a la
-    // venta). Solo productos del vendedor de la sesion (si no, 404); exige token CSRF.
+    // Gestion de stock: {"stock": 12} fija las unidades disponibles (entero entre 0 y 1.000.000; con 0 deja de estar
+    // a la venta). Solo productos del vendedor de la sesion (si no, 404); exige token CSRF.
+    // ?stockAnterior=4 es la cantidad que vio el vendedor: si ha cambiado mientras tanto, 409 con la cantidad actual.
     @PatchMapping(RUTA_ID + "/stock")
     @PreAuthorize("hasRole('VENDEDOR')")
     public ResponseEntity<ProductoCatalogoDTO> cambiarStock(@PathVariable String id,
                                                             @RequestBody StockProductoDTO stock,
+                                                            @RequestParam(required = false) Integer stockAnterior,
                                                             Authentication autenticacion) {
-        return ResponseEntity.ok(servicioProducto.cambiarStock(autenticacion.getName(), id, stock.stock()));
+        return ResponseEntity.ok(
+                servicioProducto.cambiarStock(autenticacion.getName(), id, stock.stock(), stockAnterior));
     }
 
     // Modificar producto: sustituye los datos del producto por los enviados (los mismos que en el alta, con las
     // mismas validaciones) y devuelve el producto actualizado. Solo productos del vendedor de la sesion (si no, 404);
-    // exige token CSRF.
+    // exige token CSRF. ?stockAnterior funciona igual que en la gestion de stock.
     @PutMapping(RUTA_ID)
     @PreAuthorize("hasRole('VENDEDOR')")
     public ResponseEntity<ProductoCatalogoDTO> modificarProducto(@PathVariable String id,
                                                                  @RequestBody ProductoAltaDTO datos,
+                                                                 @RequestParam(required = false) Integer stockAnterior,
                                                                  Authentication autenticacion) {
-        return ResponseEntity.ok(servicioProducto.modificarProducto(autenticacion.getName(), id, datos));
+        return ResponseEntity.ok(
+                servicioProducto.modificarProducto(autenticacion.getName(), id, datos, stockAnterior));
     }
 
     // Eliminar producto: lo borra definitivamente del catalogo (204). La confirmacion la pide el frontend antes de
