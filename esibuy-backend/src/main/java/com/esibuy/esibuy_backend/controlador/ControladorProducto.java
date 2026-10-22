@@ -42,7 +42,8 @@ public class ControladorProducto {
     }
 
     // Buscar y filtrar el catalogo propio. Todos los parametros son opcionales y se pueden combinar: busqueda (nombre
-    // completo o parcial), idCategoria, activo (true/false) y rango de precio. Sin parametros, todo el catalogo.
+    // completo o parcial), idCategoria, activo (true/false) y rango de precio (el que pagan los clientes, con el
+    // descuento aplicado). Sin parametros, todo el catalogo.
     @GetMapping
     @PreAuthorize("hasRole('VENDEDOR')")
     public ResponseEntity<List<ProductoCatalogoDTO>> listarMisProductos(

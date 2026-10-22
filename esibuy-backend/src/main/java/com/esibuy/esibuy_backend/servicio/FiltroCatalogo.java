@@ -15,7 +15,8 @@ import com.esibuy.esibuy_backend.modelo.Producto;
  *   <li>busqueda: nombre completo o parcial, sin distinguir mayusculas ni tildes.</li>
  *   <li>idCategoria: el producto pertenece a esa categoria (puede tener varias).</li>
  *   <li>activo: true solo los activos (visibles para los clientes), false solo los inactivos.</li>
- *   <li>precioMinimo / precioMaximo: rango de precio base, con los limites incluidos.</li>
+ *   <li>precioMinimo / precioMaximo: rango del precio que pagan los clientes (con el descuento del producto
+ *   aplicado), con los limites incluidos.</li>
  * </ul>
  */
 public record FiltroCatalogo(String busqueda, String idCategoria, Boolean activo, Double precioMinimo,
@@ -55,13 +56,18 @@ public record FiltroCatalogo(String busqueda, String idCategoria, Boolean activo
         return activo == null || activo.equals(Boolean.TRUE.equals(visible));
     }
 
+    // Se compara el precio con descuento, calculado igual que en el carrito para un cliente (redondeado a
+    // centimos). Sin descuento es el precio base.
     private boolean coincidePrecio(PrecioProducto precio) {
         if (precioMinimo == null && precioMaximo == null) {
             return true;
         }
-        Double base = precio == null ? null : precio.getBase();
-        return base != null && (precioMinimo == null || base >= precioMinimo)
-                && (precioMaximo == null || base <= precioMaximo);
+        if (precio == null || precio.getBase() == null) {
+            return false;
+        }
+        double precioFinal = ServicioCarrito.precioFinal(precio, false);
+        return (precioMinimo == null || precioFinal >= precioMinimo)
+                && (precioMaximo == null || precioFinal <= precioMaximo);
     }
 
     private static boolean vacio(String texto) {
