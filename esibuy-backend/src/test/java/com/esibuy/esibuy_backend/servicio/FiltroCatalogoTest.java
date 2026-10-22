@@ -32,6 +32,13 @@ class FiltroCatalogoTest {
             .visible(true)
             .build();
 
+    // Gafas de sol: 120 euros con un 15 % de descuento, asi que los clientes pagan 102 euros
+    private static final Producto GAFAS = Producto.builder()
+            .nombre("Gafas de sol")
+            .precio(new PrecioProducto(120.0, 15.0, null))
+            .visible(true)
+            .build();
+
     private static FiltroCatalogo porNombre(String busqueda) {
         return new FiltroCatalogo(busqueda, null, null, null, null);
     }
@@ -124,7 +131,7 @@ class FiltroCatalogoTest {
         assertThat(new FiltroCatalogo(null, null, true, null, null).admite(producto)).isFalse();
     }
 
-    // ------------------------------------------------------------------ Filtrar por rango de precio (40 euros)
+    // ------------------------------------------------------------- Filtrar por rango de precio (con descuento)
 
     @ParameterizedTest
     @CsvSource(nullValues = "-", value = {
@@ -140,6 +147,40 @@ class FiltroCatalogoTest {
     void precio_admiteSoloLosDelRangoConLosLimitesIncluidos(Double minimo, Double maximo, boolean admitido) {
         // When / Then
         assertThat(new FiltroCatalogo(null, null, null, minimo, maximo).admite(LAMPARA)).isEqualTo(admitido);
+    }
+
+    @ParameterizedTest
+    @CsvSource(nullValues = "-", value = {
+        "-,   110, true",
+        "-,   102, true",
+        "-,   101.99, false",
+        "102, -,   true",
+        "110, -,   false",
+        "100, 105, true",
+        "115, 125, false",
+    })
+    void precio_conDescuento_seFiltraPorLoQuePaganLosClientes(Double minimo, Double maximo, boolean admitido) {
+        // When / Then: cuenta el precio con descuento (102), no el precio base (120)
+        assertThat(new FiltroCatalogo(null, null, null, minimo, maximo).admite(GAFAS)).isEqualTo(admitido);
+    }
+
+    @Test
+    void precio_conDescuento_redondeaACentimosComoElCarrito() {
+        // Given: 10 euros con un 70 % son 3 euros, pero en coma flotante la cuenta da 3.0000000000000004
+        Producto vela = Producto.builder().precio(new PrecioProducto(10.0, 70.0, null)).build();
+
+        // When / Then: redondeado a centimos, el limite exacto se incluye
+        assertThat(new FiltroCatalogo(null, null, null, null, 3.0).admite(vela)).isTrue();
+    }
+
+    @Test
+    void precio_elDescuentoPremiumNoCuenta() {
+        // Given: el descuento premium solo lo tienen los clientes premium; el filtro usa el de todos
+        Producto bolso = Producto.builder().precio(new PrecioProducto(100.0, null, 30.0)).build();
+
+        // When / Then
+        assertThat(new FiltroCatalogo(null, null, null, null, 80.0).admite(bolso)).isFalse();
+        assertThat(new FiltroCatalogo(null, null, null, 100.0, 100.0).admite(bolso)).isTrue();
     }
 
     @Test
