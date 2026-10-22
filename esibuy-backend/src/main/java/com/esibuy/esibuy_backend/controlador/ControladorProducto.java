@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -86,6 +87,17 @@ public class ControladorProducto {
                                                             @RequestBody StockProductoDTO stock,
                                                             Authentication autenticacion) {
         return ResponseEntity.ok(servicioProducto.cambiarStock(autenticacion.getName(), id, stock.stock()));
+    }
+
+    // Modificar producto: sustituye los datos del producto por los enviados (los mismos que en el alta, con las
+    // mismas validaciones) y devuelve el producto actualizado. Solo productos del vendedor de la sesion (si no, 404);
+    // exige token CSRF.
+    @PutMapping(RUTA_ID)
+    @PreAuthorize("hasRole('VENDEDOR')")
+    public ResponseEntity<ProductoCatalogoDTO> modificarProducto(@PathVariable String id,
+                                                                 @RequestBody ProductoAltaDTO datos,
+                                                                 Authentication autenticacion) {
+        return ResponseEntity.ok(servicioProducto.modificarProducto(autenticacion.getName(), id, datos));
     }
 
     // Eliminar producto: lo borra definitivamente del catalogo (204). La confirmacion la pide el frontend antes de
