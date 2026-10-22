@@ -103,6 +103,14 @@ public class ServicioProductoImpl implements ServicioProducto {
         return guardar(producto);
     }
 
+    // Eliminar producto: lo borra definitivamente. Si estaba en el carrito de algun cliente, el carrito deja de
+    // mostrar esa linea (ServicioCarrito ignora los productos que ya no existen).
+    @Override
+    public void eliminarProducto(String idVendedor, String idProducto) {
+        Producto producto = productoDelVendedor(idVendedor, idProducto);
+        repositorioProducto.deleteById(producto.getId());
+    }
+
     // Guarda el producto y lo devuelve como en el listado, con sus categorias por nombre
     private ProductoCatalogoDTO guardar(Producto producto) {
         Producto guardado = repositorioProducto.save(producto);
