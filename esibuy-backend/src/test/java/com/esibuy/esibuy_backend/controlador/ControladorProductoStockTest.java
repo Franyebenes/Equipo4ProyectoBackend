@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
 import com.esibuy.esibuy_backend.servicio.ServicioProducto;
 
@@ -52,21 +53,49 @@ class ControladorProductoStockTest {
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarStock_vendedor_devuelve200ConLaCantidadActualizadaYUsaElVendedorDeLaSesion() throws Exception {
         // Given
-        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12)).thenReturn(LAMPARA);
+        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, null)).thenReturn(LAMPARA);
 
         // When / Then
         mockMvc.perform(patch(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID_PRODUCTO))
                 .andExpect(jsonPath("$.stock").value(12));
-        verify(servicioProducto).cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12);
+        verify(servicioProducto).cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, null);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void cambiarStock_conStockAnterior_pasaAlServicioLaCantidadQueVioElVendedor() throws Exception {
+        // Given
+        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, 4)).thenReturn(LAMPARA);
+
+        // When / Then
+        mockMvc.perform(patch(RUTA).param("stockAnterior", "4").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
+                .andExpect(status().isOk());
+        verify(servicioProducto).cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, 4);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void cambiarStock_stockCambiadoMientrasLoEditaba_devuelve409ConElMensajeYLaCantidadActual() throws Exception {
+        // Given: un cliente reservo unidades desde que el vendedor abrio la ficha
+        StockModificadoException conflicto = new StockModificadoException(3);
+        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, 4)).thenThrow(conflicto);
+
+        // When / Then
+        mockMvc.perform(patch(RUTA).param("stockAnterior", "4").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value(conflicto.getMessage()))
+                .andExpect(jsonPath("$.stockActual").value(3));
     }
 
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarStock_negativo_devuelve400ConElMensajeDelServicio() throws Exception {
         // Given
-        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, -3))
+        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, -3, null))
                 .thenThrow(new ProductoInvalidoException("El stock debe ser un número entero no negativo"));
 
         // When / Then
@@ -82,14 +111,14 @@ class ControladorProductoStockTest {
         mockMvc.perform(patch(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"stock\":\"muchas\"}"))
                 .andExpect(status().isBadRequest());
-        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any());
+        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any(), any());
     }
 
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarStock_productoAjenoOInexistente_devuelve404ConMensaje() throws Exception {
         // Given
-        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12))
+        when(servicioProducto.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 12, null))
                 .thenThrow(new ProductoNoEncontradoException());
 
         // When / Then
@@ -104,7 +133,7 @@ class ControladorProductoStockTest {
         // When / Then
         mockMvc.perform(patch(RUTA).contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any());
+        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -113,7 +142,7 @@ class ControladorProductoStockTest {
         // When / Then
         mockMvc.perform(patch(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any());
+        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -121,6 +150,6 @@ class ControladorProductoStockTest {
         // When / Then
         mockMvc.perform(patch(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOCE_UNIDADES))
                 .andExpect(status().isUnauthorized());
-        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any());
+        verify(servicioProducto, never()).cambiarStock(anyString(), anyString(), any(), any());
     }
 }

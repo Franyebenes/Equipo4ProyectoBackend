@@ -71,7 +71,7 @@ class ServicioProductoStockTest {
                 .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
 
         // When
-        ProductoCatalogoDTO resultado = servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, stock);
+        ProductoCatalogoDTO resultado = servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, stock, null);
 
         // Then: se guarda la cantidad nueva sin tocar el resto de datos
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -86,7 +86,7 @@ class ServicioProductoStockTest {
     @ValueSource(ints = {-1, -50})
     void cambiarStock_negativo_lanzaExcepcionConElMensajeYNoConsultaNiGuarda(int stock) {
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, stock))
+        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, stock, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_STOCK_NEGATIVO);
         verify(repositorioProducto, never()).findById(anyString());
@@ -96,7 +96,7 @@ class ServicioProductoStockTest {
     @Test
     void cambiarStock_sinCantidad_lanzaExcepcionConElMensajeYNoConsultaNiGuarda() {
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, null))
+        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, null, null))
                 .isInstanceOf(ProductoInvalidoException.class)
                 .hasMessage(ServicioProductoImpl.MENSAJE_STOCK_OBLIGATORIO);
         verify(repositorioProducto, never()).findById(anyString());
@@ -109,7 +109,7 @@ class ServicioProductoStockTest {
         when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.of(lampara(ID_OTRO_VENDEDOR)));
 
         // When / Then: igual que si no existiera, para no revelar que existe
-        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 10))
+        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 10, null))
                 .isInstanceOf(ProductoNoEncontradoException.class)
                 .hasMessage("El producto no existe en tu catálogo");
         verify(repositorioProducto, never()).save(any());
@@ -121,7 +121,7 @@ class ServicioProductoStockTest {
         when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.empty());
 
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 10))
+        assertThatThrownBy(() -> servicio.cambiarStock(ID_VENDEDOR, ID_PRODUCTO, 10, null))
                 .isInstanceOf(ProductoNoEncontradoException.class);
         verify(repositorioProducto, never()).save(any());
     }

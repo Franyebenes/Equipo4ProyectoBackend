@@ -31,6 +31,7 @@ import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
+import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
@@ -74,6 +75,7 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     private static final String CLAVE_ERRORES = "errores";
     private static final String CLAVE_MENSAJE = "mensaje";
+    static final String CLAVE_STOCK_ACTUAL = "stockActual";
 
     private static final Logger log = LoggerFactory.getLogger(ManejadorExcepciones.class);
 
@@ -137,6 +139,14 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ProductoInvalidoException.class)
     public ResponseEntity<Map<String, Object>> productoInvalido(ProductoInvalidoException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // Gestion de stock y Modificar producto: el stock cambio mientras el vendedor lo editaba. Se envia la cantidad
+    // actual para que el frontend la muestre sin tener que volver a pedir el producto
+    @ExceptionHandler(StockModificadoException.class)
+    public ResponseEntity<Map<String, Object>> stockModificado(StockModificadoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of(CLAVE_MENSAJE, ex.getMessage(), CLAVE_STOCK_ACTUAL, ex.getStockActual()));
     }
 
     @ExceptionHandler(CuerpoDemasiadoGrandeException.class)
