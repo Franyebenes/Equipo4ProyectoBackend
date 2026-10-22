@@ -11,4 +11,5 @@ public interface ServicioProducto {
     ProductoCatalogoDTO obtenerProductoDelVendedor(String idVendedor, String idProducto);
     ProductoCatalogoDTO crearProducto(String idVendedor, ProductoAltaDTO datos);
     ProductoCatalogoDTO cambiarEstado(String idVendedor, String idProducto, Boolean activo);
+    ProductoCatalogoDTO cambiarStock(String idVendedor, String idProducto, Integer stock);
 }

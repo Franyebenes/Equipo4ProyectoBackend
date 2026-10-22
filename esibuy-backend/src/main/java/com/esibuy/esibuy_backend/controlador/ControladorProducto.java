@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.esibuy.esibuy_backend.dto.EstadoProductoDTO;
 import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
+import com.esibuy.esibuy_backend.dto.StockProductoDTO;
 import com.esibuy.esibuy_backend.servicio.FiltroCatalogo;
 import com.esibuy.esibuy_backend.servicio.ServicioProducto;
 
@@ -74,5 +75,15 @@ public class ControladorProducto {
                                                              @RequestBody EstadoProductoDTO estado,
                                                              Authentication autenticacion) {
         return ResponseEntity.ok(servicioProducto.cambiarEstado(autenticacion.getName(), id, estado.activo()));
+    }
+
+    // Gestion de stock: {"stock": 12} fija las unidades disponibles (entero no negativo; con 0 deja de estar a la
+    // venta). Solo productos del vendedor de la sesion (si no, 404); exige token CSRF.
+    @PatchMapping(RUTA_ID + "/stock")
+    @PreAuthorize("hasRole('VENDEDOR')")
+    public ResponseEntity<ProductoCatalogoDTO> cambiarStock(@PathVariable String id,
+                                                            @RequestBody StockProductoDTO stock,
+                                                            Authentication autenticacion) {
+        return ResponseEntity.ok(servicioProducto.cambiarStock(autenticacion.getName(), id, stock.stock()));
     }
 }

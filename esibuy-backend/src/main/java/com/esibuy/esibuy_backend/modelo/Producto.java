@@ -94,6 +94,11 @@ public class Producto {
         this.visible = visible;
     }
 
+    /** Unidades disponibles. Con 0 el producto no esta disponible para la venta. */
+    public void cambiarStock(int stock) {
+        this.stock = stock;
+    }
+
     @Override
     public String toString() {
         return "Producto[id=" + id + ", idVendedor=" + idVendedor + ", nombre=" + nombre + "]";
