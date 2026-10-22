@@ -100,8 +100,8 @@ public class Producto {
     }
 
     /**
-     * Datos que edita el vendedor. El descuento premium no lo gestiona el vendedor, asi que se conserva; el stock, el
-     * estado y el vendedor tampoco cambian.
+     * Datos que edita el vendedor. El descuento premium no lo gestiona el vendedor, asi que se conserva. El stock y el
+     * estado se cambian con {@link #cambiarStock(int)} y {@link #cambiarVisibilidad(boolean)}.
      */
     public void modificarDatos(String nombre, String descripcion, List<String> idCategorias, String imagen,
                                Double precioBase, Double descuento) {

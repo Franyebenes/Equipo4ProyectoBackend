@@ -24,8 +24,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
-import com.esibuy.esibuy_backend.dto.ProductoModificacionDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
@@ -34,7 +34,7 @@ import com.esibuy.esibuy_backend.servicio.ServicioProducto;
 /**
  * HU Modificar producto. Endpoint PUT /api/vendedor/productos/{id}: solo vendedores, con token CSRF y siempre sobre
  * el catalogo del vendedor de la sesion; respuestas y mensajes que recibe el frontend y limite de tamano para la
- * imagen (el mismo que el alta).
+ * imagen (el mismo que el alta, porque recibe los mismos datos).
  */
 @WebMvcTest(ControladorProducto.class)
 @Import(ConfiguracionSeguridad.class)
@@ -46,10 +46,10 @@ class ControladorProductoModificarTest {
     private static final String ID_HOGAR = "64b7f0c2a1b2c3d4e5f60202";
     private static final String RUTA = "/api/vendedor/productos/" + ID_PRODUCTO;
 
-    private static final ProductoModificacionDTO CAMBIOS =
-            new ProductoModificacionDTO("Lampara LED", "Lampara de sobremesa.", 95.5, 20.0, List.of(ID_HOGAR), null);
+    private static final ProductoAltaDTO CAMBIOS = new ProductoAltaDTO("Lampara LED", "Lampara de sobremesa.", 95.5,
+            List.of(ID_HOGAR), 12, null, false, 20.0);
     private static final ProductoCatalogoDTO LAMPARA_LED = new ProductoCatalogoDTO(ID_PRODUCTO, "Lampara LED",
-            "Lampara de sobremesa.", null, List.of("Hogar"), 95.5, 20.0, null, 4, true);
+            "Lampara de sobremesa.", null, List.of("Hogar"), 95.5, 20.0, null, 12, false);
 
     @Autowired
     private MockMvc mockMvc;
@@ -59,7 +59,8 @@ class ControladorProductoModificarTest {
     private static String cuerpo(String imagen) {
         String valorImagen = imagen == null ? "null" : "\"" + imagen + "\"";
         return "{\"nombre\":\"Lampara LED\",\"descripcion\":\"Lampara de sobremesa.\",\"precio\":95.5,"
-                + "\"descuento\":20.0,\"idCategorias\":[\"" + ID_HOGAR + "\"],\"imagen\":" + valorImagen + "}";
+                + "\"descuento\":20.0,\"idCategorias\":[\"" + ID_HOGAR + "\"],\"stock\":12,\"activo\":false,"
+                + "\"imagen\":" + valorImagen + "}";
     }
 
     @Test
@@ -76,7 +77,8 @@ class ControladorProductoModificarTest {
                 .andExpect(jsonPath("$.categorias[0]").value("Hogar"))
                 .andExpect(jsonPath("$.precio").value(95.5))
                 .andExpect(jsonPath("$.descuento").value(20.0))
-                .andExpect(jsonPath("$.stock").value(4));
+                .andExpect(jsonPath("$.stock").value(12))
+                .andExpect(jsonPath("$.visible").value(false));
         verify(servicioProducto).modificarProducto(ID_VENDEDOR, ID_PRODUCTO, CAMBIOS);
     }
 
@@ -107,10 +109,10 @@ class ControladorProductoModificarTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\"idVendedor\":\"64b7f0c2a1b2c3d4e5f60002\"", "\"stock\":500", "\"activo\":false"})
+    @ValueSource(strings = {"\"idVendedor\":\"64b7f0c2a1b2c3d4e5f60002\"", "\"descuentoPremium\":50"})
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
-    void modificar_conCamposQueNoSeEditanAqui_devuelve400YNoModifica(String campo) throws Exception {
-        // Given: el vendedor no se puede cambiar y el stock y el estado tienen sus propios endpoints
+    void modificar_conCamposQueElVendedorNoPuedeCambiar_devuelve400YNoModifica(String campo) throws Exception {
+        // Given: intenta pasar el producto a otro vendedor o ponerse el descuento premium (el DTO no los tiene)
         String cuerpo = cuerpo(null).replace("{", "{" + campo + ",");
 
         // When / Then
