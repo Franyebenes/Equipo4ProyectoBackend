@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
+import com.esibuy.esibuy_backend.dto.ProductoModificacionDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
@@ -39,6 +40,10 @@ public class ServicioProductoImpl implements ServicioProducto {
     // Descuento en porcentaje, con el mismo rango que el esquema de la BBDD (precio.descuento)
     private static final double DESCUENTO_MINIMO = 0;
     private static final double DESCUENTO_MAXIMO = 100;
+    static final String MENSAJE_CAMPOS_OBLIGATORIOS = "Rellena todos los campos obligatorios";
+    static final String MENSAJE_VALORES_ALTA =
+            "El precio debe ser mayor que 0, el stock no puede ser negativo y las categorías deben existir";
+    static final String MENSAJE_VALORES_MODIFICACION = "El precio debe ser mayor que 0 y las categorías deben existir";
     static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
     static final String MENSAJE_ESTADO_OBLIGATORIO = "Indica si el producto queda activo o inactivo";
     static final String MENSAJE_STOCK_OBLIGATORIO = "Indica la cantidad de stock";
@@ -127,27 +132,17 @@ public class ServicioProductoImpl implements ServicioProducto {
 
     // HU15.1 - Alta de producto. Si falta un campo obligatorio o es incorrecto: 400 con el motivo y no se guarda.
     // El vendedor elige si el producto queda activo y, opcionalmente, un descuento (porcentaje sobre el precio).
-        @Override
+    @Override
     public ProductoCatalogoDTO crearProducto(String idVendedor, ProductoAltaDTO datos) {
-        if (vacio(datos.nombre()) || vacio(datos.descripcion()) || datos.precio() == null
-                || datos.stock() == null || datos.idCategorias() == null || datos.idCategorias().isEmpty()) {
-            throw new ProductoInvalidoException("Rellena todos los campos obligatorios");
+        // El stock solo se indica en el alta; despues se cambia desde Gestion de stock
+        if (datos.stock() == null) {
+            throw new ProductoInvalidoException(MENSAJE_CAMPOS_OBLIGATORIOS);
         }
-        if (!NOMBRE_PERMITIDO.matcher(datos.nombre().strip()).matches()) {
-            throw new ProductoInvalidoException(Constantes.MENSAJE_NOMBRE_NO_PERMITIDO);
+        if (datos.stock() < STOCK_MINIMO) {
+            throw new ProductoInvalidoException(MENSAJE_VALORES_ALTA);
         }
-        if (!DESCRIPCION_PERMITIDA.matcher(datos.descripcion().strip()).matches()) {
-            throw new ProductoInvalidoException(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
-        }
-        if (datos.descuento() != null
-                && (datos.descuento() < DESCUENTO_MINIMO || datos.descuento() > DESCUENTO_MAXIMO)) {
-            throw new ProductoInvalidoException(MENSAJE_DESCUENTO_INVALIDO);
-        }
-        if (datos.precio() <= PRECIO_MINIMO || datos.stock() < STOCK_MINIMO
-                || repositorioCategoria.findAllById(datos.idCategorias()).size() != datos.idCategorias().size()) {
-            throw new ProductoInvalidoException(
-                    "El precio debe ser mayor que 0, el stock no puede ser negativo y las categorías deben existir");
-        }
+        validarDatosProducto(datos.nombre(), datos.descripcion(), datos.precio(), datos.descuento(),
+                datos.idCategorias(), MENSAJE_VALORES_ALTA);
 
         Producto producto = Producto.builder()
                 .idVendedor(idVendedor)
@@ -161,6 +156,42 @@ public class ServicioProductoImpl implements ServicioProducto {
                 .visible(!Boolean.FALSE.equals(datos.activo()))
                 .build();
         return guardar(producto);
+    }
+
+    // Modificar producto: el vendedor corrige los datos de uno de sus productos con las mismas validaciones que el
+    // alta. Si algo no es valido: 400 con el motivo y no se guarda. El stock y el estado no se tocan (tienen su propia
+    // HU) y sin imagen el producto queda sin foto (se muestra la imagen por defecto).
+    @Override
+    public ProductoCatalogoDTO modificarProducto(String idVendedor, String idProducto, ProductoModificacionDTO datos) {
+        validarDatosProducto(datos.nombre(), datos.descripcion(), datos.precio(), datos.descuento(),
+                datos.idCategorias(), MENSAJE_VALORES_MODIFICACION);
+        Producto producto = productoDelVendedor(idVendedor, idProducto);
+        producto.modificarDatos(datos.nombre().strip(), datos.descripcion().strip(), datos.idCategorias(),
+                datos.imagen(), datos.precio(), datos.descuento());
+        return guardar(producto);
+    }
+
+    // Validaciones comunes del alta y de la modificacion: campos obligatorios, sin caracteres especiales, descuento
+    // entre 0 y 100 %, precio mayor que 0 y categorias existentes. Cada operacion indica su mensaje para el precio y
+    // las categorias (el del alta tambien habla del stock).
+    private void validarDatosProducto(String nombre, String descripcion, Double precio, Double descuento,
+                                      List<String> idCategorias, String mensajeValoresIncorrectos) {
+        if (vacio(nombre) || vacio(descripcion) || precio == null || idCategorias == null || idCategorias.isEmpty()) {
+            throw new ProductoInvalidoException(MENSAJE_CAMPOS_OBLIGATORIOS);
+        }
+        if (!NOMBRE_PERMITIDO.matcher(nombre.strip()).matches()) {
+            throw new ProductoInvalidoException(Constantes.MENSAJE_NOMBRE_NO_PERMITIDO);
+        }
+        if (!DESCRIPCION_PERMITIDA.matcher(descripcion.strip()).matches()) {
+            throw new ProductoInvalidoException(Constantes.MENSAJE_DESCRIPCION_NO_PERMITIDA);
+        }
+        if (descuento != null && (descuento < DESCUENTO_MINIMO || descuento > DESCUENTO_MAXIMO)) {
+            throw new ProductoInvalidoException(MENSAJE_DESCUENTO_INVALIDO);
+        }
+        if (precio <= PRECIO_MINIMO
+                || repositorioCategoria.findAllById(idCategorias).size() != idCategorias.size()) {
+            throw new ProductoInvalidoException(mensajeValoresIncorrectos);
+        }
     }
 
     private static boolean vacio(String texto) {

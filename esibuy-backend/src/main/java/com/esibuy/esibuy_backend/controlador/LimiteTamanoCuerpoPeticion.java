@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAdapter;
 
 import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
+import com.esibuy.esibuy_backend.dto.ProductoModificacionDTO;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 
 /**
@@ -20,8 +21,8 @@ import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
  * (CP-SEG-11). Jackson admite por defecto cadenas de hasta 100 millones de caracteres, asi que sin este limite un
  * JSON enorme se cargaria entero en memoria.
  *
- * <p>Excepcion: el alta de producto (HU15.1) lleva una imagen en base64, asi que admite hasta
- * {@value #TAMANO_MAXIMO_ALTA_PRODUCTO_BYTES} bytes. Sigue limitado, y esa ruta solo la puede usar un vendedor.
+ * <p>Excepcion: el alta de producto (HU15.1) y su modificacion llevan una imagen en base64, asi que admiten hasta
+ * {@value #TAMANO_MAXIMO_ALTA_PRODUCTO_BYTES} bytes. Sigue limitado, y esas rutas solo las puede usar un vendedor.
  *
  * <p>Se comprueba la cabecera Content-Length y, por si no viene (cuerpo por trozos), tambien se cuentan los bytes
  * mientras se leen.
@@ -59,9 +60,11 @@ public class LimiteTamanoCuerpoPeticion extends RequestBodyAdviceAdapter {
         };
     }
 
-    // HU15.1: solo el alta de producto tiene un limite mayor; el resto de peticiones sigue con 16 KB
+    // HU15.1 y Modificar producto: el alta y la modificacion de producto llevan la imagen, asi que tienen un limite
+    // mayor; el resto de peticiones sigue con 16 KB
     private static long limitePara(Type tipoDestino) {
-        return tipoDestino == ProductoAltaDTO.class ? TAMANO_MAXIMO_ALTA_PRODUCTO_BYTES : TAMANO_MAXIMO_BYTES;
+        boolean llevaImagen = tipoDestino == ProductoAltaDTO.class || tipoDestino == ProductoModificacionDTO.class;
+        return llevaImagen ? TAMANO_MAXIMO_ALTA_PRODUCTO_BYTES : TAMANO_MAXIMO_BYTES;
     }
 
     /** Lanza CuerpoDemasiadoGrandeException en cuanto se lee un byte mas del maximo. */

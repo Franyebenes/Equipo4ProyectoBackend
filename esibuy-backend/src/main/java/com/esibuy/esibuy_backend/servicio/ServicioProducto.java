@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.esibuy.esibuy_backend.dto.ProductoAltaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
+import com.esibuy.esibuy_backend.dto.ProductoModificacionDTO;
 
 public interface ServicioProducto {
 
@@ -13,4 +14,5 @@ public interface ServicioProducto {
     ProductoCatalogoDTO cambiarEstado(String idVendedor, String idProducto, Boolean activo);
     ProductoCatalogoDTO cambiarStock(String idVendedor, String idProducto, Integer stock);
     void eliminarProducto(String idVendedor, String idProducto);
+    ProductoCatalogoDTO modificarProducto(String idVendedor, String idProducto, ProductoModificacionDTO datos);
 }

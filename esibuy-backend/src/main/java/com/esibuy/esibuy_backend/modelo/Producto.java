@@ -99,6 +99,20 @@ public class Producto {
         this.stock = stock;
     }
 
+    /**
+     * Datos que edita el vendedor. El descuento premium no lo gestiona el vendedor, asi que se conserva; el stock, el
+     * estado y el vendedor tampoco cambian.
+     */
+    public void modificarDatos(String nombre, String descripcion, List<String> idCategorias, String imagen,
+                               Double precioBase, Double descuento) {
+        Double descuentoPremium = precio == null ? null : precio.getDescuentoPremium();
+        this.nombre = nombre;
+        this.descripcion = descripcion;
+        this.idCategorias = idCategorias;
+        this.imagen = imagen;
+        this.precio = new PrecioProducto(precioBase, descuento, descuentoPremium);
+    }
+
     @Override
     public String toString() {
         return "Producto[id=" + id + ", idVendedor=" + idVendedor + ", nombre=" + nombre + "]";
