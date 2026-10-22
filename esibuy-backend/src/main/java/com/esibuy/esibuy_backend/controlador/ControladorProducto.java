@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -85,5 +86,14 @@ public class ControladorProducto {
                                                             @RequestBody StockProductoDTO stock,
                                                             Authentication autenticacion) {
         return ResponseEntity.ok(servicioProducto.cambiarStock(autenticacion.getName(), id, stock.stock()));
+    }
+
+    // Eliminar producto: lo borra definitivamente del catalogo (204). La confirmacion la pide el frontend antes de
+    // llamar. Solo productos del vendedor de la sesion (si no, 404); exige token CSRF.
+    @DeleteMapping(RUTA_ID)
+    @PreAuthorize("hasRole('VENDEDOR')")
+    public ResponseEntity<Void> eliminarProducto(@PathVariable String id, Authentication autenticacion) {
+        servicioProducto.eliminarProducto(autenticacion.getName(), id);
+        return ResponseEntity.noContent().build();
     }
 }
