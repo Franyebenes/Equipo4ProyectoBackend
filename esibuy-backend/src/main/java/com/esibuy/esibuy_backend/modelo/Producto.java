@@ -9,7 +9,8 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 /**
  * Producto de un vendedor (coleccion "productos"). Sigue el esquema de la BBDD: idVendedor e idCategorias se guardan
- * como ObjectId, "visible" indica si el producto esta activo. Se crea con {@link #builder()}.
+ * como ObjectId, "visible" indica si el producto esta activo y "soloPremium" si solo lo ven los clientes premium.
+ * Se crea con {@link #builder()}.
  */
 @Document(collection = "productos")
 public class Producto {
@@ -32,6 +33,9 @@ public class Producto {
     private Integer stock;
     @Field("visible")
     private Boolean visible;
+    // HU15.1 (sprint 2): visible solo para clientes premium. Los productos antiguos no lo tienen (null = para todos)
+    @Field("soloPremium")
+    private Boolean soloPremium;
 
     /** Usado por Spring Data al leer de MongoDB. */
     protected Producto() {
@@ -47,6 +51,7 @@ public class Producto {
         this.precio = builder.precio;
         this.stock = builder.stock;
         this.visible = builder.visible;
+        this.soloPremium = builder.soloPremium;
     }
 
     public static Builder builder() {
@@ -89,9 +94,25 @@ public class Producto {
         return visible;
     }
 
+    public Boolean getSoloPremium() {
+        return soloPremium;
+    }
+
     /** Activa (visible para los clientes) o desactiva el producto sin borrarlo. */
     public void cambiarVisibilidad(boolean visible) {
         this.visible = visible;
+    }
+
+    /** HU15.1 (sprint 2): true si solo lo pueden ver los clientes premium. */
+    public void cambiarSoloPremium(boolean soloPremium) {
+        this.soloPremium = soloPremium;
+    }
+
+    /** HU15.1 (sprint 2): descuento exclusivo para clientes premium (porcentaje); null si no tiene. */
+    public void cambiarDescuentoPremium(Double descuentoPremium) {
+        Double base = precio == null ? null : precio.getBase();
+        Double descuento = precio == null ? null : precio.getDescuento();
+        this.precio = new PrecioProducto(base, descuento, descuentoPremium);
     }
 
     /** Unidades disponibles. Con 0 el producto no esta disponible para la venta. */
@@ -100,8 +121,9 @@ public class Producto {
     }
 
     /**
-     * Datos que edita el vendedor. El descuento premium no lo gestiona el vendedor, asi que se conserva. El stock y el
-     * estado se cambian con {@link #cambiarStock(int)} y {@link #cambiarVisibilidad(boolean)}.
+     * Datos que edita el vendedor. Se conserva el descuento premium, que se cambia con
+     * {@link #cambiarDescuentoPremium(Double)}. El stock y el estado se cambian con {@link #cambiarStock(int)} y
+     * {@link #cambiarVisibilidad(boolean)}.
      */
     public void modificarDatos(String nombre, String descripcion, List<String> idCategorias, String imagen,
                                Double precioBase, Double descuento) {
@@ -129,6 +151,7 @@ public class Producto {
         private PrecioProducto precio;
         private Integer stock;
         private Boolean visible;
+        private Boolean soloPremium;
 
         private Builder() {
         }
@@ -175,6 +198,11 @@ public class Producto {
 
         public Builder visible(Boolean visible) {
             this.visible = visible;
+            return this;
+        }
+
+        public Builder soloPremium(Boolean soloPremium) {
+            this.soloPremium = soloPremium;
             return this;
         }
 

@@ -42,7 +42,7 @@ class ControladorProductoStockTest {
     private static final String RUTA = "/api/vendedor/productos/" + ID_PRODUCTO + "/stock";
     private static final String DOCE_UNIDADES = "{\"stock\":12}";
     private static final ProductoCatalogoDTO LAMPARA = new ProductoCatalogoDTO(ID_PRODUCTO, "Lámpara",
-            "Lámpara de sobremesa.", null, List.of("Hogar"), 80.0, null, null, 12, true);
+            "Lámpara de sobremesa.", null, List.of("Hogar"), 80.0, null, null, 12, true, false);
 
     @Autowired
     private MockMvc mockMvc;

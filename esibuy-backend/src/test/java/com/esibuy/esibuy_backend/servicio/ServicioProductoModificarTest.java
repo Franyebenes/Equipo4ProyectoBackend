@@ -76,7 +76,7 @@ class ServicioProductoModificarTest {
 
     private static ProductoAltaDTO cambios(String nombre, String descripcion, Double precio, List<String> categorias,
                                            Integer stock) {
-        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null, null, null);
+        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null, null, null, null, null);
     }
 
     @Test
@@ -89,7 +89,7 @@ class ServicioProductoModificarTest {
         // When: nombre y descripcion llegan con espacios sobrantes; se activa y se cambia el stock
         ProductoCatalogoDTO resultado = servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO,
                 new ProductoAltaDTO("  Lámpara LED  ", "  Lámpara de sobremesa con luz cálida.  ", 95.5,
-                        List.of(ID_HOGAR, ID_ILUMINACION), 12, IMAGEN_NUEVA, true, 20.0), null);
+                        List.of(ID_HOGAR, ID_ILUMINACION), 12, IMAGEN_NUEVA, true, 20.0, 5.0, null), null);
 
         // Then: se guardan los datos nuevos, limpios, sobre el mismo producto
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -110,7 +110,7 @@ class ServicioProductoModificarTest {
         // Se devuelve como en el listado, con las categorias por nombre
         assertThat(resultado).isEqualTo(new ProductoCatalogoDTO(ID_PRODUCTO, "Lámpara LED",
                 "Lámpara de sobremesa con luz cálida.", IMAGEN_NUEVA, List.of("Hogar", "Iluminación"), 95.5, 20.0,
-                5.0, 12, true));
+                5.0, 12, true, false));
     }
 
     @Test
@@ -124,7 +124,7 @@ class ServicioProductoModificarTest {
 
         // When
         servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, new ProductoAltaDTO("Lampara", "Lampara de sobremesa.",
-                80.0, List.of(ID_HOGAR), 0, null, false, null), null);
+                80.0, List.of(ID_HOGAR), 0, null, false, null, null, null), null);
 
         // Then
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -232,7 +232,7 @@ class ServicioProductoModificarTest {
     void modificarProducto_descuentoFueraDeRango_lanzaExcepcionYNoGuarda(double descuento) {
         // Given
         ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1, null, true,
-                descuento);
+                descuento, null, null);
 
         // When / Then
         assertThatThrownBy(() -> servicio.modificarProducto(ID_VENDEDOR, ID_PRODUCTO, datos, null))

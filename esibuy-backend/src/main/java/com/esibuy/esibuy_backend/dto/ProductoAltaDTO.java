@@ -7,6 +7,8 @@ import java.util.List;
  * El vendedor no viene aqui: es siempre el de la sesion.
  * activo y descuento son opcionales: sin descuento no tiene rebaja; sin activo, en el alta se crea activo y al
  * modificarlo conserva su estado.
+ * descuentoPremium y soloPremium (sprint 2) tambien son opcionales: sin descuentoPremium los premium pagan como el
+ * resto; sin soloPremium, en el alta lo ven todos los clientes y al modificarlo conserva su valor.
  */
 public record ProductoAltaDTO(
         String nombre,
@@ -16,5 +18,7 @@ public record ProductoAltaDTO(
         Integer stock,
         String imagen,
         Boolean activo,
-        Double descuento) {
+        Double descuento,
+        Double descuentoPremium,
+        Boolean soloPremium) {
 }

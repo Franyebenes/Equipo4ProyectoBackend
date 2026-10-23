@@ -41,7 +41,7 @@ class ControladorProductoEstadoTest {
     private static final String RUTA = "/api/vendedor/productos/" + ID_PRODUCTO + "/estado";
     private static final String DESACTIVAR = "{\"activo\":false}";
     private static final ProductoCatalogoDTO LAMPARA_INACTIVA = new ProductoCatalogoDTO(ID_PRODUCTO, "Lámpara",
-            "Lámpara de sobremesa.", null, List.of("Hogar"), 80.0, null, null, 4, false);
+            "Lámpara de sobremesa.", null, List.of("Hogar"), 80.0, null, null, 4, false, false);
 
     @Autowired
     private MockMvc mockMvc;

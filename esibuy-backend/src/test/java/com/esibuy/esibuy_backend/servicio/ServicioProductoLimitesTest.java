@@ -49,7 +49,7 @@ class ServicioProductoLimitesTest {
     private ServicioProductoImpl servicio;
 
     private static ProductoAltaDTO producto(String nombre, String descripcion, String imagen, int stock) {
-        return new ProductoAltaDTO(nombre, descripcion, 10.0, List.of(ID_HOGAR), stock, imagen, null, null);
+        return new ProductoAltaDTO(nombre, descripcion, 10.0, List.of(ID_HOGAR), stock, imagen, null, null, null, null);
     }
 
     private void altaSeGuarda() {
