@@ -55,7 +55,7 @@ class ServicioProductoAltaTest {
 
     private static ProductoAltaDTO alta(String nombre, String descripcion, Double precio, List<String> categorias,
                                         Integer stock) {
-        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null, null, null);
+        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null, null, null, null, null);
     }
 
     @Test
@@ -70,7 +70,8 @@ class ServicioProductoAltaTest {
 
         // When: nombre y descripcion llegan con espacios sobrantes; sin indicar si esta activo ni descuento
         ProductoCatalogoDTO resultado = servicio.crearProducto(ID_VENDEDOR, new ProductoAltaDTO(
-                "  Lámpara  ", "  Lámpara de sobremesa.  ", 80.0, List.of(ID_HOGAR), 4, IMAGEN, null, null));
+                "  Lámpara  ", "  Lámpara de sobremesa.  ", 80.0, List.of(ID_HOGAR), 4, IMAGEN, null, null, null,
+                null));
 
         // Then: se guarda limpio, sin id (lo genera MongoDB), del vendedor de la sesion, visible y sin descuentos
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -89,7 +90,7 @@ class ServicioProductoAltaTest {
         assertThat(producto.getVisible()).isTrue();
         // y se devuelve como en el listado, con la categoria por nombre
         assertThat(resultado).isEqualTo(new ProductoCatalogoDTO(ID_PRODUCTO, "Lámpara", "Lámpara de sobremesa.",
-                IMAGEN, List.of("Hogar"), 80.0, null, null, 4, true));
+                IMAGEN, List.of("Hogar"), 80.0, null, null, 4, true, false));
     }
 
     @Test
@@ -210,7 +211,7 @@ class ServicioProductoAltaTest {
                 .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
         when(repositorioProducto.save(any(Producto.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
         ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Lámpara de sobremesa.", 80.0, List.of(ID_HOGAR), 4,
-                null, false, 15.0);
+                null, false, 15.0, null, null);
 
         // When
         ProductoCatalogoDTO resultado = servicio.crearProducto(ID_VENDEDOR, datos);
@@ -234,7 +235,7 @@ class ServicioProductoAltaTest {
                 .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
         when(repositorioProducto.save(any(Producto.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
         ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1,
-                null, true, descuento);
+                null, true, descuento, null, null);
 
         // When
         servicio.crearProducto(ID_VENDEDOR, datos);
@@ -251,7 +252,7 @@ class ServicioProductoAltaTest {
     void crearProducto_descuentoFueraDeRango_lanzaExcepcionYNoGuarda(double descuento) {
         // Given
         ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1,
-                null, true, descuento);
+                null, true, descuento, null, null);
 
         // When / Then
         assertThatThrownBy(() -> servicio.crearProducto(ID_VENDEDOR, datos))

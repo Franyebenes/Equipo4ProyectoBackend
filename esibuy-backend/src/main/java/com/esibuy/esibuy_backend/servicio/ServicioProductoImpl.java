@@ -44,6 +44,8 @@ public class ServicioProductoImpl implements ServicioProducto {
     static final String MENSAJE_VALORES_INCORRECTOS =
             "El precio debe ser mayor que 0, el stock no puede ser negativo y las categorías deben existir";
     static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
+    // HU15.1 (sprint 2): descuento premium
+    static final String MENSAJE_DESCUENTO_PREMIUM_INVALIDO = "El descuento premium debe estar entre 0 y 100 %";
     static final String MENSAJE_ESTADO_OBLIGATORIO = "Indica si el producto queda activo o inactivo";
     static final String MENSAJE_STOCK_OBLIGATORIO = "Indica la cantidad de stock";
     static final String MENSAJE_STOCK_NEGATIVO = "El stock debe ser un número entero no negativo";
@@ -158,10 +160,12 @@ public class ServicioProductoImpl implements ServicioProducto {
                 .nombre(datos.nombre().strip())
                 .descripcion(datos.descripcion().strip())
                 .imagen(datos.imagen())
-                .precio(new PrecioProducto(datos.precio(), datos.descuento(), null))
+                .precio(new PrecioProducto(datos.precio(), datos.descuento(), datos.descuentoPremium()))
                 .stock(datos.stock())
                 // Si el vendedor no lo indica, el producto se crea activo (visible para los clientes)
                 .visible(!Boolean.FALSE.equals(datos.activo()))
+                // Si el vendedor no lo indica, lo ven todos los clientes
+                .soloPremium(Boolean.TRUE.equals(datos.soloPremium()))
                 .build();
         return guardar(producto);
     }
@@ -178,9 +182,13 @@ public class ServicioProductoImpl implements ServicioProducto {
         int stock = stockAGuardar(producto, datos.stock(), stockAnterior);
         producto.modificarDatos(datos.nombre().strip(), datos.descripcion().strip(), datos.idCategorias(),
                 datos.imagen(), datos.precio(), datos.descuento());
+        producto.cambiarDescuentoPremium(datos.descuentoPremium());
         producto.cambiarStock(stock);
         if (datos.activo() != null) {
             producto.cambiarVisibilidad(datos.activo());
+        }
+        if (datos.soloPremium() != null) {
+            producto.cambiarSoloPremium(datos.soloPremium());
         }
         return guardar(producto);
     }
@@ -214,6 +222,7 @@ public class ServicioProductoImpl implements ServicioProducto {
                 && (datos.descuento() < DESCUENTO_MINIMO || datos.descuento() > DESCUENTO_MAXIMO)) {
             throw new ProductoInvalidoException(MENSAJE_DESCUENTO_INVALIDO);
         }
+        validarDescuentoPremium(datos.descuentoPremium());
         if (datos.imagen() != null && !imagenValida(datos.imagen())) {
             throw new ProductoInvalidoException(MENSAJE_IMAGEN_INVALIDA);
         }
@@ -223,6 +232,15 @@ public class ServicioProductoImpl implements ServicioProducto {
         if (datos.precio() <= PRECIO_MINIMO || datos.stock() < STOCK_MINIMO
                 || repositorioCategoria.findAllById(datos.idCategorias()).size() != datos.idCategorias().size()) {
             throw new ProductoInvalidoException(MENSAJE_VALORES_INCORRECTOS);
+        }
+    }
+
+    // HU15.1 (sprint 2): el descuento premium es opcional; si se indica, entre 0 y 100 %. Se aplica ademas del
+    // descuento para todos (ver PrecioProducto#precioFinal).
+    private static void validarDescuentoPremium(Double descuentoPremium) {
+        if (descuentoPremium != null
+                && (descuentoPremium < DESCUENTO_MINIMO || descuentoPremium > DESCUENTO_MAXIMO)) {
+            throw new ProductoInvalidoException(MENSAJE_DESCUENTO_PREMIUM_INVALIDO);
         }
     }
 
@@ -283,6 +301,7 @@ public class ServicioProductoImpl implements ServicioProducto {
         PrecioProducto precio = producto.getPrecio();
         return new ProductoCatalogoDTO(producto.getId(), producto.getNombre(), producto.getDescripcion(),
                 producto.getImagen(), categorias, precio.getBase(), precio.getDescuento(),
-                precio.getDescuentoPremium(), producto.getStock(), producto.getVisible());
+                precio.getDescuentoPremium(), producto.getStock(), producto.getVisible(),
+                Boolean.TRUE.equals(producto.getSoloPremium()));
     }
 }

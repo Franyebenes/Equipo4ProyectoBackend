@@ -48,9 +48,9 @@ class ControladorProductoModificarTest {
     private static final String RUTA = "/api/vendedor/productos/" + ID_PRODUCTO;
 
     private static final ProductoAltaDTO CAMBIOS = new ProductoAltaDTO("Lampara LED", "Lampara de sobremesa.", 95.5,
-            List.of(ID_HOGAR), 12, null, false, 20.0);
+            List.of(ID_HOGAR), 12, null, false, 20.0, null, null);
     private static final ProductoCatalogoDTO LAMPARA_LED = new ProductoCatalogoDTO(ID_PRODUCTO, "Lampara LED",
-            "Lampara de sobremesa.", null, List.of("Hogar"), 95.5, 20.0, null, 12, false);
+            "Lampara de sobremesa.", null, List.of("Hogar"), 95.5, 20.0, null, 12, false, false);
 
     @Autowired
     private MockMvc mockMvc;
@@ -137,10 +137,10 @@ class ControladorProductoModificarTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\"idVendedor\":\"64b7f0c2a1b2c3d4e5f60002\"", "\"descuentoPremium\":50"})
+    @ValueSource(strings = {"\"idVendedor\":\"64b7f0c2a1b2c3d4e5f60002\""})
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void modificar_conCamposQueElVendedorNoPuedeCambiar_devuelve400YNoModifica(String campo) throws Exception {
-        // Given: intenta pasar el producto a otro vendedor o ponerse el descuento premium (el DTO no los tiene)
+        // Given: intenta pasar el producto a otro vendedor, que solo se toma de la sesion
         String cuerpo = cuerpo(null).replace("{", "{" + campo + ",");
 
         // When / Then

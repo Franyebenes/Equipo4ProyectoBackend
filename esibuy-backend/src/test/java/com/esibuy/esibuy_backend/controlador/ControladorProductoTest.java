@@ -38,7 +38,7 @@ class ControladorProductoTest {
     private static final String ID_MODA = "64b7f0c2a1b2c3d4e5f60201";
     private static final String RUTA = "/api/vendedor/productos";
     private static final ProductoCatalogoDTO BOLSO = new ProductoCatalogoDTO(ID_PRODUCTO, "Bolso de piel",
-            "Bolso hecho a mano.", null, List.of("Moda"), 49.9, 10.0, null, 3, true);
+            "Bolso hecho a mano.", null, List.of("Moda"), 49.9, 10.0, null, 3, true, false);
 
     @Autowired
     private MockMvc mockMvc;

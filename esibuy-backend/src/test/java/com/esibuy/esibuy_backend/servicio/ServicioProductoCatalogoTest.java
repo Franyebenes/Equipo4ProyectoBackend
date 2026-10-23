@@ -156,7 +156,7 @@ class ServicioProductoCatalogoTest {
 
         // Then
         assertThat(detalle).isEqualTo(new ProductoCatalogoDTO(ID_PRODUCTO, "Bolso de piel",
-                "Descripción de Bolso de piel", null, List.of("Moda"), 19.99, 10.0, null, 5, true));
+                "Descripción de Bolso de piel", null, List.of("Moda"), 19.99, 10.0, null, 5, true, false));
     }
 
     @Test

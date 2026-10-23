@@ -4,7 +4,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 /**
  * Subdocumento "precio" de productos: precio base y descuentos en porcentaje (0-100), segun el esquema de la
- * coleccion en MongoDB.
+ * coleccion en MongoDB. El descuento es para todos los clientes; el premium se aplica ademas, solo a los premium.
  */
 public class PrecioProducto {
 
@@ -35,5 +35,22 @@ public class PrecioProducto {
 
     public Double getDescuentoPremium() {
         return descuentoPremium;
+    }
+
+    /**
+     * Precio que paga el cliente. Primero se aplica el descuento para todos y, si el cliente es premium, sobre ese
+     * precio el descuento premium. 
+     */
+    public double precioFinal(boolean clientePremium) {
+        double resultado = base * (1 - porcentaje(descuento));
+        if (clientePremium) {
+            resultado *= 1 - porcentaje(descuentoPremium);
+        }
+        // Redondeado a centimos
+        return Math.round(resultado * 100) / 100.0;
+    }
+
+    private static double porcentaje(Double descuento) {
+        return descuento == null ? 0 : descuento / 100;
     }
 }

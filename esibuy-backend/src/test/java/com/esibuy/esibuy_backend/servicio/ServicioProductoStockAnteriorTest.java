@@ -63,7 +63,7 @@ class ServicioProductoStockAnteriorTest {
 
     private static ProductoAltaDTO datosConPrecioYStock(double precio, int stock) {
         return new ProductoAltaDTO("Lampara", "Lampara de sobremesa.", precio, List.of(ID_HOGAR), stock, null, null,
-                null);
+                null, null, null);
     }
 
     private void guardarDevuelveElProducto() {
