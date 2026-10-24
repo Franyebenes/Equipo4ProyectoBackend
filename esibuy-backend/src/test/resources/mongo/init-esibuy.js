@@ -120,7 +120,7 @@ db.createCollection("pedidos", {
          properties: {
             idCliente: { bsonType: "objectId" },
             estado: {
-               enum: [ "PENDIENTE", "PAGADO", "ENVIADO", "ENTREGADO", "CANCELADO" ]
+               enum: [ "PENDIENTE", "PAGADO", "ENVIADO", "ENTREGADO", "FINALIZADO", "CANCELADO" ]
             },
             precioTotal: { bsonType: "number", minimum: 0 },
             fecha: { bsonType: "date" },
