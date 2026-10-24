@@ -108,6 +108,17 @@ public class PerfilUsuario {
         this.avatarUrl = conservarSiNulo(avatarUrl, this.avatarUrl);
     }
 
+ 
+    public void modificarDesdePerfil(String nombre, String apellidos, String telefono,
+                                    LocalDate fechaNacimiento, String avatarUrl, String nombreComercial) {
+        this.nombre = nombre;
+        this.apellidos = apellidos;
+        this.telefono = telefono;
+        this.fechaNacimiento = fechaNacimiento;
+        this.avatarUrl = avatarUrl;
+        this.nombreComercial = nombreComercial;
+    }
+
     // para aceptar localdate tambien
     private static <T> T conservarSiNulo(T nuevo, T actual) {
         return nuevo != null ? nuevo : actual;
