@@ -24,6 +24,7 @@ import com.esibuy.esibuy_backend.excepcion.CategoriaConProductosException;
 import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
 import com.esibuy.esibuy_backend.excepcion.CategoriaNoEncontradaException;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import com.esibuy.esibuy_backend.excepcion.ConflictoNegocioException;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
@@ -35,6 +36,7 @@ import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.RecursoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -200,6 +202,16 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ProductoNoEnCarritoException.class)
     public ResponseEntity<Map<String, Object>> productoNoEnCarrito(ProductoNoEnCarritoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> recursoNoEncontrado(RecursoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ConflictoNegocioException.class)
+    public ResponseEntity<Map<String, Object>> conflictoNegocio(ConflictoNegocioException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of(CLAVE_MENSAJE, ex.getMessage(), "codigo", ex.getCodigo()));
     }
     /**
      * JSON ilegible. Si el fallo esta en el valor de un campo conocido (fecha con formato incorrecto, objeto
