@@ -27,6 +27,12 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
+import com.esibuy.esibuy_backend.excepcion.EstadoPedidoNoPermitidoException;
+import com.esibuy.esibuy_backend.excepcion.PedidoInvalidoException;
+import com.esibuy.esibuy_backend.excepcion.PedidoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEnPedidoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoYaValoradoException;
+import com.esibuy.esibuy_backend.excepcion.ValoracionInvalidaException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
@@ -209,6 +215,23 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> stockInsuficiente(StockInsuficienteException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
+
+    // HU-26 a HU-30 Pedidos y valoraciones del cliente
+    @ExceptionHandler({PedidoInvalidoException.class, ValoracionInvalidaException.class})
+    public ResponseEntity<Map<String, Object>> pedidoInvalido(RuntimeException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler({PedidoNoEncontradoException.class, ProductoNoEnPedidoException.class})
+    public ResponseEntity<Map<String, Object>> pedidoNoEncontrado(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler({EstadoPedidoNoPermitidoException.class, ProductoYaValoradoException.class})
+    public ResponseEntity<Map<String, Object>> estadoPedidoNoPermitido(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> errorInesperado(Exception ex) {
         log.error("Error inesperado al procesar la peticion", ex);
