@@ -41,7 +41,8 @@ import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
-
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoInvalidoException;
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoNoEncontradoException;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
@@ -189,7 +190,16 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> cantidadNoValida(CantidadNoValidaException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
+    // HU-24.x Metodos de pago
+    @ExceptionHandler(MetodoPagoInvalidoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoInvalido(MetodoPagoInvalidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
 
+    @ExceptionHandler(MetodoPagoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoNoEncontrado(MetodoPagoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     @ExceptionHandler(ProductoNoDisponibleException.class)
     public ResponseEntity<Map<String, Object>> productoNoDisponible(ProductoNoDisponibleException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
