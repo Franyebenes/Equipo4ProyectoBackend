@@ -25,6 +25,7 @@ import org.springframework.data.mongodb.core.query.Update;
 
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
@@ -59,7 +60,7 @@ class ServicioCarritoModificarTest {
         productoVisible();
         hayStock(true);
         // When
-        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3);
+        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3, false);
         // Then
         assertThat(incrementoDeStock()).isEqualTo(-2);
         assertThat(carrito.buscarLinea(ID_PRODUCTO).orElseThrow().getCantidad()).isEqualTo(3);
@@ -71,7 +72,7 @@ class ServicioCarritoModificarTest {
         // Given: tiene 3 y pasa a 1
         Carrito carrito = carritoConProducto(3);
         // When
-        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 1);
+        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 1, false);
         // Then
         assertThat(incrementoDeStock()).isEqualTo(2);
         assertThat(carrito.buscarLinea(ID_PRODUCTO).orElseThrow().getCantidad()).isEqualTo(1);
@@ -83,7 +84,7 @@ class ServicioCarritoModificarTest {
         // Given
         carritoConProducto(2);
         // When
-        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 2);
+        servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 2, false);
         // Then
         verifyNoInteractions(mongoTemplate);
     }
@@ -95,7 +96,7 @@ class ServicioCarritoModificarTest {
         productoVisible();
         hayStock(false);
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 50))
+        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 50, false))
                 .isInstanceOf(StockInsuficienteException.class);
         assertThat(carrito.buscarLinea(ID_PRODUCTO).orElseThrow().getCantidad()).isEqualTo(1);
         verify(repositorioCarrito, never()).save(any());
@@ -104,7 +105,7 @@ class ServicioCarritoModificarTest {
     @Test
     void cantidadCeroLanzaCantidadNoValida() {
         // When / Then: para quitar el producto se usa eliminar
-        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 0))
+        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 0, false))
                 .isInstanceOf(CantidadNoValidaException.class);
         verifyNoInteractions(repositorioCarrito, mongoTemplate);
     }
@@ -114,7 +115,7 @@ class ServicioCarritoModificarTest {
         // Given
         carritoConProducto(1);
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_OTRO_PRODUCTO, 2))
+        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_OTRO_PRODUCTO, 2, false))
                 .isInstanceOf(ProductoNoEnCarritoException.class);
         verifyNoInteractions(mongoTemplate);
     }
@@ -124,7 +125,7 @@ class ServicioCarritoModificarTest {
         // Given
         when(repositorioCarrito.buscarPorCliente(new ObjectId(ID_CLIENTE))).thenReturn(Optional.empty());
         // When / Then
-        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 2))
+        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 2, false))
                 .isInstanceOf(ProductoNoEnCarritoException.class);
     }
 
@@ -151,6 +152,20 @@ class ServicioCarritoModificarTest {
                 .isInstanceOf(ProductoNoEnCarritoException.class);
         verifyNoInteractions(mongoTemplate);
         verify(repositorioCarrito, never()).save(any());
+    }
+
+    @Test
+    void subirLaCantidadDeUnProductoSoloPremiumSiendoClienteNormalLanzaSoloPremiumYNoTocaElStock() {
+        // Given: el vendedor lo ha marcado como solo premium despues de que el cliente lo anadiera
+        Carrito carrito = carritoConProducto(1);
+        Producto producto = Producto.builder().id(ID_PRODUCTO).nombre("Reloj").stock(10).visible(true)
+                .soloPremium(true).precio(new PrecioProducto(100.0, null, 10.0)).build();
+        when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.of(producto));
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 2, false))
+                .isInstanceOf(ProductoSoloPremiumException.class);
+        verifyNoInteractions(mongoTemplate);
+        assertThat(carrito.buscarLinea(ID_PRODUCTO).orElseThrow().getCantidad()).isEqualTo(1);
     }
 
     // ---------- Ayudas ----------

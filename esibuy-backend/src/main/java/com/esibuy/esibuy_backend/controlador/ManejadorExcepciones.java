@@ -37,6 +37,7 @@ import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -46,7 +47,8 @@ import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
-
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoInvalidoException;
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoNoEncontradoException;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
@@ -136,6 +138,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
+    // Carrito: un cliente normal no puede comprar un producto solo premium
+    @ExceptionHandler(ProductoSoloPremiumException.class)
+    public ResponseEntity<Map<String, Object>> productoSoloPremium(ProductoSoloPremiumException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
     @ExceptionHandler(ProductoNoEncontradoException.class)
     public ResponseEntity<Map<String, Object>> productoNoEncontrado(ProductoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
@@ -188,7 +196,16 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> cantidadNoValida(CantidadNoValidaException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
+    // HU-24.x Metodos de pago
+    @ExceptionHandler(MetodoPagoInvalidoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoInvalido(MetodoPagoInvalidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
 
+    @ExceptionHandler(MetodoPagoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoNoEncontrado(MetodoPagoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     @ExceptionHandler(ProductoNoDisponibleException.class)
     public ResponseEntity<Map<String, Object>> productoNoDisponible(ProductoNoDisponibleException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
