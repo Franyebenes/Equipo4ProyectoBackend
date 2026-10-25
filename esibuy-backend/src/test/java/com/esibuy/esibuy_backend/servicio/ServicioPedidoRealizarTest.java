@@ -90,15 +90,15 @@ class ServicioPedidoRealizarTest {
 
     @Test
     void realizarComoPremiumAplicaElDescuentoPremium() {
-        // Given: teclado con 25% premium
+        // Given: teclado de 20 EUR con 10% normal y 25% premium
         carritoCon(ID_TECLADO, 1, ID_RATON, 1);
         productosEnBaseDeDatos(true);
         when(repositorioPedido.save(any())).thenAnswer(invocacion -> invocacion.getArgument(0));
         // When
         PedidoDTO pedido = servicio.realizar(ID_CLIENTE, true, DIRECCION);
-        // Then: 15 + 5.5
-        assertThat(pedido.lineas().get(0).precioUnitario()).isEqualTo(15.0);
-        assertThat(pedido.precioTotal()).isEqualTo(20.5);
+        // Then: descuentos en cadena, 20 x 0.90 x 0.75 = 13.5; total 13.5 + 5.5 = 19
+        assertThat(pedido.lineas().get(0).precioUnitario()).isEqualTo(13.5);
+        assertThat(pedido.precioTotal()).isEqualTo(19.0);
     }
 
     @Test
