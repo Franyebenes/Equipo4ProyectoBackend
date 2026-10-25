@@ -15,4 +15,8 @@ public interface RepositorioValoracion extends MongoRepository<Valoracion, Strin
 
     @Query(value = "{ 'idCliente': ?0, 'idPedido': ?1, 'idProducto': ?2 }", exists = true)
     boolean existe(ObjectId idCliente, ObjectId idPedido, ObjectId idProducto);
+
+    // HU-21: valoraciones de un producto, para su media en la ficha
+    @Query("{ 'idProducto': ?0 }")
+    List<Valoracion> buscarPorProducto(ObjectId idProducto);
 }

@@ -24,6 +24,7 @@ import com.esibuy.esibuy_backend.dto.Disponibilidad;
 import com.esibuy.esibuy_backend.dto.PaginaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoClienteDTO;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
+import com.esibuy.esibuy_backend.servicio.FiltroCatalogoCliente;
 import com.esibuy.esibuy_backend.servicio.ServicioCatalogo;
 
 /** HU-19 Buscar productos. Endpoint GET /api/catalogo: solo clientes y premium, con la sesion iniciada. */
@@ -33,9 +34,11 @@ class ControladorCatalogoTest {
 
     private static final String ID_CLIENTE = "64b7f0c2a1b2c3d4e5f60001";
     private static final String RUTA = "/api/catalogo";
+    private static final FiltroCatalogoCliente BUSQUEDA_TAZA =
+            new FiltroCatalogoCliente("taza", null, null, null, null, false);
     private static final PaginaDTO<ProductoClienteDTO> PAGINA = new PaginaDTO<>(List.of(new ProductoClienteDTO(
             "64b7f0c2a1b2c3d4e5f60101", "Taza", null, List.of("Cocina"), 4.0, 3.6, false,
-            Disponibilidad.POCO_STOCK)), 0, 12, 1, 1);
+            Disponibilidad.POCO_STOCK, 4.5, 2)), 0, 12, 1, 1);
 
     @Autowired
     private MockMvc mockMvc;
@@ -45,7 +48,7 @@ class ControladorCatalogoTest {
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void buscar_clienteSinParametros_devuelveLaPrimeraPaginaSinElStock() throws Exception {
-        when(servicioCatalogo.buscar(null, 0, false)).thenReturn(PAGINA);
+        when(servicioCatalogo.buscar(FiltroCatalogoCliente.sinFiltros(), 0, false)).thenReturn(PAGINA);
 
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isOk())
@@ -60,10 +63,10 @@ class ControladorCatalogoTest {
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "PREMIUM")
     void buscar_premiumConBusquedaYPagina_pideEsaPaginaConSuDescuento() throws Exception {
-        when(servicioCatalogo.buscar("taza", 1, true)).thenReturn(PAGINA);
+        when(servicioCatalogo.buscar(BUSQUEDA_TAZA, 1, true)).thenReturn(PAGINA);
 
         mockMvc.perform(get(RUTA).param("busqueda", "taza").param("pagina", "1")).andExpect(status().isOk());
-        verify(servicioCatalogo).buscar("taza", 1, true);
+        verify(servicioCatalogo).buscar(BUSQUEDA_TAZA, 1, true);
     }
 
     @Test

@@ -38,6 +38,7 @@ import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
+import com.esibuy.esibuy_backend.excepcion.FiltroNoValidoException;
 import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -136,6 +137,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UsuarioConProductosException.class)
     public ResponseEntity<Map<String, Object>> usuarioConProductos(UsuarioConProductosException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // HU-20: filtros del catalogo sin sentido (precio negativo, minimo mayor que el maximo...)
+    @ExceptionHandler(FiltroNoValidoException.class)
+    public ResponseEntity<Map<String, Object>> filtroNoValido(FiltroNoValidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     // Carrito: un cliente normal no puede comprar un producto solo premium
