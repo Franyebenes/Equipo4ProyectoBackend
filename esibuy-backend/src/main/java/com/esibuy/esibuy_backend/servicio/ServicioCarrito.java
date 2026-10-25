@@ -1,5 +1,7 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +21,7 @@ import com.esibuy.esibuy_backend.dto.CarritoDTO;
 import com.esibuy.esibuy_backend.dto.LineaCarritoDTO;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
@@ -37,6 +40,11 @@ public class ServicioCarrito {
 
     private static final Logger log = LoggerFactory.getLogger(ServicioCarrito.class);
     private static final String CAMPO_STOCK = "stock";
+    /** Pasado este tiempo sin tocar el carrito, sus unidades vuelven al stock y el carrito se vacia. */
+    public static final Duration CADUCIDAD_CARRITO = Duration.ofHours(24);
+    private static final String CAMPO_LINEAS = "lineas";
+    private static final String CAMPO_PRIMERA_LINEA = "lineas.0";
+    private static final String CAMPO_ULTIMA_MODIFICACION = "ultimaModificacion";
 
     private final RepositorioCarrito repositorioCarrito;
     private final RepositorioProducto repositorioProducto;
@@ -73,22 +81,26 @@ public class ServicioCarrito {
         return new CarritoDTO(lineas, articulos, total);
     }
 
-    // HU-22.2 Anadir al carrito: si ya estaba, suma la cantidad
-    public void anadir(String idCliente, String idProducto, int cantidad) {
+    // HU-22.2 Anadir al carrito: si ya estaba, suma la cantidad. Un producto solo premium solo lo puede anadir un
+    // cliente premium.
+    public void anadir(String idCliente, String idProducto, int cantidad, boolean premium) {
         if (cantidad < 1) {
             throw new CantidadNoValidaException();
         }
         Producto producto = buscarDisponible(idProducto);
+        comprobarPuedeComprarlo(producto, premium);
         reservarStock(producto.getId(), cantidad);
         Carrito carrito = repositorioCarrito.buscarPorCliente(new ObjectId(idCliente))
                 .orElseGet(() -> new Carrito(idCliente));
         carrito.anadir(producto.getId(), cantidad);
+        carrito.marcarModificado(Instant.now());
         repositorioCarrito.save(carrito);
         log.info("Producto anadido al carrito: cliente={} producto={} cantidad={}", idCliente, idProducto, cantidad);
     }
 
-    // HU-22.3 Modificar cantidad: si sube se reserva la diferencia; si baja, se devuelve al stock
-    public void cambiarCantidad(String idCliente, String idProducto, int cantidad) {
+    // HU-22.3 Modificar cantidad: si sube se reserva la diferencia; si baja, se devuelve al stock. Subirla tiene las
+    // mismas condiciones que anadir.
+    public void cambiarCantidad(String idCliente, String idProducto, int cantidad, boolean premium) {
         if (cantidad < 1) {
             throw new CantidadNoValidaException();
         }
@@ -96,12 +108,13 @@ public class ServicioCarrito {
         LineaCarrito linea = carrito.buscarLinea(idProducto).orElseThrow(ProductoNoEnCarritoException::new);
         int diferencia = cantidad - linea.getCantidad();
         if (diferencia > 0) {
-            buscarDisponible(idProducto);
+            comprobarPuedeComprarlo(buscarDisponible(idProducto), premium);
             reservarStock(idProducto, diferencia);
         } else if (diferencia < 0) {
             liberarStock(idProducto, -diferencia);
         }
         linea.cambiarCantidad(cantidad);
+        carrito.marcarModificado(Instant.now());
         repositorioCarrito.save(carrito);
         log.info("Cantidad cambiada en el carrito: cliente={} producto={} cantidad={}", idCliente, idProducto, cantidad);
     }
@@ -112,23 +125,53 @@ public class ServicioCarrito {
         LineaCarrito linea = carrito.buscarLinea(idProducto).orElseThrow(ProductoNoEnCarritoException::new);
         liberarStock(idProducto, linea.getCantidad());
         carrito.quitar(idProducto);
+        carrito.marcarModificado(Instant.now());
         repositorioCarrito.save(carrito);
         log.info("Producto eliminado del carrito: cliente={} producto={}", idCliente, idProducto);
     }
 
     /**
-     * Precio por unidad con descuento. Un cliente normal tiene el descuento general; un premium, el mayor entre el
-     * general y el premium (no se suman), para que nunca pague mas que un cliente normal.
+     * Carritos abandonados: los que llevan mas de 24 horas sin tocarse se vacian y sus unidades vuelven al stock. Lo
+     * llama cada hora la tarea programada (y nada mas arrancar, para los que caducaron con el servidor apagado).
+     *
+     * @return cuantos carritos se han vaciado
+     */
+    public int liberarCarritosCaducados(Instant ahora) {
+        // Carritos de antes de que existiera la caducidad (sin fecha): empiezan a contar desde ahora
+        mongoTemplate.updateMulti(new Query(Criteria.where(CAMPO_ULTIMA_MODIFICACION).exists(false)),
+                new Update().set(CAMPO_ULTIMA_MODIFICACION, ahora), Carrito.class);
+
+        Query caducados = new Query(Criteria.where(CAMPO_ULTIMA_MODIFICACION).lt(ahora.minus(CADUCIDAD_CARRITO))
+                .and(CAMPO_PRIMERA_LINEA).exists(true));
+        Update vaciar = new Update().set(CAMPO_LINEAS, List.of()).set(CAMPO_ULTIMA_MODIFICACION, ahora);
+        int vaciados = 0;
+        // Cada carrito se vacia y se lee (como estaba) en una sola operacion: aunque el cliente lo toque a la vez,
+        // sus unidades nunca se devuelven dos veces
+        Carrito carrito = mongoTemplate.findAndModify(caducados, vaciar, Carrito.class);
+        while (carrito != null) {
+            carrito.getLineas().forEach(linea -> liberarStock(linea.getIdProducto(), linea.getCantidad()));
+            log.info("Carrito caducado vaciado: cliente={} lineas={}", carrito.getIdCliente(), carrito.getLineas().size());
+            vaciados++;
+            carrito = mongoTemplate.findAndModify(caducados, vaciar, Carrito.class);
+        }
+        return vaciados;
+    }
+
+    /**
+     * Precio por unidad con descuento: el mismo calculo que en el catalogo (PrecioProducto#precioFinal). Un cliente
+     * normal tiene el descuento general; un premium, ademas, el premium sobre ese precio (los dos encadenados).
      */
     static double precioFinal(PrecioProducto precio, boolean premium) {
         if (precio == null || precio.getBase() == null) {
             return 0.0;
         }
-        double descuento = valor(precio.getDescuento());
-        if (premium) {
-            descuento = Math.max(descuento, valor(precio.getDescuentoPremium()));
+        return precio.precioFinal(premium);
+    }
+
+    private static void comprobarPuedeComprarlo(Producto producto, boolean premium) {
+        if (Boolean.TRUE.equals(producto.getSoloPremium()) && !premium) {
+            throw new ProductoSoloPremiumException();
         }
-        return redondear(precio.getBase() * (1 - descuento / 100));
     }
 
     private Carrito buscarCarrito(String idCliente) {

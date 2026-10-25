@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import com.esibuy.esibuy_backend.dto.Disponibilidad;
 import com.esibuy.esibuy_backend.dto.PaginaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoClienteDTO;
+import com.esibuy.esibuy_backend.dto.ProductoDetalleDTO;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
@@ -26,6 +28,9 @@ public class ServicioCatalogo {
     /** Productos por pagina: 3 filas de 4 en la cuadricula del catalogo. */
     public static final int TAMANO_PAGINA = 12;
     private static final int PRIMERA_PAGINA = 0;
+    // HU-21: las valoraciones (HU-30) todavia no estan en Develop. Hasta entonces la ficha sale sin valoraciones.
+    private static final Double SIN_VALORACION_MEDIA = null;
+    private static final int SIN_VALORACIONES = 0;
 
     private final RepositorioProducto repositorioProducto;
     private final RepositorioCategoria repositorioCategoria;
@@ -63,6 +68,20 @@ public class ServicioCatalogo {
                 new PageImpl<>(contenido, PageRequest.of(numeroPagina, TAMANO_PAGINA), encontrados.size()));
     }
 
+    public ProductoDetalleDTO obtener(String idProducto, boolean clientePremium) {
+        Producto producto = repositorioProducto.findById(idProducto)
+                .filter(encontrado -> Boolean.TRUE.equals(encontrado.getVisible()))
+                .orElseThrow(ProductoNoDisponibleException::new);
+        List<String> categorias = nombresCategorias(producto, nombresDeCategorias(List.of(producto)));
+        PrecioProducto precio = producto.getPrecio();
+        boolean conPrecio = tienePrecio(precio);
+        return new ProductoDetalleDTO(producto.getId(), producto.getNombre(), producto.getDescripcion(),
+                producto.getImagen(), categorias, conPrecio ? precio.getBase() : null,
+                conPrecio ? precio.precioFinal(clientePremium) : null, precio == null ? null : precio.getDescuento(),
+                precio == null ? null : precio.getDescuentoPremium(), Boolean.TRUE.equals(producto.getSoloPremium()),
+                Disponibilidad.de(producto.getStock()), SIN_VALORACION_MEDIA, SIN_VALORACIONES);
+    }
+
     // Las imagenes (base64) son lo que mas ocupa: solo se piden las de los productos de la pagina
     private Map<String, String> imagenesDe(List<Producto> productos) {
         if (productos.isEmpty()) {
@@ -90,12 +109,21 @@ public class ServicioCatalogo {
 
     private static ProductoClienteDTO aDTO(Producto producto, Map<String, String> imagenes,
                                            Map<String, String> nombresCategorias, boolean clientePremium) {
-        List<String> categorias = producto.getIdCategorias() == null ? List.of()
-                : producto.getIdCategorias().stream().map(nombresCategorias::get).filter(Objects::nonNull).toList();
         PrecioProducto precio = producto.getPrecio();
-        boolean conPrecio = precio != null && precio.getBase() != null;
+        boolean conPrecio = tienePrecio(precio);
         return new ProductoClienteDTO(producto.getId(), producto.getNombre(), imagenes.get(producto.getId()),
-                categorias, conPrecio ? precio.getBase() : null, conPrecio ? precio.precioFinal(clientePremium) : null,
-                Boolean.TRUE.equals(producto.getSoloPremium()), Disponibilidad.de(producto.getStock()));
+                nombresCategorias(producto, nombresCategorias), conPrecio ? precio.getBase() : null,
+                conPrecio ? precio.precioFinal(clientePremium) : null, Boolean.TRUE.equals(producto.getSoloPremium()),
+                Disponibilidad.de(producto.getStock()));
+    }
+
+    // Nombres de las categorias del producto (si se ha borrado alguna, no sale)
+    private static List<String> nombresCategorias(Producto producto, Map<String, String> nombresCategorias) {
+        return producto.getIdCategorias() == null ? List.of()
+                : producto.getIdCategorias().stream().map(nombresCategorias::get).filter(Objects::nonNull).toList();
+    }
+
+    private static boolean tienePrecio(PrecioProducto precio) {
+        return precio != null && precio.getBase() != null;
     }
 }

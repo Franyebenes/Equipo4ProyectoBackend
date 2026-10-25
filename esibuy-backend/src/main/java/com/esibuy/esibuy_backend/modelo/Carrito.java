@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.modelo;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,9 @@ public class Carrito {
     private String idCliente;
     @Field("lineas")
     private List<LineaCarrito> lineas = new ArrayList<>();
+    // Ultima vez que el cliente cambio el carrito: pasadas 24 horas sin tocarlo, lo reservado vuelve al stock
+    @Field("ultimaModificacion")
+    private Instant ultimaModificacion;
 
     /** Usado por Spring Data al leer de MongoDB. */
     protected Carrito() {
@@ -40,6 +44,14 @@ public class Carrito {
 
     public List<LineaCarrito> getLineas() {
         return lineas;
+    }
+
+    public Instant getUltimaModificacion() {
+        return ultimaModificacion;
+    }
+
+    public void marcarModificado(Instant momento) {
+        this.ultimaModificacion = momento;
     }
 
     public Optional<LineaCarrito> buscarLinea(String idProducto) {

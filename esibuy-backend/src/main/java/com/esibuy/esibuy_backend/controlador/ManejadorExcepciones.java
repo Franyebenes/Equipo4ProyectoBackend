@@ -31,6 +31,7 @@ import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -128,6 +129,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UsuarioConProductosException.class)
     public ResponseEntity<Map<String, Object>> usuarioConProductos(UsuarioConProductosException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // Carrito: un cliente normal no puede comprar un producto solo premium
+    @ExceptionHandler(ProductoSoloPremiumException.class)
+    public ResponseEntity<Map<String, Object>> productoSoloPremium(ProductoSoloPremiumException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     @ExceptionHandler(ProductoNoEncontradoException.class)
