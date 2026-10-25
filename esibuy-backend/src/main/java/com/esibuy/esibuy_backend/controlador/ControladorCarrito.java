@@ -46,7 +46,8 @@ public class ControladorCarrito {
     @PostMapping
     @PreAuthorize("hasAnyRole('CLIENTE', 'PREMIUM')")
     public ResponseEntity<Void> anadir(@RequestBody AnadirCarritoDTO datos, Authentication autenticacion) {
-        servicioCarrito.anadir(autenticacion.getName(), datos.idProducto(), cantidadO0(datos.cantidad()));
+        servicioCarrito.anadir(autenticacion.getName(), datos.idProducto(), cantidadO0(datos.cantidad()),
+                esPremium(autenticacion));
         return ResponseEntity.noContent().build();
     }
 
@@ -56,7 +57,8 @@ public class ControladorCarrito {
     public ResponseEntity<CarritoDTO> cambiarCantidad(@PathVariable String idProducto,
                                                       @RequestBody CantidadCarritoDTO datos,
                                                       Authentication autenticacion) {
-        servicioCarrito.cambiarCantidad(autenticacion.getName(), idProducto, cantidadO0(datos.cantidad()));
+        servicioCarrito.cambiarCantidad(autenticacion.getName(), idProducto, cantidadO0(datos.cantidad()),
+                esPremium(autenticacion));
         return ResponseEntity.ok(carritoDe(autenticacion));
     }
 

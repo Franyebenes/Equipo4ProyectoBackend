@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.controlador;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -60,13 +61,13 @@ class ControladorCarritoModificarTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lineas[0].cantidad").value(3))
                 .andExpect(jsonPath("$.total").value(54.0));
-        verify(servicioCarrito).cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3);
+        verify(servicioCarrito).cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3, false);
     }
 
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void cambiarCantidad_productoQueNoEstaEnElCarrito_devuelve404ConMensaje() throws Exception {
-        doThrow(new ProductoNoEnCarritoException()).when(servicioCarrito).cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3);
+        doThrow(new ProductoNoEnCarritoException()).when(servicioCarrito).cambiarCantidad(ID_CLIENTE, ID_PRODUCTO, 3, false);
 
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(TRES_UNIDADES))
                 .andExpect(status().isNotFound())
@@ -78,7 +79,7 @@ class ControladorCarritoModificarTest {
     void cambiarCantidad_sinTokenCsrf_devuelve403() throws Exception {
         mockMvc.perform(put(RUTA).contentType(MediaType.APPLICATION_JSON).content(TRES_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     @Test
@@ -86,14 +87,14 @@ class ControladorCarritoModificarTest {
     void cambiarCantidad_vendedor_devuelve403() throws Exception {
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(TRES_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     @Test
     void cambiarCantidad_sinIniciarSesion_devuelve401() throws Exception {
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(TRES_UNIDADES))
                 .andExpect(status().isUnauthorized());
-        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).cambiarCantidad(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     // ---------- DELETE: eliminar ----------

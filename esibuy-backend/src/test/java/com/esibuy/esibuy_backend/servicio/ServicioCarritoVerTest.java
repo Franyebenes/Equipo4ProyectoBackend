@@ -78,17 +78,18 @@ class ServicioCarritoVerTest {
         productosEnBaseDeDatos(teclado(true), raton());
         // When
         CarritoDTO carrito = servicio.obtener(ID_CLIENTE, true);
-        // Then: 20 - 25% = 15 -> 30 + 16.5
-        assertThat(carrito.lineas().get(0).precioUnitario()).isEqualTo(15.0);
-        assertThat(carrito.total()).isEqualTo(46.5);
+        // Then: los dos descuentos encadenados: 20 - 10% = 18 y - 25% = 13.5 -> 27 + 16.5
+        assertThat(carrito.lineas().get(0).precioUnitario()).isEqualTo(13.5);
+        assertThat(carrito.total()).isEqualTo(43.5);
     }
 
     @Test
-    void premiumNuncaPagaMasQueUnClienteNormal() {
-        // Given: el descuento general (20%) es mayor que el premium (10%)
+    void premiumTieneLosDosDescuentosEncadenadosComoEnElCatalogo() {
+        // Given: 20% para todos y 10% mas para premium
         PrecioProducto precio = new PrecioProducto(100.0, 20.0, 10.0);
-        // When / Then
-        assertThat(ServicioCarrito.precioFinal(precio, true)).isEqualTo(80.0);
+        // When / Then: 100 - 20% = 80 y - 10% = 72; el cliente normal paga 80
+        assertThat(ServicioCarrito.precioFinal(precio, true)).isEqualTo(72.0);
+        assertThat(ServicioCarrito.precioFinal(precio, false)).isEqualTo(80.0);
     }
 
     @Test

@@ -4,12 +4,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.esibuy.esibuy_backend.dto.PaginaDTO;
 import com.esibuy.esibuy_backend.dto.ProductoClienteDTO;
+import com.esibuy.esibuy_backend.dto.ProductoDetalleDTO;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.servicio.ServicioCatalogo;
 
@@ -34,6 +36,13 @@ public class ControladorCatalogo {
             @RequestParam(defaultValue = "0") int pagina,
             Authentication autenticacion) {
         return ResponseEntity.ok(servicioCatalogo.buscar(busqueda, pagina, esPremium(autenticacion)));
+    }
+
+    // HU-21 Ver detalle del producto: siempre con los datos actuales. Si no existe o esta inactivo, 404.
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<ProductoDetalleDTO> verDetalle(@PathVariable String id, Authentication autenticacion) {
+        return ResponseEntity.ok(servicioCatalogo.obtener(id, esPremium(autenticacion)));
     }
 
     private static boolean esPremium(Authentication autenticacion) {
