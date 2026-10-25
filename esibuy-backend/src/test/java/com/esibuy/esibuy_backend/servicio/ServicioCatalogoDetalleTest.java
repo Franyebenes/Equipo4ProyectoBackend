@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Optional;
 
+import org.bson.types.ObjectId;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,8 +22,10 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
+import com.esibuy.esibuy_backend.modelo.Valoracion;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioValoracion;
 
 /**
  * HU-21 Ver detalle del producto: ficha completa de un producto activo con su disponibilidad (sin el stock exacto) y
@@ -39,6 +43,8 @@ class ServicioCatalogoDetalleTest {
     private RepositorioProducto repositorioProducto;
     @Mock
     private RepositorioCategoria repositorioCategoria;
+    @Mock
+    private RepositorioValoracion repositorioValoracion;
     @InjectMocks
     private ServicioCatalogo servicio;
 
@@ -102,6 +108,23 @@ class ServicioCatalogoDetalleTest {
         // Then
         assertThat(ficha.valoracionMedia()).isNull();
         assertThat(ficha.numeroValoraciones()).isZero();
+    }
+
+    @Test
+    void obtener_conValoraciones_devuelveSuMediaYCuantasHay() {
+        // Given: dos clientes le han dado 5 y 4 estrellas
+        when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.of(reloj(true)));
+        when(repositorioCategoria.findAllById(any())).thenReturn(List.of());
+        when(repositorioValoracion.buscarPorProducto(new ObjectId(ID_PRODUCTO))).thenReturn(List.of(
+                new Valoracion(ID_PRODUCTO, "64b7f0c2a1b2c3d4e5f60001", "64b7f0c2a1b2c3d4e5f60301", 5),
+                new Valoracion(ID_PRODUCTO, "64b7f0c2a1b2c3d4e5f60002", "64b7f0c2a1b2c3d4e5f60302", 4)));
+
+        // When
+        ProductoDetalleDTO ficha = servicio.obtener(ID_PRODUCTO, false);
+
+        // Then
+        assertThat(ficha.valoracionMedia()).isEqualTo(4.5);
+        assertThat(ficha.numeroValoraciones()).isEqualTo(2);
     }
 
     @Test

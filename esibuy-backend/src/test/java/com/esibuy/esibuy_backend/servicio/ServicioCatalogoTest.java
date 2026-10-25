@@ -23,6 +23,7 @@ import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioValoracion;
 
 /**
  * HU-19 Buscar productos: catalogo del cliente con los productos activos, los mas nuevos primero y de 12 en 12;
@@ -42,6 +43,8 @@ class ServicioCatalogoTest {
     private RepositorioProducto repositorioProducto;
     @Mock
     private RepositorioCategoria repositorioCategoria;
+    @Mock
+    private RepositorioValoracion repositorioValoracion;
     @InjectMocks
     private ServicioCatalogo servicio;
 
@@ -67,7 +70,7 @@ class ServicioCatalogoTest {
                 .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
 
         // When
-        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(null, 0, false);
+        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(conBusqueda(null), 0, false);
 
         // Then
         assertThat(pagina.contenido()).extracting(ProductoClienteDTO::nombre)
@@ -86,7 +89,7 @@ class ServicioCatalogoTest {
                 producto(ID_ANTIGUO, "Lámpara de pie", 10), producto(ID_MEDIO, "Bolso de piel", 10)));
 
         // When: «LAMPA» encuentra «Lámpara de pie»
-        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar("LAMPA", 0, false);
+        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(conBusqueda("LAMPA"), 0, false);
 
         // Then
         assertThat(pagina.contenido()).extracting(ProductoClienteDTO::nombre).containsExactly("Lámpara de pie");
@@ -99,7 +102,7 @@ class ServicioCatalogoTest {
         when(repositorioProducto.buscarActivos()).thenReturn(List.of(producto(ID_ANTIGUO, "Taza", 10)));
 
         // When
-        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar("bicicleta", 0, false);
+        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(conBusqueda("bicicleta"), 0, false);
 
         // Then: el frontend muestra el mensaje de que no hay resultados
         assertThat(pagina.contenido()).isEmpty();
@@ -120,8 +123,8 @@ class ServicioCatalogoTest {
         when(repositorioProducto.findAllById(any())).thenReturn(List.of());
 
         // When
-        PaginaDTO<ProductoClienteDTO> primera = servicio.buscar("", 0, false);
-        PaginaDTO<ProductoClienteDTO> segunda = servicio.buscar("", 1, false);
+        PaginaDTO<ProductoClienteDTO> primera = servicio.buscar(conBusqueda(""), 0, false);
+        PaginaDTO<ProductoClienteDTO> segunda = servicio.buscar(conBusqueda(""), 1, false);
 
         // Then: la segunda pagina tiene los 2 mas antiguos
         assertThat(primera.contenido()).hasSize(ServicioCatalogo.TAMANO_PAGINA);
@@ -141,7 +144,7 @@ class ServicioCatalogoTest {
         when(repositorioCategoria.findAllById(any())).thenReturn(List.of());
 
         // When
-        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(null, -3, false);
+        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(conBusqueda(null), -3, false);
 
         // Then
         assertThat(pagina.pagina()).isZero();
@@ -157,7 +160,7 @@ class ServicioCatalogoTest {
         when(repositorioCategoria.findAllById(any())).thenReturn(List.of());
 
         // When
-        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(null, 0, false);
+        PaginaDTO<ProductoClienteDTO> pagina = servicio.buscar(conBusqueda(null), 0, false);
 
         // Then
         assertThat(pagina.contenido()).extracting(ProductoClienteDTO::disponibilidad)
@@ -173,8 +176,8 @@ class ServicioCatalogoTest {
         when(repositorioProducto.findAllById(any())).thenReturn(List.of());
 
         // When
-        ProductoClienteDTO paraEstandar = servicio.buscar(null, 0, false).contenido().get(0);
-        ProductoClienteDTO paraPremium = servicio.buscar(null, 0, true).contenido().get(0);
+        ProductoClienteDTO paraEstandar = servicio.buscar(conBusqueda(null), 0, false).contenido().get(0);
+        ProductoClienteDTO paraPremium = servicio.buscar(conBusqueda(null), 0, true).contenido().get(0);
 
         // Then: el estandar tambien lo ve, marcado como solo premium
         assertThat(paraEstandar.precio()).isEqualTo(100.0);
@@ -182,5 +185,8 @@ class ServicioCatalogoTest {
         assertThat(paraPremium.precioFinal()).isEqualTo(72.0);
         assertThat(paraEstandar.soloPremium()).isTrue();
     }
-}  
 
+    private static FiltroCatalogoCliente conBusqueda(String texto) {
+        return new FiltroCatalogoCliente(texto, null, null, null, null, false);
+    }
+}

@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -19,8 +21,10 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.modelo.Categoria;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
+import com.esibuy.esibuy_backend.modelo.Valoracion;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioValoracion;
 
 @Service
 public class ServicioCatalogo {
@@ -28,30 +32,41 @@ public class ServicioCatalogo {
     /** Productos por pagina: 3 filas de 4 en la cuadricula del catalogo. */
     public static final int TAMANO_PAGINA = 12;
     private static final int PRIMERA_PAGINA = 0;
-    // HU-21: las valoraciones (HU-30) todavia no estan en Develop. Hasta entonces la ficha sale sin valoraciones.
-    private static final Double SIN_VALORACION_MEDIA = null;
-    private static final int SIN_VALORACIONES = 0;
+    // Producto sin valoraciones: media vacia y 0 valoraciones
+    private static final Puntuacion SIN_VALORACIONES = new Puntuacion(null, 0);
 
     private final RepositorioProducto repositorioProducto;
     private final RepositorioCategoria repositorioCategoria;
+    private final RepositorioValoracion repositorioValoracion;
 
-    public ServicioCatalogo(RepositorioProducto repositorioProducto, RepositorioCategoria repositorioCategoria) {
+    public ServicioCatalogo(RepositorioProducto repositorioProducto, RepositorioCategoria repositorioCategoria,
+                            RepositorioValoracion repositorioValoracion) {
         this.repositorioProducto = repositorioProducto;
         this.repositorioCategoria = repositorioCategoria;
+        this.repositorioValoracion = repositorioValoracion;
+    }
+
+    /** Media de estrellas de un producto y cuantas valoraciones tiene. */
+    private record Puntuacion(Double media, int numero) {
     }
 
     /**
-     * Una pagina del catalogo. La busqueda es por nombre completo o parcial, sin distinguir mayusculas ni tildes (la
-     * misma que en el catalogo del vendedor); vacia, todo el catalogo. La pagina empieza en 0; una negativa se trata
-     * como la primera y una que no existe sale vacia.
+     * Una pagina del catalogo con la busqueda y los filtros aplicados (HU-19 y HU-20). La pagina empieza en 0; una
+     * negativa se trata como la primera y una que no existe sale vacia. Si los filtros no tienen sentido, 400.
      *
-     * @param clientePremium si es true, el precio final lleva tambien el descuento premium
+     * @param clientePremium si es true, el precio final (y el filtro de precio) lleva tambien el descuento premium
      */
-    public PaginaDTO<ProductoClienteDTO> buscar(String busqueda, int pagina, boolean clientePremium) {
-        FiltroCatalogo filtro = new FiltroCatalogo(busqueda, null, null, null, null);
+    public PaginaDTO<ProductoClienteDTO> buscar(FiltroCatalogoCliente filtro, int pagina, boolean clientePremium) {
+        filtro.validar();
+        FiltroCatalogo porNombre = new FiltroCatalogo(filtro.busqueda(), filtro.idCategoria(), null, null, null);
+        Map<String, Puntuacion> puntuaciones = puntuacionesPorProducto(repositorioValoracion.findAll());
         // El id de MongoDB empieza por la fecha de creacion: ordenado al reves, los mas nuevos primero
         List<Producto> encontrados = repositorioProducto.buscarActivos().stream()
-                .filter(filtro::admite)
+                .filter(porNombre::admite)
+                .filter(producto -> cumplePrecio(producto, filtro, clientePremium))
+                .filter(producto -> cumpleValoracion(puntuaciones.get(producto.getId()), filtro))
+                .filter(producto -> !filtro.soloDisponibles()
+                        || Disponibilidad.de(producto.getStock()) != Disponibilidad.AGOTADO)
                 .sorted(Comparator.comparing(Producto::getId).reversed())
                 .toList();
 
@@ -62,7 +77,8 @@ public class ServicioCatalogo {
         Map<String, String> imagenes = imagenesDe(dePagina);
         Map<String, String> nombresCategorias = nombresDeCategorias(dePagina);
         List<ProductoClienteDTO> contenido = dePagina.stream()
-                .map(producto -> aDTO(producto, imagenes, nombresCategorias, clientePremium))
+                .map(producto -> aDTO(producto, imagenes, nombresCategorias, clientePremium,
+                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES)))
                 .toList();
         return PaginaDTO.desde(
                 new PageImpl<>(contenido, PageRequest.of(numeroPagina, TAMANO_PAGINA), encontrados.size()));
@@ -73,13 +89,16 @@ public class ServicioCatalogo {
                 .filter(encontrado -> Boolean.TRUE.equals(encontrado.getVisible()))
                 .orElseThrow(ProductoNoDisponibleException::new);
         List<String> categorias = nombresCategorias(producto, nombresDeCategorias(List.of(producto)));
+        Puntuacion puntuacion = puntuacionesPorProducto(
+                repositorioValoracion.buscarPorProducto(new ObjectId(producto.getId())))
+                .getOrDefault(producto.getId(), SIN_VALORACIONES);
         PrecioProducto precio = producto.getPrecio();
         boolean conPrecio = tienePrecio(precio);
         return new ProductoDetalleDTO(producto.getId(), producto.getNombre(), producto.getDescripcion(),
                 producto.getImagen(), categorias, conPrecio ? precio.getBase() : null,
                 conPrecio ? precio.precioFinal(clientePremium) : null, precio == null ? null : precio.getDescuento(),
                 precio == null ? null : precio.getDescuentoPremium(), Boolean.TRUE.equals(producto.getSoloPremium()),
-                Disponibilidad.de(producto.getStock()), SIN_VALORACION_MEDIA, SIN_VALORACIONES);
+                Disponibilidad.de(producto.getStock()), puntuacion.media(), puntuacion.numero());
     }
 
     // Las imagenes (base64) son lo que mas ocupa: solo se piden las de los productos de la pagina
@@ -107,14 +126,42 @@ public class ServicioCatalogo {
                 .collect(Collectors.toMap(Categoria::getId, Categoria::getNombre));
     }
 
+    // Precio que paga este cliente, dentro del rango pedido (limites incluidos)
+    private static boolean cumplePrecio(Producto producto, FiltroCatalogoCliente filtro, boolean clientePremium) {
+        if (filtro.precioMinimo() == null && filtro.precioMaximo() == null) {
+            return true;
+        }
+        if (!tienePrecio(producto.getPrecio())) {
+            return false;
+        }
+        double precio = producto.getPrecio().precioFinal(clientePremium);
+        return (filtro.precioMinimo() == null || precio >= filtro.precioMinimo())
+                && (filtro.precioMaximo() == null || precio <= filtro.precioMaximo());
+    }
+
+    private static boolean cumpleValoracion(Puntuacion puntuacion, FiltroCatalogoCliente filtro) {
+        return filtro.valoracionMinima() == null
+                || (puntuacion != null && puntuacion.media() >= filtro.valoracionMinima());
+    }
+
+    // Media y numero de valoraciones de cada producto
+    private static Map<String, Puntuacion> puntuacionesPorProducto(Collection<Valoracion> valoraciones) {
+        return valoraciones.stream()
+                .collect(Collectors.groupingBy(Valoracion::getIdProducto, Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        lista -> new Puntuacion(lista.stream().mapToInt(Valoracion::getPuntos).average().orElse(0),
+                                lista.size()))));
+    }
+
     private static ProductoClienteDTO aDTO(Producto producto, Map<String, String> imagenes,
-                                           Map<String, String> nombresCategorias, boolean clientePremium) {
+                                           Map<String, String> nombresCategorias, boolean clientePremium,
+                                           Puntuacion puntuacion) {
         PrecioProducto precio = producto.getPrecio();
         boolean conPrecio = tienePrecio(precio);
         return new ProductoClienteDTO(producto.getId(), producto.getNombre(), imagenes.get(producto.getId()),
                 nombresCategorias(producto, nombresCategorias), conPrecio ? precio.getBase() : null,
                 conPrecio ? precio.precioFinal(clientePremium) : null, Boolean.TRUE.equals(producto.getSoloPremium()),
-                Disponibilidad.de(producto.getStock()));
+                Disponibilidad.de(producto.getStock()), puntuacion.media(), puntuacion.numero());
     }
 
     // Nombres de las categorias del producto (si se ha borrado alguna, no sale)
