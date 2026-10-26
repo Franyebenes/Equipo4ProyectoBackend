@@ -93,7 +93,8 @@ class ServicioCatalogoDetalleTest {
 
         // When / Then
         assertThat(servicio.obtener(ID_PRODUCTO, false).precioFinal()).isEqualTo(80.0);
-        assertThat(servicio.obtener(ID_PRODUCTO, true).precioFinal()).isEqualTo(72.0);
+        // El premium tiene los dos descuentos sumados: 20 % + 10 % = 30 %
+        assertThat(servicio.obtener(ID_PRODUCTO, true).precioFinal()).isEqualTo(70.0);
     }
 
     @Test

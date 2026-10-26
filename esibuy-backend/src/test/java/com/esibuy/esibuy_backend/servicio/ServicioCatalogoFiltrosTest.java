@@ -51,7 +51,8 @@ class ServicioCatalogoFiltrosTest {
     private ServicioCatalogo servicio;
 
     // Taza: cocina, 10 €, con stock, 4,5 estrellas. Vaso: cocina, 20 € con un 50 % (10 €), agotado, sin valorar.
-    // Reloj: moda, 100 € con un 20 % (80 €) y un 10 % mas para premium (72 €), poco stock, 2 estrellas.
+    // Reloj: moda, 100 € con un 20 % (80 €) y un 10 % mas para premium (30 % en total: 70 €), poco stock,
+    // 2 estrellas.
     @BeforeEach
     void catalogo() {
         lenient().when(repositorioProducto.buscarActivos()).thenReturn(List.of(

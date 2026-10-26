@@ -96,9 +96,9 @@ class ServicioPedidoRealizarTest {
         when(repositorioPedido.save(any())).thenAnswer(invocacion -> invocacion.getArgument(0));
         // When
         PedidoDTO pedido = servicio.realizar(ID_CLIENTE, true, DIRECCION);
-        // Then: descuentos en cadena, 20 x 0.90 x 0.75 = 13.5; total 13.5 + 5.5 = 19
-        assertThat(pedido.lineas().get(0).precioUnitario()).isEqualTo(13.5);
-        assertThat(pedido.precioTotal()).isEqualTo(19.0);
+        // Then: los descuentos se suman, 10% + 25% = 35%: 20 -> 13; total 13 + 5.5 = 18.5
+        assertThat(pedido.lineas().get(0).precioUnitario()).isEqualTo(13.0);
+        assertThat(pedido.precioTotal()).isEqualTo(18.5);
     }
 
     @Test

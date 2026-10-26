@@ -178,7 +178,7 @@ public class ServicioCarrito {
 
     /**
      * Precio por unidad con descuento: el mismo calculo que en el catalogo (PrecioProducto#precioFinal). Un cliente
-     * normal tiene el descuento general; un premium, ademas, el premium sobre ese precio (los dos encadenados).
+     * normal tiene el descuento general; un premium, ademas, el premium, y los dos se suman.
      */
     static double precioFinal(PrecioProducto precio, boolean premium) {
         if (precio == null || precio.getBase() == null) {
