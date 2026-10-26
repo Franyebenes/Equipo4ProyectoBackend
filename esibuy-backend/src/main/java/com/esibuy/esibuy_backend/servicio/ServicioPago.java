@@ -48,7 +48,7 @@ public class ServicioPago {
             throw new MetodoPagoInvalidoException("La tarjeta esta caducada. Elige otra");
         }
         // 2. El pedido lo crea ServicioPedido: valida la direccion, calcula el total y vacia el carrito
-        PedidoDTO pedido = servicioPedido.realizar(idCliente, premium, datos.direccionEnvio());
+            PedidoDTO pedido = servicioPedido.realizar(idCliente, premium, datos.direccionEnvio(), datos.idVendedor());
         // 3. Justificante del pago
         repositorioPago.save(new Pago(pedido.id(), idCliente, tarjeta.getUltimosDigitos(), pedido.precioTotal(),
                 reloj.instant()));

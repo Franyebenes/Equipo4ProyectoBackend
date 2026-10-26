@@ -6,11 +6,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -26,14 +30,18 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoEnCarritoException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
 import com.esibuy.esibuy_backend.modelo.LineaCarrito;
+import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
 import com.esibuy.esibuy_backend.modelo.Producto;
+import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCarrito;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 import com.mongodb.client.result.UpdateResult;
 
 /**
- * Carrito del cliente (HU-22.x). El stock se reserva al anadir al carrito y se devuelve al quitar el producto.
+ * Carrito del cliente (HU-22.x). El stock se reserva al anadir al carrito y se devuelve al quitar el producto. Cada
+ * linea indica de que vendedor es, porque cada compra es de un solo vendedor.
  */
 @Service
 public class ServicioCarrito {
@@ -45,16 +53,26 @@ public class ServicioCarrito {
     private static final String CAMPO_LINEAS = "lineas";
     private static final String CAMPO_PRIMERA_LINEA = "lineas.0";
     private static final String CAMPO_ULTIMA_MODIFICACION = "ultimaModificacion";
+    static final String VENDEDOR_SIN_NOMBRE = "Vendedor";
 
     private final RepositorioCarrito repositorioCarrito;
     private final RepositorioProducto repositorioProducto;
     private final MongoTemplate mongoTemplate;
+    private final RepositorioUsuario repositorioUsuario;
 
+    @Autowired
     public ServicioCarrito(RepositorioCarrito repositorioCarrito, RepositorioProducto repositorioProducto,
-                           MongoTemplate mongoTemplate) {
+                           MongoTemplate mongoTemplate, RepositorioUsuario repositorioUsuario) {
         this.repositorioCarrito = repositorioCarrito;
         this.repositorioProducto = repositorioProducto;
         this.mongoTemplate = mongoTemplate;
+        this.repositorioUsuario = repositorioUsuario;
+    }
+
+    /** Sin repositorio de usuarios (no se muestran los nombres de los vendedores): para los tests anteriores. */
+    public ServicioCarrito(RepositorioCarrito repositorioCarrito, RepositorioProducto repositorioProducto,
+                           MongoTemplate mongoTemplate) {
+        this(repositorioCarrito, repositorioProducto, mongoTemplate, null);
     }
 
     // HU-22.1 Ver carrito: precios actuales del producto, con el descuento que le toca al cliente
@@ -66,13 +84,14 @@ public class ServicioCarrito {
         List<String> ids = carrito.get().getLineas().stream().map(LineaCarrito::getIdProducto).toList();
         Map<String, Producto> productos = new HashMap<>();
         repositorioProducto.findAllById(ids).forEach(p -> productos.put(p.getId(), p));
+        Map<String, String> nombresVendedores = nombresDeVendedores(productos.values());
 
         List<LineaCarritoDTO> lineas = new ArrayList<>();
         for (LineaCarrito linea : carrito.get().getLineas()) {
             Producto producto = productos.get(linea.getIdProducto());
             // Si el producto se ha borrado de la base de datos, la linea no se muestra
             if (producto != null) {
-                lineas.add(aLinea(producto, linea.getCantidad(), premium));
+                lineas.add(aLinea(producto, linea.getCantidad(), premium, nombresVendedores));
             }
         }
         double total = redondear(lineas.stream()
@@ -168,6 +187,38 @@ public class ServicioCarrito {
         return precio.precioFinal(premium);
     }
 
+    /** Nombre que se muestra de cada vendedor: su nombre comercial o, si no tiene, su nombre. */
+    private Map<String, String> nombresDeVendedores(Iterable<Producto> productos) {
+        Map<String, String> nombres = new HashMap<>();
+        if (repositorioUsuario == null) {
+            return nombres;
+        }
+        Set<String> ids = new java.util.HashSet<>();
+        productos.forEach(p -> {
+            if (p.getIdVendedor() != null) {
+                ids.add(p.getIdVendedor());
+            }
+        });
+        if (ids.isEmpty()) {
+            return nombres;
+        }
+        for (Usuario vendedor : repositorioUsuario.findAllById(ids)) {
+            nombres.put(vendedor.getId(), nombreDe(vendedor));
+        }
+        return nombres;
+    }
+
+    private static String nombreDe(Usuario vendedor) {
+        PerfilUsuario perfil = vendedor.getPerfil();
+        if (perfil == null) {
+            return VENDEDOR_SIN_NOMBRE;
+        }
+        if (perfil.getNombreComercial() != null && !perfil.getNombreComercial().isBlank()) {
+            return perfil.getNombreComercial();
+        }
+        return Objects.requireNonNullElse(perfil.getNombre(), VENDEDOR_SIN_NOMBRE);
+    }
+
     private static void comprobarPuedeComprarlo(Producto producto, boolean premium) {
         if (Boolean.TRUE.equals(producto.getSoloPremium()) && !premium) {
             throw new ProductoSoloPremiumException();
@@ -179,13 +230,15 @@ public class ServicioCarrito {
                 .orElseThrow(ProductoNoEnCarritoException::new);
     }
 
-    private LineaCarritoDTO aLinea(Producto producto, int cantidad, boolean premium) {
+    private LineaCarritoDTO aLinea(Producto producto, int cantidad, boolean premium,
+                                   Map<String, String> nombresVendedores) {
         PrecioProducto precio = producto.getPrecio();
         double original = precio == null ? 0.0 : valor(precio.getBase());
         double unitario = precioFinal(precio, premium);
         boolean disponible = Boolean.TRUE.equals(producto.getVisible());
+        String nombreVendedor = nombresVendedores.getOrDefault(producto.getIdVendedor(), VENDEDOR_SIN_NOMBRE);
         return new LineaCarritoDTO(producto.getId(), producto.getNombre(), producto.getImagen(), unitario, original,
-                cantidad, redondear(unitario * cantidad), disponible);
+                cantidad, redondear(unitario * cantidad), disponible, producto.getIdVendedor(), nombreVendedor);
     }
 
     private Producto buscarDisponible(String idProducto) {
