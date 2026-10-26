@@ -11,7 +11,8 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 /**
  * Pedido de un cliente (coleccion "pedidos"). Se crea a partir del carrito y nace PAGADO (el pago es simulado).
- * El stock ya quedo reservado al meter los productos en el carrito, asi que solo se devuelve si se cancela.
+ * Cada pedido es de un solo vendedor (idVendedor): si el carrito tiene productos de varios, el cliente elige de cual
+ * compra. El stock ya quedo reservado al meter los productos en el carrito, asi que solo se devuelve si se cancela.
  */
 @Document(collection = "pedidos")
 public class Pedido {
@@ -20,6 +21,8 @@ public class Pedido {
     private String id;
     @Field(name = "idCliente", targetType = FieldType.OBJECT_ID)
     private String idCliente;
+    @Field(name = "idVendedor", targetType = FieldType.OBJECT_ID)
+    private String idVendedor;
     @Field("estado")
     private EstadoPedido estado;
     @Field("precioTotal")
@@ -35,14 +38,21 @@ public class Pedido {
     protected Pedido() {
     }
 
-    public Pedido(String idCliente, DireccionEnvio direccionEnvio, List<LineaPedido> lineas, double precioTotal,
-                  Instant fecha) {
+    public Pedido(String idCliente, String idVendedor, DireccionEnvio direccionEnvio, List<LineaPedido> lineas,
+                  double precioTotal, Instant fecha) {
         this.idCliente = idCliente;
+        this.idVendedor = idVendedor;
         this.direccionEnvio = direccionEnvio;
         this.lineas = List.copyOf(lineas);
         this.precioTotal = precioTotal;
         this.fecha = fecha;
         this.estado = EstadoPedido.PAGADO;
+    }
+
+    /** Sin vendedor: se mantiene para el codigo y los tests anteriores. */
+    public Pedido(String idCliente, DireccionEnvio direccionEnvio, List<LineaPedido> lineas, double precioTotal,
+                  Instant fecha) {
+        this(idCliente, null, direccionEnvio, lineas, precioTotal, fecha);
     }
 
     public String getId() {
@@ -51,6 +61,10 @@ public class Pedido {
 
     public String getIdCliente() {
         return idCliente;
+    }
+
+    public String getIdVendedor() {
+        return idVendedor;
     }
 
     public EstadoPedido getEstado() {
@@ -97,6 +111,7 @@ public class Pedido {
 
     @Override
     public String toString() {
-        return "Pedido[id=" + id + ", idCliente=" + idCliente + ", estado=" + estado + "]";
+        return "Pedido[id=" + id + ", idCliente=" + idCliente + ", idVendedor=" + idVendedor + ", estado=" + estado
+                + "]";
     }
 }

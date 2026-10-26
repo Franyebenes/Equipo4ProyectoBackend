@@ -35,13 +35,14 @@ import com.esibuy.esibuy_backend.modelo.Pago;
 import com.esibuy.esibuy_backend.repositorio.RepositorioMetodoPago;
 import com.esibuy.esibuy_backend.repositorio.RepositorioPago;
 
-/** HU-23 Pago (ficticio): tarjeta propia y no caducada, pedido creado con ServicioPedido y justificante guardado. */
+/** HU-23 Pago (ficticio): tarjeta propia y no caducada, pedido de un vendedor creado con ServicioPedido y justificante. */
 @ExtendWith(MockitoExtension.class)
 class ServicioPagoTest {
 
     private static final String ID_CLIENTE = "64b000000000000000000001";
     private static final String ID_TARJETA = "64b000000000000000000050";
     private static final String ID_PEDIDO = "64b000000000000000000090";
+    private static final String ID_VENDEDOR = "64b0000000000000000000a1";
     // "Hoy" fijo en los tests: 25 de octubre de 2026
     private static final Instant AHORA = Instant.parse("2026-10-25T12:00:00Z");
     private static final Clock RELOJ = Clock.fixed(AHORA, ZoneOffset.UTC);
@@ -66,7 +67,7 @@ class ServicioPagoTest {
     void pagarConUnaTarjetaPropiaCreaElPedidoYGuardaElJustificante() {
         // Given
         tarjetaDelCliente("12/28");
-        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION)).thenReturn(PEDIDO);
+        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION, null)).thenReturn(PEDIDO);
         // When
         ResultadoPagoDTO resultado = servicio.pagar(ID_CLIENTE, false, new PagarDTO(ID_TARJETA, DIRECCION));
         // Then
@@ -83,21 +84,32 @@ class ServicioPagoTest {
     }
 
     @Test
+    void pagarDeUnVendedorPideElPedidoSoloDeEseVendedor() {
+        // Given
+        tarjetaDelCliente("12/28");
+        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION, ID_VENDEDOR)).thenReturn(PEDIDO);
+        // When
+        servicio.pagar(ID_CLIENTE, false, new PagarDTO(ID_TARJETA, DIRECCION, ID_VENDEDOR));
+        // Then
+        verify(servicioPedido).realizar(ID_CLIENTE, false, DIRECCION, ID_VENDEDOR);
+    }
+
+    @Test
     void pagarComoPremiumPideElPedidoConDescuentoPremium() {
         // Given
         tarjetaDelCliente("12/28");
-        when(servicioPedido.realizar(ID_CLIENTE, true, DIRECCION)).thenReturn(PEDIDO);
+        when(servicioPedido.realizar(ID_CLIENTE, true, DIRECCION, null)).thenReturn(PEDIDO);
         // When
         servicio.pagar(ID_CLIENTE, true, new PagarDTO(ID_TARJETA, DIRECCION));
         // Then
-        verify(servicioPedido).realizar(ID_CLIENTE, true, DIRECCION);
+        verify(servicioPedido).realizar(ID_CLIENTE, true, DIRECCION, null);
     }
 
     @Test
     void pagarConUnaTarjetaQueCaducaEsteMesSeAcepta() {
         // Given: hoy es octubre de 2026 y "10/26" vale hasta el 31 de octubre
         tarjetaDelCliente("10/26");
-        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION)).thenReturn(PEDIDO);
+        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION, null)).thenReturn(PEDIDO);
         // When
         ResultadoPagoDTO resultado = servicio.pagar(ID_CLIENTE, false, new PagarDTO(ID_TARJETA, DIRECCION));
         // Then
@@ -141,10 +153,10 @@ class ServicioPagoTest {
 
     @Test
     void siNoSePuedeCrearElPedidoNoSeGuardaElJustificante() {
-        // Given: por ejemplo, el carrito esta vacio
+        // Given: por ejemplo, el carrito tiene varios vendedores y no se ha elegido ninguno
         tarjetaDelCliente("12/28");
-        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION))
-                .thenThrow(new PedidoInvalidoException("Carrito vacio"));
+        when(servicioPedido.realizar(ID_CLIENTE, false, DIRECCION, null))
+                .thenThrow(new PedidoInvalidoException("Elige de que vendedor quieres hacer la compra"));
         // When / Then
         assertThatThrownBy(() -> servicio.pagar(ID_CLIENTE, false, new PagarDTO(ID_TARJETA, DIRECCION)))
                 .isInstanceOf(PedidoInvalidoException.class);

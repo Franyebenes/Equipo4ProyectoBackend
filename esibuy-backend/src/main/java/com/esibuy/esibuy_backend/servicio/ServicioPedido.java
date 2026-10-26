@@ -6,7 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-
+import java.util.HashSet;
+import java.util.Set;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +53,9 @@ public class ServicioPedido {
     static final String MENSAJE_DIRECCION_LARGA = "La dirección es demasiado larga";
     static final String MENSAJE_NO_CANCELABLE = "Solo se puede cancelar un pedido pagado que aún no se ha enviado";
     static final String MENSAJE_NO_CONFIRMABLE = "Este pedido ya está finalizado o cancelado";
-
+    static final String MENSAJE_VARIOS_VENDEDORES =
+            "Tu carrito tiene productos de varios vendedores: elige de cuál quieres hacer la compra";
+    static final String MENSAJE_SIN_PRODUCTOS_VENDEDOR = "No tienes productos de ese vendedor en el carrito";
     private static final int LONGITUD_MAXIMA_CALLE = 150;
     private static final int LONGITUD_MAXIMA_CIUDAD = 80;
     private static final Pattern CODIGO_POSTAL = Pattern.compile("\\d{5}");
@@ -78,11 +81,19 @@ public class ServicioPedido {
         this.reloj = reloj;
     }
 
-    // HU-26 Realizar pedido: convierte el carrito en un pedido pagado con los precios de este momento (los mismos
-    // que ve el cliente en el carrito) y vacia el carrito. Si algun producto del carrito esta desactivado, el
-    // cliente tiene que quitarlo antes.
+        // HU-26 Realizar pedido sin elegir vendedor: vale si todos los productos del carrito son del mismo vendedor
     public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion) {
+        return realizar(idCliente, premium, direccion, null);
+    }
+
+    // HU-26 Realizar pedido: cada pedido es de un solo vendedor (lo pidio el product owner). Se compran los productos
+    // del carrito de ese vendedor con los precios de este momento y solo esos salen del carrito; los de otros
+    // vendedores se quedan para otra compra. Sin vendedor elegido, el carrito tiene que ser de uno solo.
+    public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion, String idVendedor) {
         DireccionEnvio direccionEnvio = validarDireccion(direccion);
+        if (idVendedor != null && !ObjectId.isValid(idVendedor)) {
+            throw new PedidoInvalidoException(MENSAJE_SIN_PRODUCTOS_VENDEDOR);
+        }
         Carrito carrito = repositorioCarrito.buscarPorCliente(new ObjectId(idCliente))
                 .orElseThrow(() -> new PedidoInvalidoException(MENSAJE_CARRITO_VACIO));
 
@@ -91,10 +102,17 @@ public class ServicioPedido {
         repositorioProducto.findAllById(ids).forEach(p -> productos.put(p.getId(), p));
 
         List<LineaPedido> lineas = new ArrayList<>();
+        List<String> quitarDelCarrito = new ArrayList<>();
+        Set<String> vendedores = new HashSet<>();
         for (LineaCarrito linea : carrito.getLineas()) {
             Producto producto = productos.get(linea.getIdProducto());
-            // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora, igual que alli
+            // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora y se limpia
             if (producto == null) {
+                quitarDelCarrito.add(linea.getIdProducto());
+                continue;
+            }
+            // Los productos de otros vendedores se quedan en el carrito
+            if (idVendedor != null && !idVendedor.equals(producto.getIdVendedor())) {
                 continue;
             }
             if (!Boolean.TRUE.equals(producto.getVisible())) {
@@ -102,20 +120,26 @@ public class ServicioPedido {
             }
             lineas.add(new LineaPedido(producto.getId(), producto.getNombre(), linea.getCantidad(),
                     ServicioCarrito.precioFinal(producto.getPrecio(), premium)));
+            quitarDelCarrito.add(producto.getId());
+            vendedores.add(producto.getIdVendedor());
         }
         if (lineas.isEmpty()) {
-            throw new PedidoInvalidoException(MENSAJE_CARRITO_VACIO);
+            throw new PedidoInvalidoException(idVendedor == null ? MENSAJE_CARRITO_VACIO : MENSAJE_SIN_PRODUCTOS_VENDEDOR);
         }
+        if (vendedores.size() > 1) {
+            throw new PedidoInvalidoException(MENSAJE_VARIOS_VENDEDORES);
+        }
+        String vendedorDelPedido = vendedores.iterator().next();
         double total = redondear(lineas.stream().mapToDouble(l -> l.getPrecioUnitario() * l.getCantidad()).sum());
 
-        Pedido pedido = repositorioPedido.save(new Pedido(idCliente, direccionEnvio, lineas, total, reloj.instant()));
-        carrito.vaciar();
+        Pedido pedido = repositorioPedido.save(
+                new Pedido(idCliente, vendedorDelPedido, direccionEnvio, lineas, total, reloj.instant()));
+        quitarDelCarrito.forEach(carrito::quitar);
         repositorioCarrito.save(carrito);
-        log.info("Pedido realizado: cliente={} pedido={} lineas={} total={}", idCliente, pedido.getId(),
-                lineas.size(), total);
+        log.info("Pedido realizado: cliente={} vendedor={} pedido={} lineas={} total={}", idCliente, vendedorDelPedido,
+                pedido.getId(), lineas.size(), total);
         return aDTO(pedido, Map.of());
     }
-
     // HU-27 Historial de compras: los pedidos del cliente, los mas recientes primero, separados entre los que
     // siguen en curso y los que ya han terminado. Cada linea lleva la valoracion que le dio el cliente, si la hay.
     public HistorialPedidosDTO historial(String idCliente) {
