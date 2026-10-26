@@ -37,6 +37,7 @@ public record PropiedadesDosFactores(
     private static final int LONGITUD_CLAVE_BYTES = 32;
     private static final Duration LIMITE_CADUCIDAD = Duration.ofHours(1);
     private static final String PREFIJO = "esibuy.dosfactores.";
+    private static final String PREFIJO_CLAVES = PREFIJO + "claves.";
 
     public PropiedadesDosFactores {
         comprobarEmisor(emisor);
@@ -96,16 +97,16 @@ public record PropiedadesDosFactores(
             }
             String clave = entrada.getValue();
             if (clave == null || clave.isBlank()) {
-                throw new IllegalArgumentException(PREFIJO + "claves." + entrada.getKey() + " esta vacia");
+                throw new IllegalArgumentException(PREFIJO_CLAVES + entrada.getKey() + " esta vacia");
             }
             try {
                 if (Base64.getDecoder().decode(clave).length != LONGITUD_CLAVE_BYTES) {
-                    throw new IllegalArgumentException(PREFIJO + "claves." + entrada.getKey() + " debe medir 32 bytes");
+                    throw new IllegalArgumentException(PREFIJO_CLAVES + entrada.getKey() + " debe medir 32 bytes");
                 }
             } catch (IllegalArgumentException e) {
                 // Ni el mensaje ni la causa llevan el valor de la clave
                 throw new IllegalArgumentException(
-                        PREFIJO + "claves." + entrada.getKey() + " debe ser una clave de 32 bytes en Base64");
+                        PREFIJO_CLAVES + entrada.getKey() + " debe ser una clave de 32 bytes en Base64");
             }
         }
     }

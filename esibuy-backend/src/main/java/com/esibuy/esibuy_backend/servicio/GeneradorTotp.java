@@ -135,7 +135,8 @@ public class GeneradorTotp {
     private static byte[] hmac(byte[] secreto, long contador) {
         try {
             // Mac no es thread-safe: una instancia por llamada.
-            Mac mac = Mac.getInstance(ALGORITMO_HMAC);
+            // HMAC-SHA1 lo exige el RFC 6238 y es el unico que acepta Google Authenticator; no se usa SHA-1 como hash a secas
+            Mac mac = Mac.getInstance(ALGORITMO_HMAC); // NOSONAR
             mac.init(new SecretKeySpec(secreto, ALGORITMO_HMAC));
             return mac.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(contador).array());
         } catch (GeneralSecurityException e) {

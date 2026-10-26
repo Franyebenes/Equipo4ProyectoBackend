@@ -33,6 +33,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 final class RegistroConDosFactoresDePrueba {
 
+    private static final String CAMPO_EMAIL = "email";
+
     private RegistroConDosFactoresDePrueba() {
     }
 
@@ -41,10 +43,10 @@ final class RegistroConDosFactoresDePrueba {
         Map<String, Object> cuerpo = new HashMap<>(
                 objectMapper.convertValue(solicitud, new TypeReference<Map<String, Object>>() { }));
         MockHttpSession sesion = new MockHttpSession();
-        Object email = cuerpo.get("email");
+        Object email = cuerpo.get(CAMPO_EMAIL);
         MvcResult qr = mockMvc.perform(post("/api/auth/registro/2fa").session(sesion).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("email", email == null ? "" : email)))).andReturn();
+                .content(objectMapper.writeValueAsString(Map.of(CAMPO_EMAIL, email == null ? "" : email)))).andReturn();
         if (qr.getResponse().getStatus() == 200) {
             String secreto = JsonPath.read(qr.getResponse().getContentAsString(), "$.secreto");
             cuerpo.put("codigoDosFactores", totp.codigo(Base32.decodificar(secreto), totp.pasoActual()));
@@ -55,7 +57,7 @@ final class RegistroConDosFactoresDePrueba {
 
     static void insertarCliente(MongoCollection<Document> usuarios, PasswordEncoder codificador, String email,
             String contrasena, String estado) {
-        usuarios.insertOne(new Document("email", email)
+        usuarios.insertOne(new Document(CAMPO_EMAIL, email)
                 .append("password", codificador.encode(contrasena))
                 .append("estado", estado)
                 .append("rol", List.of("CLIENTE"))

@@ -23,6 +23,8 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
 
     private static final Logger log = LoggerFactory.getLogger(AuditoriaSeguridad.class);
 
+    private static final String DESCONOCIDO = "(desconocido)";
+
     public void registrarLoginCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
         if (log.isInfoEnabled()) {
             log.info("LOGIN_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
@@ -65,7 +67,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRestablecimientoTokenInvalido(ContextoPeticion contexto, ResultadoToken.Motivo motivo) {
         if (log.isWarnEnabled()) {
             log.warn("RESTABLECIMIENTO_TOKEN_INVALIDO {} motivo={}", datosSinCorreo(contexto),
-                    motivo == null ? "(desconocido)" : motivo.name());
+                    motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
@@ -106,7 +108,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRecuperacionLimitada(ContextoPeticion contexto, String correo, MotivoLimiteRecuperacion motivo) {
         if (log.isWarnEnabled()) {
             log.warn("RECUPERACION_LIMITADA {} motivo={}", datosDeLaPeticion(contexto, correo),
-                    motivo == null ? "(desconocido)" : motivo.name());
+                    motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
@@ -129,7 +131,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRecuperacionCuentaNoApta(ContextoPeticion contexto, String correo, EstadoUsuario estado) {
         if (log.isWarnEnabled()) {
             log.warn("RECUPERACION_CUENTA_NO_APTA {} estado={}", datosDeLaPeticion(contexto, correo),
-                    estado == null ? "(desconocido)" : estado.name());
+                    estado == null ? DESCONOCIDO : estado.name());
         }
     }
 
@@ -201,7 +203,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
             MotivoFalloDosFactores motivo) {
         if (log.isWarnEnabled()) {
             log.warn("DOS_FACTORES_FALLIDO {} userId={} motivo={}", datosDeLaPeticion(contexto, correo),
-                    EnmascaradorDatosLog.texto(idUsuario), motivo == null ? "(desconocido)" : motivo.name());
+                    EnmascaradorDatosLog.texto(idUsuario), motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
@@ -217,7 +219,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRegistroDosFactoresFallido(ContextoPeticion contexto, String correo, MotivoFalloDosFactores motivo) {
         if (log.isWarnEnabled()) {
             log.warn("REGISTRO_DOS_FACTORES_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo),
-                    motivo == null ? "(desconocido)" : motivo.name());
+                    motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
