@@ -84,6 +84,24 @@ public class ServicioCatalogo {
                 new PageImpl<>(contenido, PageRequest.of(numeroPagina, TAMANO_PAGINA), encontrados.size()));
     }
 
+    public List<ProductoClienteDTO> productosActivos(List<String> idsProductos, boolean clientePremium) {
+        if (idsProductos.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Producto> porId = repositorioProducto.findAllById(idsProductos).stream()
+                .filter(producto -> Boolean.TRUE.equals(producto.getVisible()))
+                .collect(Collectors.toMap(Producto::getId, producto -> producto));
+        List<Producto> productos = idsProductos.stream().map(porId::get).filter(Objects::nonNull).toList();
+        Map<String, String> imagenes = productos.stream().filter(producto -> producto.getImagen() != null)
+                .collect(Collectors.toMap(Producto::getId, Producto::getImagen));
+        Map<String, String> nombresCategorias = nombresDeCategorias(productos);
+        Map<String, Puntuacion> puntuaciones = puntuacionesPorProducto(repositorioValoracion.findAll());
+        return productos.stream()
+                .map(producto -> aDTO(producto, imagenes, nombresCategorias, clientePremium,
+                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES)))
+                .toList();
+    }
+
     public ProductoDetalleDTO obtener(String idProducto, boolean clientePremium) {
         Producto producto = repositorioProducto.findById(idProducto)
                 .filter(encontrado -> Boolean.TRUE.equals(encontrado.getVisible()))

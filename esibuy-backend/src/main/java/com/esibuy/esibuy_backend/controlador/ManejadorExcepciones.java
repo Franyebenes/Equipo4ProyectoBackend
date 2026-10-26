@@ -40,6 +40,8 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.FiltroNoValidoException;
+import com.esibuy.esibuy_backend.excepcion.FavoritoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.FavoritoRepetidoException;
 import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -156,6 +158,17 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     }
 
     // HU-20: filtros del catalogo sin sentido (precio negativo, minimo mayor que el maximo...)
+    // HU-31 Favoritos: ya estaba (409) o no estaba (404)
+    @ExceptionHandler(FavoritoRepetidoException.class)
+    public ResponseEntity<Map<String, Object>> favoritoRepetido(FavoritoRepetidoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(FavoritoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> favoritoNoEncontrado(FavoritoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
     @ExceptionHandler(FiltroNoValidoException.class)
     public ResponseEntity<Map<String, Object>> filtroNoValido(FiltroNoValidoException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
