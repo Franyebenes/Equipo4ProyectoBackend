@@ -1,6 +1,7 @@
 package com.esibuy.esibuy_backend.servicio;
 
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -35,6 +36,17 @@ public class AltaDosFactores {
 
     /** El secreto que el codigo ha verificado y el paso TOTP que se ha aceptado. */
     public record Verificado(byte[] secreto, long paso) {
+
+        // Un record compara los arrays por referencia: aqui se compara su contenido
+        @Override
+        public boolean equals(Object otro) {
+            return otro instanceof Verificado v && paso == v.paso && Arrays.equals(secreto, v.secreto);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Arrays.hashCode(secreto) + Long.hashCode(paso);
+        }
 
         @Override
         public String toString() {

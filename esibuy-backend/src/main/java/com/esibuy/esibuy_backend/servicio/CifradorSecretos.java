@@ -88,7 +88,10 @@ public final class CifradorSecretos {
 
     public byte[] descifrar(String cifrado, String asociado) {
         byte[] datoAsociado = datoAsociado(asociado);
-        int separador = cifrado == null ? -1 : cifrado.indexOf(':');
+        if (cifrado == null) {
+            throw ilegible();
+        }
+        int separador = cifrado.indexOf(':');
         if (separador <= 0) {
             throw ilegible();
         }
@@ -117,7 +120,10 @@ public final class CifradorSecretos {
 
     // True si el texto cifrado se hizo con la clave activa; false si es de una version anterior o no es legible. 
     public boolean usaLaClaveActiva(String cifrado) {
-        int separador = cifrado == null ? -1 : cifrado.indexOf(':');
+        if (cifrado == null) {
+            return false;
+        }
+        int separador = cifrado.indexOf(':');
         if (separador <= 0) {
             return false;
         }
