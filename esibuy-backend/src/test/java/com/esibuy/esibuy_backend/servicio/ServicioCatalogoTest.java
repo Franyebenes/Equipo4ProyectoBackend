@@ -182,7 +182,8 @@ class ServicioCatalogoTest {
         // Then: el estandar tambien lo ve, marcado como solo premium
         assertThat(paraEstandar.precio()).isEqualTo(100.0);
         assertThat(paraEstandar.precioFinal()).isEqualTo(80.0);
-        assertThat(paraPremium.precioFinal()).isEqualTo(72.0);
+        // Los dos descuentos se suman: 20 % + 10 % = 30 %
+        assertThat(paraPremium.precioFinal()).isEqualTo(70.0);
         assertThat(paraEstandar.soloPremium()).isTrue();
     }
 
