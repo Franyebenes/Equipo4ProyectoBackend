@@ -46,6 +46,50 @@ db.createCollection("usuarios", {
                   sede: { bsonType: "string" },
                   fechaIncorporacion: { bsonType: "date" }
                }
+            },
+            // Segundo factor (2FA con TOTP). Debe ser idéntico a la propiedad dosFactores de
+            // scripts_auxiliares/migracion-2fa.js (lo comprueba un test). Las cuentas sin el campo siguen siendo válidas.
+            dosFactores: {
+               bsonType: "object",
+               required: [ "activo" ],
+               additionalProperties: false, // por ejemplo, impide guardar un campo "secreto" con el valor en claro
+               properties: {
+                  activo: { bsonType: "bool" },
+                  // "versión:base64url", el texto cifrado de CifradorSecretos; un secreto en claro (un Base32) no encaja
+                  secretoCifrado: { bsonType: "string", pattern: "^[0-9]{1,9}:[A-Za-z0-9_-]+$" },
+                  // Activación empezada y aún sin confirmar con el primer código
+                  pendiente: {
+                     bsonType: "object",
+                     required: [ "secretoCifrado", "creadoEn" ],
+                     additionalProperties: false,
+                     properties: {
+                        secretoCifrado: { bsonType: "string", pattern: "^[0-9]{1,9}:[A-Za-z0-9_-]+$" },
+                        creadoEn: { bsonType: "date" }
+                     }
+                  },
+                  // Último paso de tiempo (30 s) aceptado: impide reutilizar un código TOTP
+                  ultimoPaso: { bsonType: [ "int", "long" ], minimum: 0 },
+                  activadoEn: { bsonType: "date" },
+                  codigosRecuperacion: {
+                     bsonType: "array",
+                     maxItems: 20,
+                     items: {
+                        bsonType: "object",
+                        required: [ "hash", "usado" ],
+                        additionalProperties: false,
+                        properties: {
+                           hash: { bsonType: "string", pattern: "^[0-9a-f]{64}$" }, // SHA-256 en hexadecimal minúscula
+                           usado: { bsonType: "bool" },
+                           usadoEn: { bsonType: "date" }
+                        }
+                     }
+                  }
+               },
+               // Un 2FA activo siempre tiene secreto, fecha de activación y códigos de recuperación
+               anyOf: [
+                  { properties: { activo: { enum: [ false ] } } },
+                  { required: [ "secretoCifrado", "activadoEn", "codigosRecuperacion" ], properties: { activo: { enum: [ true ] } } }
+               ]
             }
          }
       }

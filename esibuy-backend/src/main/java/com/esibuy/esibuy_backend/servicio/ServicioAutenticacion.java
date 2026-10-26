@@ -34,7 +34,8 @@ import com.esibuy.esibuy_backend.util.Constantes;
  * buena) y se audita con su evento propio (LOGIN_CUENTA_NO_ACTIVA), no como login fallido. Un fallo interno falla cerrado como
  * ServicioNoDisponibleException, sin causa y sin sumar fallo.
  *
- * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria.
+ * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria. Si la cuenta tiene el 2FA
+ * activo, el resultado lo indica (requiereSegundoFactor) y se audita como primer factor correcto, no como login correcto.
  */
 @Service
 public class ServicioAutenticacion {
@@ -108,9 +109,17 @@ public class ServicioAutenticacion {
         }
 
         limitador.registrarExito(email);
-        auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
+        // Con el 2FA activo la contrasena sola no es un login correcto: falta el codigo del segundo paso, que es el que
+        // audita LOGIN_CORRECTO. Solo se llega aqui con una cuenta ACTIVA y la contrasena buena, asi que decir que falta el
+        // segundo factor no revela nada a quien no la sepa.
+        boolean segundoFactor = usuario.tieneDosFactoresActivo();
+        if (segundoFactor) {
+            auditoria.registrarLoginPrimerFactorCorrecto(contexto, email, usuario.getId());
+        } else {
+            auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
+        }
         return new ResultadoAutenticacion(usuario.getId(), usuario.getEmail(), usuario.getPerfil().getNombre(),
-                rol.get(), usuario.getPerfil().getAvatarUrl());
+                rol.get(), usuario.getPerfil().getAvatarUrl(), segundoFactor);
     }
 
     // Un bloqueo temporal (cuenta o IP) se rechaza tal cual, pero antes queda constancia en la auditoria.

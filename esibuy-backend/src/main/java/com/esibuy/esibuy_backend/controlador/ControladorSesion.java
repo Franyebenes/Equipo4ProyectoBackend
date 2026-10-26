@@ -28,7 +28,7 @@ public class ControladorSesion {
         HttpSession sesion = peticion.getSession(false);
         if (sesion == null
                 || !(sesion.getAttribute(EstablecedorSesion.ATRIBUTO_USUARIO)
-                        instanceof ResultadoAutenticacion(var id, var email, var nombre, var rol, var avatar))) {
+                        instanceof ResultadoAutenticacion(var id, var email, var nombre, var rol, var avatar, var segundoFactor))) {
             return ResponseEntity.status(401).build();
         }
         return ResponseEntity.ok(new UsuarioActualDTO(id, email, nombre, rol, avatar));

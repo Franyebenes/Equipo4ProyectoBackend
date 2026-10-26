@@ -16,7 +16,15 @@ public record SolicitudRegistroClienteDTO(
         String telefono,
         String avatar,
         String contrasena,
-        String repetirContrasena) implements SolicitudRegistro {
+        String repetirContrasena,
+        String codigoDosFactores) implements SolicitudRegistro {
+
+    /** Solicitud sin codigo del segundo factor (codigoDosFactores = null). */
+    public SolicitudRegistroClienteDTO(TipoCuenta tipoCuenta, String nombre, String apellidos, LocalDate fechaNacimiento,
+            String dni, String email, String telefono, String avatar, String contrasena, String repetirContrasena) {
+        this(tipoCuenta, nombre, apellidos, fechaNacimiento, dni, email, telefono, avatar, contrasena,
+                repetirContrasena, null);
+    }
 
     @Override
     public String toString() {
@@ -29,6 +37,7 @@ public record SolicitudRegistroClienteDTO(
                 + ", telefono=" + telefono
                 + ", avatar=" + avatar
                 + ", contrasena=" + DatosSensibles.OCULTO
-                + ", repetirContrasena=" + DatosSensibles.OCULTO + "]";
+                + ", repetirContrasena=" + DatosSensibles.OCULTO
+                + ", codigoDosFactores=" + DatosSensibles.OCULTO + "]";
     }
 }

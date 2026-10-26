@@ -38,6 +38,7 @@ class LimitePeticionesRegistroCorsTest {
     void registrar_superadoElLimite_el429LlevaCabecerasCorsYRetryAfterLegibles() throws Exception {
         // Given: la primera peticion agota el limite de 1 (responde 400 por datos incompletos)
         mockMvc.perform(post(RUTA_REGISTRO)
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                         .header("Origin", ORIGEN_FRONTEND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tipoCuenta\":\"CLIENTE\"}"))
@@ -46,6 +47,7 @@ class LimitePeticionesRegistroCorsTest {
 
         // When / Then: la segunda se rechaza por el limite, y el navegador debe poder leerla
         mockMvc.perform(post(RUTA_REGISTRO)
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                         .header("Origin", ORIGEN_FRONTEND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tipoCuenta\":\"CLIENTE\"}"))

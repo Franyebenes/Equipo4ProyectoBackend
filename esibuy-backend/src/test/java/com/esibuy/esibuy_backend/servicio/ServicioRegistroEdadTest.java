@@ -38,7 +38,7 @@ class ServicioRegistroEdadTest extends ServicioRegistroBaseTest {
 
     private DatosRegistroInvalidosException registrarEsperandoRechazo(ServicioRegistro servicioAUsar,
                                                                       SolicitudRegistroClienteDTO solicitud) {
-        return assertThrows(DatosRegistroInvalidosException.class, () -> servicioAUsar.registrarCliente(solicitud));
+        return assertThrows(DatosRegistroInvalidosException.class, () -> registrarCliente(servicioAUsar, solicitud));
     }
 
     @Test
@@ -47,7 +47,7 @@ class ServicioRegistroEdadTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = solicitudNacidoEl(LocalDate.of(2008, 10, 1));
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getFechaNacimiento()).isEqualTo(LocalDate.of(2008, 10, 1));
@@ -105,7 +105,7 @@ class ServicioRegistroEdadTest extends ServicioRegistroBaseTest {
 
         // When / Then
         if (seAcepta) {
-            servicioConReloj.registrarCliente(solicitud);
+            registrarCliente(servicioConReloj, solicitud);
             assertThat(usuarioGuardado().getPerfil().getFechaNacimiento()).isEqualTo(LocalDate.of(2008, 2, 29));
         } else {
             DatosRegistroInvalidosException excepcion = registrarEsperandoRechazo(servicioConReloj, solicitud);
@@ -121,7 +121,7 @@ class ServicioRegistroEdadTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = solicitudNacidoEl(LocalDate.of(2008, 2, 29));
 
         // When
-        servicioConReloj.registrarCliente(solicitud);
+        registrarCliente(servicioConReloj, solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getFechaNacimiento()).isEqualTo(LocalDate.of(2008, 2, 29));
@@ -150,7 +150,7 @@ class ServicioRegistroEdadTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = solicitudNacidoEl(LocalDate.of(2008, 10, 2));
 
         // When
-        servicioConReloj.registrarCliente(solicitud);
+        registrarCliente(servicioConReloj, solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getFechaNacimiento()).isEqualTo(LocalDate.of(2008, 10, 2));

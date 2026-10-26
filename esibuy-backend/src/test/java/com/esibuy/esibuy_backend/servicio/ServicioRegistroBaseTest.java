@@ -1,6 +1,11 @@
 package com.esibuy.esibuy_backend.servicio;
 
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDosFactoresDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
+import com.esibuy.esibuy_backend.modelo.DosFactores;
 import com.esibuy.esibuy_backend.modelo.Usuario;
+import com.esibuy.esibuy_backend.seguridad.PendienteRegistroDosFactores;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
@@ -40,6 +45,12 @@ abstract class ServicioRegistroBaseTest {
     protected static final String AVATAR_CLIENTE_POR_DEFECTO = "avatar-defecto-cliente";
     protected static final String AVATAR_VENDEDOR_POR_DEFECTO = "avatar-defecto-vendedor";
     protected static final String HASH_SIMULADO = "hash-simulado";
+    protected static final ContextoPeticion CONTEXTO = new ContextoPeticion("203.0.113.7", "JUnit");
+    private static final AltaDosFactores.Verificado VERIFICADO = new AltaDosFactores.Verificado(new byte[20], 7L);
+    private static final AltaDosFactores.DosFactoresNuevos NUEVOS = new AltaDosFactores.DosFactoresNuevos(
+            DosFactores.activo("1:" + "B".repeat(64), Instant.parse("2026-10-01T10:00:00Z"), 7L,
+                    java.util.List.of(DosFactores.CodigoRecuperacion.nuevo("c".repeat(64)))),
+            java.util.List.of("ABCD-EFGH-IJKL-MNOP"));
 
     @Mock
     protected RepositorioUsuario repositorioUsuario;
@@ -53,6 +64,10 @@ abstract class ServicioRegistroBaseTest {
     protected CatalogoAvatares catalogoAvatares;
     @Mock
     protected PasswordEncoder codificador;
+    @Mock
+    protected AltaDosFactores altaDosFactores;
+    @Mock
+    protected AuditoriaSeguridad auditoria;
 
     @Captor
     protected ArgumentCaptor<Usuario> usuarioCaptor;
@@ -63,7 +78,7 @@ abstract class ServicioRegistroBaseTest {
     void prepararColaboradoresYServicio() {
         lenient().when(repositorioUsuario.existePorEmail(anyString())).thenReturn(false);
         lenient().when(repositorioUsuario.existePorNombreComercial(anyString())).thenReturn(false);
-        lenient().when(repositorioUsuario.save(any(Usuario.class)))
+        lenient().when(repositorioUsuario.insert(any(Usuario.class)))
                 .thenAnswer(invocacion -> invocacion.getArgument(0));
 
         lenient().when(repositorioCategoria.existsById(ConstructorSolicitudVendedor.CATEGORIA_VALIDA))
@@ -80,6 +95,10 @@ abstract class ServicioRegistroBaseTest {
         lenient().when(catalogoAvatares.avatarPorDefectoVendedor()).thenReturn(AVATAR_VENDEDOR_POR_DEFECTO);
 
         lenient().when(codificador.encode(any())).thenReturn(HASH_SIMULADO);
+
+        // El 2FA del registro tiene sus propias pruebas (ServicioRegistroDosFactoresAltaTest y AltaDosFactoresTest)
+        lenient().when(altaDosFactores.verificar(any(), any())).thenReturn(VERIFICADO);
+        lenient().when(altaDosFactores.crear(any(), anyString())).thenReturn(NUEVOS);
 
         servicio = crearServicio(RELOJ_FIJO);
     }
@@ -98,16 +117,40 @@ abstract class ServicioRegistroBaseTest {
                 new ValidadorContrasena(diccionario),
                 codificadorAUsar,
                 catalogoAvatares,
-                reloj);
+                reloj,
+                altaDosFactores,
+                auditoria);
+    }
+
+    /** Registra con un secreto pendiente vigente para el correo de la solicitud (el 2FA se prueba aparte). */
+    protected RespuestaRegistroDosFactoresDTO registrarCliente(SolicitudRegistroClienteDTO solicitud) {
+        return registrarCliente(servicio, solicitud);
+    }
+
+    protected RespuestaRegistroDosFactoresDTO registrarCliente(ServicioRegistro destino, SolicitudRegistroClienteDTO solicitud) {
+        return destino.registrarCliente(solicitud, pendienteDe(solicitud.email()), CONTEXTO);
+    }
+
+    protected RespuestaRegistroDosFactoresDTO registrarVendedor(SolicitudRegistroVendedorDTO solicitud) {
+        return registrarVendedor(servicio, solicitud);
+    }
+
+    protected RespuestaRegistroDosFactoresDTO registrarVendedor(ServicioRegistro destino, SolicitudRegistroVendedorDTO solicitud) {
+        return destino.registrarVendedor(solicitud, pendienteDe(solicitud.email()), CONTEXTO);
+    }
+
+    private static PendienteRegistroDosFactores pendienteDe(String email) {
+        String normalizado = Normalizador.email(email);
+        return new PendienteRegistroDosFactores(normalizado == null ? "" : normalizado, "1:" + "A".repeat(64), RELOJ_FIJO.instant(), 0);
     }
 
     /** Verifica que se guardo exactamente un usuario y lo devuelve. */
     protected Usuario usuarioGuardado() {
-        verify(repositorioUsuario).save(usuarioCaptor.capture());
+        verify(repositorioUsuario).insert(usuarioCaptor.capture());
         return usuarioCaptor.getValue();
     }
 
     protected void verificarQueNoSeGuardoNingunUsuario() {
-        verify(repositorioUsuario, never()).save(any());
+        verify(repositorioUsuario, never()).insert(any(Usuario.class));
     }
 }
