@@ -58,7 +58,7 @@ import com.esibuy.esibuy_backend.util.RelojMutable;
  * Verificacion del codigo del segundo paso del login (HdU 2FA, fase 3): ServicioDosFactores.verificarParaLogin.
  * Casos: CP-2FA-312 a CP-2FA-328.
  *
- * Es la misma comprobacion que usan desactivar y regenerar (el TOTP del movil o un codigo de recuperacion), con las mismas
+ * Es la misma comprobacion que usa regenerar los codigos (el TOTP del movil o un codigo de recuperacion), con las mismas
  * garantias: un TOTP ya aceptado no vale otra vez (anti-reutilizacion atomica con el ultimo paso aceptado, que se comparte
  * con esas operaciones), un codigo de recuperacion se consume una sola vez, y los fallos suman al limite de la cuenta y la IP.
  * Aqui no se pide la contrasena (ya se comprobo en el primer paso) ni se marcan las credenciales como cambiadas (entrar no
@@ -358,8 +358,8 @@ class ServicioDosFactoresLoginTest {
     }
 
     @Test
-    void verificarParaLogin_elTotpAceptadoAhoraNoVale2VecesNiParaDesactivar() { // CP-2FA-328
-        // El paso aceptado en el login se comparte con desactivar y regenerar: el mismo registro atomico
+    void verificarParaLogin_elTotpAceptadoAhoraNoVale2VecesNiParaRegenerar() { // CP-2FA-328
+        // El paso aceptado en el login se comparte con regenerar los codigos: el mismo registro atomico
         dadoUnUsuarioActivoConDosFactores(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10));
         when(repositorioDosFactores.registrarPasoAceptado(ID, totp.pasoActual())).thenReturn(true, false);
 

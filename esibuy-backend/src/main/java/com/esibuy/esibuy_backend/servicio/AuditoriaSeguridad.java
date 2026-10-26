@@ -179,14 +179,6 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         }
     }
 
-    // 2FA desactivado: baja la proteccion de la cuenta, asi que se destaca como aviso. Tests: CP-2FA-228.
-    public void registrarDosFactoresDesactivado(ContextoPeticion contexto, String correo, String idUsuario) {
-        if (log.isWarnEnabled()) {
-            log.warn("DOS_FACTORES_DESACTIVADO {} userId={}", datosDeLaPeticion(contexto, correo),
-                    EnmascaradorDatosLog.texto(idUsuario));
-        }
-    }
-
     // Codigos de recuperacion sustituidos por otros nuevos. Tests: CP-2FA-229.
     public void registrarDosFactoresCodigosRegenerados(ContextoPeticion contexto, String correo, String idUsuario) {
         if (log.isInfoEnabled()) {
@@ -210,6 +202,29 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         if (log.isWarnEnabled()) {
             log.warn("DOS_FACTORES_FALLIDO {} userId={} motivo={}", datosDeLaPeticion(contexto, correo),
                     EnmascaradorDatosLog.texto(idUsuario), motivo == null ? "(desconocido)" : motivo.name());
+        }
+    }
+
+    // Cuenta creada con el 2FA activo. Tests: AuditoriaSeguridadRegistroDosFactoresFinalTest.
+    public void registrarRegistroDosFactoresCompletado(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("REGISTRO_DOS_FACTORES_COMPLETADO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Registro rechazado por el 2FA (codigo incorrecto o secreto pendiente no vigente). Solo el motivo.
+    public void registrarRegistroDosFactoresFallido(ContextoPeticion contexto, String correo, MotivoFalloDosFactores motivo) {
+        if (log.isWarnEnabled()) {
+            log.warn("REGISTRO_DOS_FACTORES_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo),
+                    motivo == null ? "(desconocido)" : motivo.name());
+        }
+    }
+
+    // El secreto pendiente del registro se descarto por agotar los codigos fallidos. Sin correo: el controlador no lo tiene.
+    public void registrarRegistroDosFactoresAgotado(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("REGISTRO_DOS_FACTORES_AGOTADO {}", datosSinCorreo(contexto));
         }
     }
 
@@ -241,6 +256,13 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         if (log.isWarnEnabled()) {
             log.warn("LOGIN_SEGUNDO_FACTOR_AGOTADO {} userId={}", datosDeLaPeticion(contexto, correo),
                     EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Alguien ha pedido el QR del 2FA para registrarse (todavia no hay cuenta, asi que no hay userId). Tests: CP-2FA-411.
+    public void registrarRegistroDosFactoresIniciado(ContextoPeticion contexto, String correo) {
+        if (log.isInfoEnabled()) {
+            log.info("REGISTRO_DOS_FACTORES_INICIADO {}", datosDeLaPeticion(contexto, correo));
         }
     }
 

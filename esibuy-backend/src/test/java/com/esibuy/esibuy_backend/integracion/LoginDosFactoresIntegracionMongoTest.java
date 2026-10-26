@@ -60,7 +60,7 @@ import com.mongodb.client.model.Updates;
  * con el mismo generador que el servidor, a partir del secreto, como la aplicacion autenticadora. Lo mas importante que fijan:
  *  - Con el 2FA activo, la contrasena sola NO da sesion: el login responde que falta el segundo factor y con esa sesion
  *    pendiente no se puede entrar a nada (401). Solo un codigo correcto la convierte en una sesion, con identificador nuevo.
- *  - Un codigo TOTP no vale dos veces (ni en el login ni entre login y desactivar); un codigo de recuperacion se consume.
+ *  - Un codigo TOTP no vale dos veces (ni en el login ni entre login y regenerar los codigos); un codigo de recuperacion se consume.
  *  - Restablecer la contrasena NO desactiva ni salta el 2FA: tras el restablecimiento, el login vuelve a pedir el codigo.
  *  - El limite de fallos del segundo factor (aqui 3 por cuenta) corta con un 429 incluso al acertar despues, y es
  *    independiente del login: no bloquea la contrasena ni a otras cuentas.
@@ -456,16 +456,16 @@ class LoginDosFactoresIntegracionMongoTest extends IntegracionLoginBase {
     // ------------------------------------------------------------------ CP-2FA-375 / 376
 
     @Test
-    void elCodigoDelLoginTambienGastaElPasoParaDesactivar() throws Exception { // CP-2FA-375
+    void elCodigoDelLoginTambienGastaElPasoParaRegenerarLosCodigos() throws Exception { // CP-2FA-375
         CuentaConDosFactores cuenta = conDosFactores();
         String codigo = codigoSiguiente(cuenta);
         MockHttpSession definitiva = sesionDe(verificar(sesionDe(login(cuenta.cuenta(), CONTRASENA)), codigo));
 
-        // El mismo TOTP, ahora para desactivar con la sesion ya abierta: el paso esta gastado
-        MvcResult desactivar = mockMvc.perform(postJson("/api/2fa/desactivacion", definitiva,
+        // El mismo TOTP, ahora para regenerar los codigos con la sesion ya abierta: el paso esta gastado
+        MvcResult regenerar = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", definitiva,
                 "{\"contrasena\":\"" + CONTRASENA + "\",\"codigo\":\"" + codigo + "\"}")).andReturn();
 
-        assertThat(desactivar.getResponse().getStatus()).isEqualTo(400);
+        assertThat(regenerar.getResponse().getStatus()).isEqualTo(400);
         assertThat(dosFactoresDe(cuenta.cuenta()).getBoolean("activo")).isTrue();
     }
 

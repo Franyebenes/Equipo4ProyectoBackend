@@ -31,16 +31,17 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioDosFactores;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 
 /*
- * Activar, consultar, desactivar y regenerar los codigos de recuperacion del segundo factor (TOTP). La cuenta es siempre
+ * Activar, consultar y regenerar los codigos de recuperacion del segundo factor (TOTP). Una vez activado el 2FA queda fijo:
+ * no se puede desactivar ni restablecer (decision del PO para el prototipo). La cuenta es siempre
  * la de la sesion (el controlador pasa su id). Tests: ServicioDosFactoresTest (CP-2FA-179 a CP-2FA-225).
  *
- * Operar con el 2FA exige repetir la contrasena. Desactivar y regenerar los codigos exigen ademas un codigo valido: el TOTP
+ * Operar con el 2FA exige repetir la contrasena. Regenerar los codigos exige ademas un codigo valido: el TOTP
  * del movil o uno de recuperacion (que se consume). Orden: formato (un campo vacio es un 400 que no cuenta como fallo),
  * limite de fallos, usuario, estado del 2FA, contrasena y, solo entonces, el codigo: una contrasena mal puesta no llega a
  * probar el codigo. Los fallos se suman al limitador y quedan en la auditoria; un TOTP ya aceptado no vale otra vez
  * (anti-reutilizacion atomica en la base de datos) y cuenta como fallo.
  *
- * Al activar, desactivar o regenerar se marcan las credenciales como cambiadas un milisegundo antes del instante del cambio:
+ * Al activar o regenerar se marcan las credenciales como cambiadas un milisegundo antes del instante del cambio:
  * las demas sesiones dejan de valer y la que el controlador renueva justo despues sobrevive (una sesion vale solo si empezo
  * estrictamente despues de la marca). Cada cambio avisa por correo, en segundo plano, y se audita. El secreto pendiente
  * caduca a los 10 minutos exactos.
@@ -152,25 +153,6 @@ public class ServicioDosFactores {
         return respuestaCon(codigos);
     }
 
-    /** Quita el 2FA. Exige la contrasena y un codigo valido (TOTP o de recuperacion). */
-    public void desactivar(String idUsuario, String contrasena, String codigo, ContextoPeticion contexto) {
-        String clave = Normalizador.contrasena(contrasena);
-        exigirContrasenaYCodigo(clave, codigo);
-        comprobarLimite(idUsuario, contexto);
-        Usuario usuario = cargar(idUsuario);
-        exigirActivo(usuario);
-        comprobarContrasena(usuario, clave, contexto);
-        Instant ahora = reloj.instant();
-        comprobarCodigo(usuario, codigo, ahora, contexto);
-
-        if (!protegido(() -> repositorioDosFactores.desactivar(idUsuario))) {
-            throw new OperacionNoPermitidaException();
-        }
-        cambioDeSeguridad(usuario, ahora);
-        auditoria.registrarDosFactoresDesactivado(contexto, usuario.getEmail(), idUsuario);
-        avisar(() -> plantillas.dosFactoresDesactivado(usuario.getEmail()));
-    }
-
     /** Sustituye los codigos de recuperacion por otros nuevos. Exige la contrasena y un codigo valido. */
     public RespuestaCodigosRecuperacionDTO regenerarCodigos(String idUsuario, String contrasena, String codigo,
             ContextoPeticion contexto) {
@@ -196,7 +178,7 @@ public class ServicioDosFactores {
 
     /*
      * Verifica el codigo del segundo paso del login (el desafio lo gestiona el controlador). Es la misma comprobacion que
-     * desactivar y regenerar: un TOTP se acepta una sola vez por paso (compartido con esas operaciones) y un codigo de
+     * regenerar los codigos: un TOTP se acepta una sola vez por paso (compartido con esas operaciones) y un codigo de
      * recuperacion se consume. No pide la contrasena (ya se comprobo en el primer paso) ni marca las credenciales como
      * cambiadas ni avisa por correo: entrar no cambia nada de la cuenta. Si entre los dos pasos la cuenta dejo de poder entrar
      * (borrada, bloqueada, desactivada) o ya no tiene el 2FA activo, el desafio no es vigente. Tests: ServicioDosFactoresLoginTest.

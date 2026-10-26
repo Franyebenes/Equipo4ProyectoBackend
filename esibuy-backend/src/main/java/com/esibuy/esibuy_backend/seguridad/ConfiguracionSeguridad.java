@@ -39,9 +39,9 @@ public class ConfiguracionSeguridad {
        public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
-                // Hay sesion (la crea el login), asi que el login exige token CSRF. El registro no crea sesion ni
-                // usa la existente: sigue exento
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/auth/registro"))
+                // Hay sesion (la crea el login y, antes del registro, el secreto del 2FA pendiente), asi que todas las
+                // peticiones que cambian algo exigen token CSRF, tambien el registro
+                .csrf(Customizer.withDefaults())
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .headers(cabeceras -> cabeceras.httpStrictTransportSecurity(
                         hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(SEGUNDOS_HSTS)))

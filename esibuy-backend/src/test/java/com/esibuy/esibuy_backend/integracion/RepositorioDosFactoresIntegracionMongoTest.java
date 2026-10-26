@@ -610,55 +610,6 @@ class RepositorioDosFactoresIntegracionMongoTest extends IntegracionLoginBase {
                 () -> repositorio.reemplazarCodigosRecuperacion(id, List.of(hashes(1).get(0), hashes(1).get(0))));
     }
 
-    // ------------------------------------------------------------------ desactivar
-
-    @Test
-    void desactivar_quitaElDosFactoresEnteroYNoTocaElRestoDelUsuario() { // CP-2FA-156
-        ObjectId id = crearUsuarioActivo(hashes(10));
-        Document antes = sinDosFactores(id);
-
-        boolean desactivado = repositorio.desactivar(id.toHexString());
-
-        assertThat(desactivado).isTrue();
-        assertThat(documento(id)).doesNotContainKey("dosFactores");
-        assertThat(documento(id)).isEqualTo(antes);
-    }
-
-    @Test
-    void desactivar_tambienDescartaUnaActivacionPendiente() { // CP-2FA-157
-        ObjectId id = crearUsuarioConPendiente(CIFRADO_A, AHORA);
-
-        assertThat(repositorio.desactivar(id.toHexString())).isTrue();
-        assertThat(documento(id)).doesNotContainKey("dosFactores");
-    }
-
-    @Test
-    void desactivar_cuandoNoHayDosFactores_devuelveFalso() { // CP-2FA-158
-        ObjectId id = crearUsuarioSin2fa();
-
-        assertThat(repositorio.desactivar(id.toHexString())).isFalse();
-        assertThat(repositorio.desactivar(new ObjectId().toHexString())).isFalse();
-    }
-
-    @Test
-    void desactivar_idMalFormado_lanzaExcepcion() { // CP-2FA-158
-        assertThrows(IllegalArgumentException.class, () -> repositorio.desactivar("no-es-un-id"));
-        assertThrows(IllegalArgumentException.class, () -> repositorio.desactivar(null));
-    }
-
-    @Test
-    void despuesDeDesactivar_sePuedeVolverAActivar() { // CP-2FA-159
-        ObjectId id = crearUsuarioActivo(hashes(10));
-        repositorio.desactivar(id.toHexString());
-
-        assertThat(repositorio.guardarActivacionPendiente(id.toHexString(), CIFRADO_B, AHORA)).isTrue();
-        assertThat(repositorio.activar(id.toHexString(), CIFRADO_B, 7, hashes(10), AHORA.plusSeconds(30), CADUCIDAD)).isTrue();
-
-        Document dosFactores = dosFactoresDe(id);
-        assertThat(dosFactores.getBoolean("activo")).isTrue();
-        assertThat(dosFactores.getString("secretoCifrado")).isEqualTo(CIFRADO_B);
-    }
-
     // ------------------------------------------------------------------ lectura con Spring Data
 
     @Test

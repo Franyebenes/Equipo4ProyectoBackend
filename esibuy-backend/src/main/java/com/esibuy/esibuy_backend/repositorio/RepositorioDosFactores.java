@@ -137,13 +137,6 @@ public class RepositorioDosFactores {
         return aplicar(Filters.and(Filters.eq("_id", id), Filters.eq(ACTIVO, true)), Updates.set(CODIGOS, codigos));
     }
 
-    // Quita el segundo factor entero, incluida una activacion pendiente. False si el usuario no tenia nada que quitar. */
-    public boolean desactivar(String idUsuario) {
-        ObjectId id = exigirObjectId(idUsuario);
-
-        return aplicar(Filters.and(Filters.eq("_id", id), Filters.exists(DOS_FACTORES)), Updates.unset(DOS_FACTORES));
-    }
-
     /*
      * Anota la marca de cambio de las credenciales (contrasenaCambiadaEn, la misma que usa el restablecimiento de contrasena):
      * las sesiones iniciadas antes de ese instante dejan de valer. Solo toca ese campo. False si el usuario no existe.

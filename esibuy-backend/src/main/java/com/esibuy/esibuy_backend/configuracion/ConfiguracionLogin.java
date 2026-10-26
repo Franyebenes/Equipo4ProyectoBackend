@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.esibuy.esibuy_backend.seguridad.EstablecedorSesion;
 import com.esibuy.esibuy_backend.seguridad.GestorDesafioSegundoFactor;
+import com.esibuy.esibuy_backend.seguridad.GestorRegistroDosFactores;
 import com.esibuy.esibuy_backend.seguridad.PoliticaSesion;
 import com.esibuy.esibuy_backend.servicio.ResolutorIpCliente;
 
@@ -40,6 +41,17 @@ public class ConfiguracionLogin {
             @Value("${esibuy.dosfactores.caducidad-desafio}") Duration caducidad,
             @Value("${esibuy.dosfactores.max-intentos-desafio}") int maxIntentos, Clock reloj) {
         return new GestorDesafioSegundoFactor(caducidad, maxIntentos, reloj);
+    }
+
+    /*
+     * Secreto del 2FA pendiente durante el registro (en la sesion). Mismos valores que la activacion: caduca como el secreto
+     * pendiente de la activacion y admite los mismos intentos que el desafio del login.
+     */
+    @Bean
+    public GestorRegistroDosFactores gestorRegistroDosFactores(
+            @Value("${esibuy.dosfactores.caducidad-activacion}") Duration caducidad,
+            @Value("${esibuy.dosfactores.max-intentos-desafio}") int maxIntentos, Clock reloj) {
+        return new GestorRegistroDosFactores(caducidad, maxIntentos, reloj);
     }
 
     @Bean

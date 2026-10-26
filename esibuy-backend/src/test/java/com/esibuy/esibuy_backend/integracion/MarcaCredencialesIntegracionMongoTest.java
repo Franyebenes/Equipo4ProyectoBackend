@@ -30,7 +30,7 @@ import com.mongodb.client.model.Filters;
  * Marca de cambio de credenciales que invalida las sesiones anteriores, contra MongoDB real (HdU 2FA, fase 2).
  * Casos: CP-2FA-266 a CP-2FA-270.
  *
- * Al activar, desactivar o regenerar los codigos del 2FA se anota en el usuario la marca contrasenaCambiadaEn (la misma
+ * Al activar el 2FA o regenerar sus codigos se anota en el usuario la marca contrasenaCambiadaEn (la misma
  * que usa el restablecimiento de contrasena): las sesiones iniciadas antes dejan de valer. Es una escritura que toca solo
  * ese campo. Una sesion vale solo si empezo estrictamente despues de la marca, comparando en milisegundos.
  *

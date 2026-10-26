@@ -43,6 +43,13 @@ public class Usuario {
         this.estado = EstadoUsuario.DESACTIVADO;
     }
 
+    // Crea un usuario nuevo con id ya asignado y el segundo factor activo desde el primer momento (registro con 2FA).
+    public Usuario(String id, String email, String passwordHash, Rol rol, PerfilUsuario perfil, DosFactores dosFactores) {
+        this(email, passwordHash, rol, perfil);
+        this.id = Objects.requireNonNull(id, "id");
+        this.dosFactores = Objects.requireNonNull(dosFactores, "dosFactores");
+    }
+
     public String getId() {
         return id;
     }

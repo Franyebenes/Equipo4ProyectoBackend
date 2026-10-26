@@ -58,7 +58,7 @@ import com.mongodb.client.model.Filters;
  * endpoint, igual que lo haria la aplicacion autenticadora del movil. Lo mas importante que fijan:
  *  - Lo guardado en MongoDB es solo el secreto cifrado y los hashes de los codigos de recuperacion: nada en claro, y el
  *    esquema del script de BBDD acepta lo que escribe la aplicacion.
- *  - Tras activar, desactivar o regenerar, las demas sesiones de la cuenta dejan de valer (401) y la que hizo el cambio
+ *  - Tras activar o regenerar, las demas sesiones de la cuenta dejan de valer (401) y la que hizo el cambio
  *    sigue valiendo (se renueva), de modo que la persona no tiene que volver a entrar.
  *  - Un codigo TOTP no vale dos veces, y un codigo de recuperacion tampoco; los antiguos no valen tras regenerarlos.
  *  - El limite de fallos (aqui 3) corta con un 429 incluso al acertar despues, sin tocar la sesion ni otras cuentas.
@@ -308,48 +308,48 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
     // ------------------------------------------------------------------ CP-2FA-274 / 275
 
     @Test
-    void unCodigoTotpNoVale2Veces_peroElSiguienteSi_yDesactivarQuitaTodo() throws Exception { // CP-2FA-274
+    void unCodigoTotpNoVale2Veces_peroElSiguienteSi_yRegenerarRenuevaLaSesion() throws Exception { // CP-2FA-274
         Cuenta cuenta = crearCuenta();
         Activado activado = activar(cuenta, iniciarSesion(cuenta));
         MockHttpSession sesion = activado.sesion();
         String codigoYaUsado = totp.codigo(activado.secreto(), activado.paso());
 
         // El codigo con el que se activo no vale otra vez
-        MvcResult repetido = mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion(codigoYaUsado)))
-                .andReturn();
+        MvcResult repetido = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion,
+                cuerpoVerificacion(codigoYaUsado))).andReturn();
         assertThat(repetido.getResponse().getStatus()).isEqualTo(400);
         assertThat((String) JsonPath.read(cuerpoDe(repetido), "$.errores.codigo[0]")).isEqualTo("CODIGO_INCORRECTO");
-        assertThat(dosFactoresDe(cuenta).getBoolean("activo")).isTrue();
         assertThat(estadoDe(sesion, "/api/2fa")).isEqualTo(200); // un fallo no toca la sesion
 
         // El del paso siguiente si (esta dentro de la ventana y es posterior al ultimo aceptado)
         String siguiente = totp.codigo(activado.secreto(), activado.paso() + 1);
-        MvcResult desactivado = mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion(siguiente)))
-                .andReturn();
+        MvcResult regenerado = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion,
+                cuerpoVerificacion(siguiente))).andReturn();
 
-        assertThat(desactivado.getResponse().getStatus()).isEqualTo(204);
-        assertThat(usuarios.find(Filters.eq("_id", cuenta.id())).first()).doesNotContainKey("dosFactores");
+        assertThat(regenerado.getResponse().getStatus()).isEqualTo(200);
         // La sesion se renueva otra vez y la anterior ya no vale
         assertThat(estadoDe(sesion, "/api/auth/me")).isEqualTo(401);
-        assertThat(estadoDe(sesionDe(desactivado), "/api/auth/me")).isEqualTo(200);
-        esperarCorreos(2); // activado y desactivado
+        assertThat(estadoDe(sesionDe(regenerado), "/api/auth/me")).isEqualTo(200);
+        esperarCorreos(2); // activado y codigos regenerados
         assertThat(correo.recibidos).extracting(MensajeCorreo::asunto).contains(
                 plantillas.dosFactoresActivado(cuenta.email()).asunto(),
-                plantillas.dosFactoresDesactivado(cuenta.email()).asunto());
+                plantillas.codigosRecuperacionRegenerados(cuenta.email()).asunto());
     }
 
     @Test
-    void desactivarConUnCodigoDeRecuperacion_loConsumeYNoVuelveAValer() throws Exception { // CP-2FA-275
+    void elDosFactoresEsFijo_noSePuedeDesactivarNiRestablecer() throws Exception { // CP-2FA-275
+        // Decision del PO para el prototipo: una vez activado, queda fijo. No hay endpoint para quitarlo
         Cuenta cuenta = crearCuenta();
         Activado activado = activar(cuenta, iniciarSesion(cuenta));
-        String usado = activado.codigosRecuperacion().get(0);
+        Document antes = dosFactoresDe(cuenta);
 
-        // Con el codigo escrito en minusculas y sin guiones, que es como lo teclearia alguien
-        MvcResult desactivado = mockMvc.perform(postJson("/api/2fa/desactivacion", activado.sesion(),
-                cuerpoVerificacion(usado.replace("-", "").toLowerCase()))).andReturn();
+        for (String ruta : List.of("/api/2fa/desactivacion", "/api/2fa/restablecimiento")) {
+            MvcResult intento = mockMvc.perform(postJson(ruta, activado.sesion(),
+                    cuerpoVerificacion(activado.codigosRecuperacion().get(0)))).andReturn();
+            assertThat(intento.getResponse().getStatus()).as(ruta).isEqualTo(404);
+        }
 
-        assertThat(desactivado.getResponse().getStatus()).isEqualTo(204);
-        assertThat(usuarios.find(Filters.eq("_id", cuenta.id())).first()).doesNotContainKey("dosFactores");
+        assertThat(dosFactoresDe(cuenta)).isEqualTo(antes);
     }
 
     @Test
@@ -371,14 +371,14 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
         // Un codigo antiguo (incluido el que se uso para regenerar) ya no sirve para nada
         MockHttpSession sesion = sesionDe(regenerado);
         for (int i = 0; i < 2; i++) {
-            MvcResult intento = mockMvc.perform(postJson("/api/2fa/desactivacion", sesion,
+            MvcResult intento = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion,
                     cuerpoVerificacion(antiguos.get(i)))).andReturn();
             assertThat(intento.getResponse().getStatus()).isEqualTo(400);
         }
         assertThat(dosFactoresDe(cuenta).getBoolean("activo")).isTrue();
         // y uno nuevo si
-        assertThat(mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion(nuevos.get(0))))
-                .andReturn().getResponse().getStatus()).isEqualTo(204);
+        assertThat(mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion, cuerpoVerificacion(nuevos.get(0))))
+                .andReturn().getResponse().getStatus()).isEqualTo(200);
         // La sesion se renovo al regenerar: la anterior ya no vale
         assertThat(estadoDe(activado.sesion(), "/api/auth/me")).isEqualTo(401);
     }
@@ -393,13 +393,13 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
         MockHttpSession sesion = activado.sesion();
 
         for (int i = 0; i < 3; i++) {
-            MvcResult fallo = mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion("000000")))
+            MvcResult fallo = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion, cuerpoVerificacion("000000")))
                     .andReturn();
             assertThat(fallo.getResponse().getStatus()).as("intento %d", i + 1).isEqualTo(400);
         }
         // Un codigo correcto, pero con el limite agotado
         String correcto = totp.codigo(activado.secreto(), activado.paso() + 1);
-        MvcResult bloqueado = mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion(correcto)))
+        MvcResult bloqueado = mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion, cuerpoVerificacion(correcto)))
                 .andReturn();
 
         assertThat(bloqueado.getResponse().getStatus()).isEqualTo(429);
@@ -431,13 +431,11 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
     }
 
     @Test
-    void reglasDeEstado_noSePuedeActivarDosVecesNiDesactivarSinHaberActivado() throws Exception { // CP-2FA-279
+    void reglasDeEstado_noSePuedeActivarDosVecesNiRegenerarSinHaberActivado() throws Exception { // CP-2FA-279
         Cuenta cuenta = crearCuenta();
         MockHttpSession sesion = iniciarSesion(cuenta);
 
-        // Sin 2FA activo no hay nada que desactivar ni regenerar
-        assertThat(mockMvc.perform(postJson("/api/2fa/desactivacion", sesion, cuerpoVerificacion("123456")))
-                .andReturn().getResponse().getStatus()).isEqualTo(409);
+        // Sin 2FA activo no hay codigos que regenerar
         assertThat(mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", sesion, cuerpoVerificacion("123456")))
                 .andReturn().getResponse().getStatus()).isEqualTo(409);
 
@@ -461,7 +459,7 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
     @Test
     void sinSesion_todoDa401() throws Exception { // CP-2FA-281
         assertThat(mockMvc.perform(get("/api/2fa")).andReturn().getResponse().getStatus()).isEqualTo(401);
-        for (String ruta : List.of("/api/2fa/activacion", "/api/2fa/activacion/confirmar", "/api/2fa/desactivacion",
+        for (String ruta : List.of("/api/2fa/activacion", "/api/2fa/activacion/confirmar",
                 "/api/2fa/codigos-recuperacion")) {
             assertThat(mockMvc.perform(post(ruta).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
                     .andReturn().getResponse().getStatus()).as(ruta).isEqualTo(401);
@@ -483,8 +481,8 @@ class DosFactoresIntegracionMongoTest extends IntegracionLoginBase {
             sensibles.addAll(activado.codigosRecuperacion().stream().map(c -> c.replace("-", "")).toList());
             String codigoDeActivacion = totp.codigo(activado.secreto(), activado.paso());
             sensibles.add(codigoDeActivacion);
-            mockMvc.perform(postJson("/api/2fa/desactivacion", activado.sesion(), cuerpoVerificacion(codigoDeActivacion)));
-            mockMvc.perform(postJson("/api/2fa/desactivacion", activado.sesion(), cuerpoVerificacion("654321")));
+            mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", activado.sesion(), cuerpoVerificacion(codigoDeActivacion)));
+            mockMvc.perform(postJson("/api/2fa/codigos-recuperacion", activado.sesion(), cuerpoVerificacion("654321")));
 
             // Solo los logs de la aplicacion: a TRACE el driver de MongoDB escribe las consultas con los datos del usuario
             List<String> deLaAplicacion = logs.eventos().stream()

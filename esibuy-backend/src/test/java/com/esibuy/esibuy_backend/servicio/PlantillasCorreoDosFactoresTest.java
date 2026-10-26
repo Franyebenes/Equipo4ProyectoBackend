@@ -13,10 +13,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.esibuy.esibuy_backend.util.PropiedadesCorreoPrueba;
 
 /**
- * Textos de los tres correos de aviso del segundo factor (HdU 2FA, fase 2). Casos: CP-2FA-234 a CP-2FA-241.
+ * Textos de los dos correos de aviso del segundo factor (HdU 2FA, fase 2). Casos: CP-2FA-234 a CP-2FA-241.
  *
- * Son avisos de seguridad para que la persona se entere de un cambio en su cuenta: 2FA activado, desactivado y codigos de
- * recuperacion regenerados. Decisiones que fijan: texto plano (sin HTML), sin enlaces (un aviso con
+ * Son avisos de seguridad para que la persona se entere de un cambio en su cuenta: 2FA activado y codigos de recuperacion
+ * regenerados (el 2FA no se puede desactivar). Decisiones que fijan: texto plano (sin HTML), sin enlaces (un aviso con
  * un enlace es lo que usa el phishing, y no hace falta), sin ningun secreto, codigo ni cifra sensible, con un asunto
  * distinto cada uno y siempre con la advertencia de que, si no ha sido la persona, cambie su contrasena.
  *
@@ -29,7 +29,7 @@ class PlantillasCorreoDosFactoresTest {
     private final PlantillasCorreo plantillas = new PlantillasCorreo(PropiedadesCorreoPrueba.remoto().construir());
 
     private List<MensajeCorreo> todos() {
-        return List.of(plantillas.dosFactoresActivado(DESTINATARIO), plantillas.dosFactoresDesactivado(DESTINATARIO),
+        return List.of(plantillas.dosFactoresActivado(DESTINATARIO),
                 plantillas.codigosRecuperacionRegenerados(DESTINATARIO));
     }
 
@@ -71,14 +71,6 @@ class PlantillasCorreoDosFactoresTest {
     }
 
     @Test
-    void desactivado_diceQueSeHaDesactivadoYQueLaCuentaQuedaMenosProtegida() { // CP-2FA-239
-        MensajeCorreo correo = plantillas.dosFactoresDesactivado(DESTINATARIO);
-
-        assertThat(correo.asunto()).containsIgnoringCase("dos pasos").containsIgnoringCase("desactiv");
-        assertThat(correo.cuerpo()).containsIgnoringCase("desactivad");
-    }
-
-    @Test
     void regenerados_dicenQueLosCodigosAnterioresYaNoSirven() { // CP-2FA-240
         MensajeCorreo correo = plantillas.codigosRecuperacionRegenerados(DESTINATARIO);
 
@@ -92,7 +84,6 @@ class PlantillasCorreoDosFactoresTest {
     void destinatarioInvalido_lanzaExcepcion(String destinatario) { // CP-2FA-241
         // La ultima barrera es MensajeCorreo: rechaza varios destinatarios y la inyeccion de cabeceras
         assertThrows(IllegalArgumentException.class, () -> plantillas.dosFactoresActivado(destinatario));
-        assertThrows(IllegalArgumentException.class, () -> plantillas.dosFactoresDesactivado(destinatario));
         assertThrows(IllegalArgumentException.class, () -> plantillas.codigosRecuperacionRegenerados(destinatario));
     }
 }

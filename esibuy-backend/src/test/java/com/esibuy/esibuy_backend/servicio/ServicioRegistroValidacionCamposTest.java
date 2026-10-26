@@ -45,11 +45,11 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
     }
 
     private DatosRegistroInvalidosException registrarClienteEsperandoErrores(SolicitudRegistroClienteDTO solicitud) {
-        return assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarCliente(solicitud));
+        return assertThrows(DatosRegistroInvalidosException.class, () -> registrarCliente(solicitud));
     }
 
     private DatosRegistroInvalidosException registrarVendedorEsperandoErrores(SolicitudRegistroVendedorDTO solicitud) {
-        return assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+        return assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
     }
 
     // ------------------------------------------------------------------ CP-REG-21
@@ -148,7 +148,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
 
         // When
         ServicioNoDisponibleException excepcion =
-                assertThrows(ServicioNoDisponibleException.class, () -> servicio.registrarCliente(solicitud));
+                assertThrows(ServicioNoDisponibleException.class, () -> registrarCliente(solicitud));
 
         // Then
         assertThat(excepcion.getMessage()).doesNotContain("DNS");
@@ -180,7 +180,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conTelefono(telefono).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getTelefono()).isEqualTo(telefono);
@@ -193,7 +193,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conTelefono("").construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getTelefono()).isNull();
@@ -254,7 +254,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conNombre(nombreMaximo).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getNombre()).isEqualTo(nombreMaximo);
@@ -328,7 +328,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conNombre("  Ana  ").conApellidos(apellidosEnNfd).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         Usuario usuario = usuarioGuardado();

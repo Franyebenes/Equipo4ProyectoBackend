@@ -73,7 +73,8 @@ public class PlantillasCorreo {
         String cuerpo = """
                 Hola,
 
-                Se ha activado la verificación en dos pasos en tu cuenta de ESIBuy. Desde ahora, al iniciar sesión                 necesitarás también el código de tu aplicación autenticadora.
+                Se ha activado la verificación en dos pasos en tu cuenta de ESIBuy. Desde ahora, al iniciar sesión \
+                necesitarás también el código de tu aplicación autenticadora.
 
                 Si no has sido tú, cambia tu contraseña cuanto antes y revisa la seguridad de tu cuenta.
 
@@ -82,26 +83,13 @@ public class PlantillasCorreo {
         return new MensajeCorreo(destinatario, "Verificación en dos pasos activada en tu cuenta de ESIBuy", cuerpo);
     }
 
-    /** Aviso de que se ha desactivado la verificacion en dos pasos: la cuenta queda menos protegida. */
-    public MensajeCorreo dosFactoresDesactivado(String destinatario) {
-        String cuerpo = """
-                Hola,
-
-                Se ha desactivado la verificación en dos pasos en tu cuenta de ESIBuy. Tu cuenta queda ahora protegida                 solo por la contraseña.
-
-                Si no has sido tú, cambia tu contraseña cuanto antes y vuelve a activar la verificación en dos pasos.
-
-                El equipo de ESIBuy
-                """;
-        return new MensajeCorreo(destinatario, "Verificación en dos pasos desactivada en tu cuenta de ESIBuy", cuerpo);
-    }
-
     /** Aviso de que se han generado codigos de recuperacion nuevos: los anteriores ya no valen. */
     public MensajeCorreo codigosRecuperacionRegenerados(String destinatario) {
         String cuerpo = """
                 Hola,
 
-                Se han generado códigos de recuperación nuevos para tu cuenta de ESIBuy. Los anteriores han dejado de                 funcionar.
+                Se han generado códigos de recuperación nuevos para tu cuenta de ESIBuy. Los anteriores han dejado de \
+                funcionar.
 
                 Si no has sido tú, cambia tu contraseña cuanto antes y revisa la seguridad de tu cuenta.
 

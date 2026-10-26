@@ -63,6 +63,8 @@ class LoginSesionIntegracionTest extends IntegracionLoginBase {
     @Autowired
     private MongoTemplate mongo;
     @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder codificador;
+    @Autowired
     private ObjectMapper objectMapper;
 
     @MockitoBean
@@ -90,12 +92,8 @@ class LoginSesionIntegracionTest extends IntegracionLoginBase {
 
     /** Registra un cliente con el endpoint real y lo activa, como haría el panel de administración. */
     private void registrarYActivar(String email) throws Exception {
-        String cuerpo = objectMapper.writeValueAsString(
-                ConstructorSolicitudCliente.unaSolicitudValida().conEmail(email).construir());
-        HttpResponse<String> respuesta = enviar(peticion("/api/auth/registro")
-                .header("Content-Type", "application/json").POST(BodyPublishers.ofString(cuerpo)));
-        assertEquals(201, respuesta.statusCode(), respuesta.body());
-        mongo.getCollection("usuarios").updateOne(Filters.eq("email", email), Updates.set("estado", "ACTIVO"));
+        // Una cuenta sin 2FA: el registro con 2FA se prueba en RegistroDosFactoresIntegracionMongoTest
+        RegistroConDosFactoresDePrueba.insertarCliente(mongo.getCollection("usuarios"), codificador, email, CONTRASENA, "ACTIVO");
     }
 
     /** Primera cabecera Set-Cookie de la respuesta (la de la sesión): "nombre=valor; atributos...". */

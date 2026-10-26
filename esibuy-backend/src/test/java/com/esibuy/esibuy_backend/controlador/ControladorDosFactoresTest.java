@@ -74,12 +74,11 @@ import jakarta.servlet.http.HttpSession;
  *  - GET  /api/2fa                            -> 200 {activo, codigosRecuperacionDisponibles}
  *  - POST /api/2fa/activacion                 {contrasena} -> 200 {uri, secreto}
  *  - POST /api/2fa/activacion/confirmar       {codigo} -> 200 {codigosRecuperacion: [...]}
- *  - POST /api/2fa/desactivacion              {contrasena, codigo} -> 204
  *  - POST /api/2fa/codigos-recuperacion       {contrasena, codigo} -> 200 {codigosRecuperacion: [...]}
  *  - Cuelgan de /api/2fa y no de /api/auth: todo /api/auth permite POST anonimo, y estas operaciones exigen sesion
  *    (401 sin ella), ademas de token CSRF (403 sin el). El usuario es siempre el de la sesion: el cuerpo nunca lleva su id
  *    (un campo desconocido es un 400), asi que nadie puede tocar el 2FA de otro.
- *  - Tras activar, desactivar o regenerar los codigos con exito, la sesion se RENUEVA: se invalida la actual y se crea una
+ *  - Tras activar o regenerar los codigos con exito, la sesion se RENUEVA: se invalida la actual y se crea una
  *    nueva con el mismo usuario (cambia el identificador de sesion, buena practica tras un cambio de seguridad). Si falla,
  *    la sesion no se toca. Iniciar la activacion no la renueva (todavia no ha cambiado nada).
  *  - Errores: 400 {"errores": {campo: [codigos]}}, 404, 409, 429, 503 y 500 con los mismos formatos que el resto de la API.
@@ -97,7 +96,6 @@ class ControladorDosFactoresTest {
     private static final String RAIZ = "/api/2fa";
     private static final String ACTIVACION = RAIZ + "/activacion";
     private static final String CONFIRMAR = RAIZ + "/activacion/confirmar";
-    private static final String DESACTIVACION = RAIZ + "/desactivacion";
     private static final String CODIGOS = RAIZ + "/codigos-recuperacion";
 
     private static final ResultadoAutenticacion USUARIO = new ResultadoAutenticacion(
@@ -164,7 +162,6 @@ class ControladorDosFactoresTest {
     private static Stream<Arguments> operacionesQueRenuevanLaSesion() {
         return Stream.of(
                 arguments("confirmar la activacion", CONFIRMAR, CUERPO_CONFIRMAR),
-                arguments("desactivar", DESACTIVACION, CUERPO_VERIFICACION),
                 arguments("regenerar los codigos", CODIGOS, CUERPO_VERIFICACION));
     }
 
@@ -172,7 +169,6 @@ class ControladorDosFactoresTest {
         return Stream.of(
                 arguments("iniciar la activacion", ACTIVACION, CUERPO_ACTIVACION),
                 arguments("confirmar la activacion", CONFIRMAR, CUERPO_CONFIRMAR),
-                arguments("desactivar", DESACTIVACION, CUERPO_VERIFICACION),
                 arguments("regenerar los codigos", CODIGOS, CUERPO_VERIFICACION));
     }
 
@@ -181,7 +177,6 @@ class ControladorDosFactoresTest {
         switch (ruta) {
             case ACTIVACION -> when(servicio.iniciarActivacion(any(), any(), any())).thenThrow(excepcion);
             case CONFIRMAR -> when(servicio.confirmarActivacion(any(), any(), any())).thenThrow(excepcion);
-            case DESACTIVACION -> doThrow(excepcion).when(servicio).desactivar(any(), any(), any(), any());
             default -> when(servicio.regenerarCodigos(any(), any(), any(), any())).thenThrow(excepcion);
         }
     }
@@ -281,16 +276,16 @@ class ControladorDosFactoresTest {
     }
 
     @Test
-    void desactivar_devuelve204YRenuevaLaSesion() throws Exception { // CP-2FA-249
+    void elDosFactoresEsFijo_noHayEndpointParaDesactivarloNiRestablecerlo() throws Exception { // CP-2FA-249
+        // Decision del PO para el prototipo: una vez activado no se puede quitar ni restablecer, ni por la persona ni por un admin
         MockHttpSession sesion = sesionIniciada();
 
-        MvcResult resultado = mockMvc.perform(postJson(DESACTIVACION, sesion, CUERPO_VERIFICACION))
-                .andExpect(status().isNoContent())
-                .andReturn();
+        for (String ruta : new String[] { RAIZ + "/desactivacion", RAIZ + "/restablecimiento", RAIZ + "/restablecer" }) {
+            mockMvc.perform(postJson(ruta, sesion, CUERPO_VERIFICACION)).andExpect(status().isNotFound());
+        }
 
-        assertThat(cuerpoDe(resultado)).isEmpty();
-        verify(servicio).desactivar(USUARIO.id(), CONTRASENA, CODIGO, CONTEXTO);
-        comprobarSesionRenovada(sesion, resultado);
+        comprobarQueNoSeHaLlamadoAlServicio();
+        assertThat(sesion.isInvalid()).isFalse();
     }
 
     @Test
@@ -412,12 +407,12 @@ class ControladorDosFactoresTest {
                 arguments("campo desconocido (el id del usuario)", ACTIVACION,
                         "{\"contrasena\":\"" + CONTRASENA + "\",\"idUsuario\":\"665f1c2e9b1e8a3d4c5b6a80\"}"),
                 arguments("campo desconocido al confirmar", CONFIRMAR, "{\"codigo\":\"123456\",\"idUsuario\":\"1\"}"),
-                arguments("campo desconocido al desactivar", DESACTIVACION,
+                arguments("campo desconocido al regenerar", CODIGOS,
                         "{\"contrasena\":\"x\",\"codigo\":\"123456\",\"forzar\":true}"),
                 // (un numero se convierte en texto, como en el login: no es un error; un objeto o una lista si)
                 arguments("contrasena que es un objeto", ACTIVACION, "{\"contrasena\":{\"a\":1}}"),
                 arguments("codigo que no es texto", CONFIRMAR, "{\"codigo\":[\"1\",\"2\"]}"),
-                arguments("JSON roto", DESACTIVACION, "{\"contrasena\":"),
+                arguments("JSON roto", CODIGOS, "{\"contrasena\":"),
                 arguments("sin cuerpo", CODIGOS, ""));
     }
 
@@ -467,7 +462,7 @@ class ControladorDosFactoresTest {
         MockHttpSession sesion = sesionIniciada();
 
         mockMvc.perform(conSesion(get(ACTIVACION), sesion)).andExpect(status().isMethodNotAllowed());
-        mockMvc.perform(conSesion(get(DESACTIVACION), sesion)).andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(conSesion(get(CODIGOS), sesion)).andExpect(status().isMethodNotAllowed());
         mockMvc.perform(postJson(RAIZ, sesion, "{}")).andExpect(status().isMethodNotAllowed());
 
         comprobarQueNoSeHaLlamadoAlServicio();

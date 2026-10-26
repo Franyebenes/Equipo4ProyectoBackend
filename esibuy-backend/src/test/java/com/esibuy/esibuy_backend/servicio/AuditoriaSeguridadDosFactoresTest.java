@@ -23,7 +23,6 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
  * correo siempre enmascarado), con el user agent saneado. Eventos:
  *  - DOS_FACTORES_ACTIVACION_INICIADA (INFO): la persona ha pedido el QR; con el correo enmascarado y el userId.
  *  - DOS_FACTORES_ACTIVADO (INFO).
- *  - DOS_FACTORES_DESACTIVADO (WARN): baja la proteccion de la cuenta, asi que se destaca.
  *  - DOS_FACTORES_CODIGOS_REGENERADOS (INFO).
  *  - ALERTA_SEGURIDAD tipo=CODIGO_RECUPERACION_USADO (WARN): con cuantos codigos le quedan, nunca el codigo.
  *  - DOS_FACTORES_FALLIDO (WARN): con el motivo (contrasena incorrecta, codigo incorrecto, codigo reutilizado o
@@ -95,19 +94,6 @@ class AuditoriaSeguridadDosFactoresTest {
     }
 
     @Test
-    void registrarDesactivado_emiteUnAvisoPorqueBajaLaProteccionDeLaCuenta() { // CP-2FA-228
-        try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
-            auditoria.registrarDosFactoresDesactivado(CONTEXTO, EMAIL, ID_USUARIO);
-
-            assertThat(eventosDeDosFactores(logs)).singleElement().satisfies(evento -> {
-                assertThat(evento.getLevel()).isEqualTo(Level.WARN);
-                assertThat(evento.getFormattedMessage()).contains("DOS_FACTORES_DESACTIVADO", "userId=" + ID_USUARIO);
-                comprobarDatosDeLaPeticion(evento);
-            });
-        }
-    }
-
-    @Test
     void registrarCodigosRegenerados_emiteEventoInformativo() { // CP-2FA-229
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
             auditoria.registrarDosFactoresCodigosRegenerados(CONTEXTO, EMAIL, ID_USUARIO);
@@ -173,7 +159,7 @@ class AuditoriaSeguridadDosFactoresTest {
     void elUserAgentSeSaneaYElCorreoNoApareceEnClaroEnNingunEvento() { // CP-2FA-233
         ContextoPeticion conAgenteMalicioso = new ContextoPeticion("203.0.113.7", "Mozilla\r\nDOS_FACTORES_ACTIVADO falso");
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
-            auditoria.registrarDosFactoresDesactivado(conAgenteMalicioso, EMAIL, ID_USUARIO);
+            auditoria.registrarDosFactoresActivado(conAgenteMalicioso, EMAIL, ID_USUARIO);
             auditoria.registrarDosFactoresFallido(conAgenteMalicioso, EMAIL, ID_USUARIO,
                     MotivoFalloDosFactores.CODIGO_INCORRECTO);
 

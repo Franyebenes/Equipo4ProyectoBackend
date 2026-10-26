@@ -28,13 +28,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 /*
- * Segundo factor (TOTP) de la cuenta de la sesion: consultar el estado, activarlo, desactivarlo y regenerar los codigos de
+ * Segundo factor (TOTP) de la cuenta de la sesion: consultar el estado, activarlo y regenerar los codigos de
  * recuperacion. Cuelga de /api/2fa y no de /api/auth: todo POST de /api/auth es publico y estas operaciones exigen sesion
  * (401 sin ella) y token CSRF. La cuenta es siempre la de la sesion (el principal es su id): nunca se recibe por parametro,
  * asi que nadie puede tocar el 2FA de otro. Los errores los traduce {@link ManejadorExcepciones}. Tests:
  * ControladorDosFactoresTest.
  *
- * <p>Tras activar, desactivar o regenerar con exito, la sesion se renueva: se invalida la actual y se crea otra con el mismo
+ * <p>Una vez activado, el 2FA queda fijo: no hay endpoint para desactivarlo ni restablecerlo (decision del PO para el
+ * prototipo).
+ *
+ * <p>Tras activar o regenerar con exito, la sesion se renueva: se invalida la actual y se crea otra con el mismo
  * usuario (nuevo identificador). El servicio ya ha marcado las credenciales como cambiadas, asi que las demas sesiones de la
  * cuenta dejan de valer y esta, que empieza justo despues, sigue valiendo.
  */
@@ -77,15 +80,6 @@ public class ControladorDosFactores {
                 solicitud.codigo(), contextoDe(peticion));
         renovarSesion(peticion);
         return ResponseEntity.ok(respuesta);
-    }
-
-    @PostMapping(path = "/desactivacion", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> desactivar(@RequestBody SolicitudVerificacionDosFactoresDTO solicitud,
-            Authentication autenticacion, HttpServletRequest peticion) {
-        rechazarDatosEnLaUrl(peticion);
-        servicio.desactivar(autenticacion.getName(), solicitud.contrasena(), solicitud.codigo(), contextoDe(peticion));
-        renovarSesion(peticion);
-        return ResponseEntity.noContent().build();
     }
 
     @PostMapping(path = "/codigos-recuperacion", consumes = MediaType.APPLICATION_JSON_VALUE)

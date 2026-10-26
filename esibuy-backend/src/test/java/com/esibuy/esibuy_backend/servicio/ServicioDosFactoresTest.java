@@ -66,7 +66,7 @@ import com.esibuy.esibuy_backend.util.PropiedadesDosFactoresPrueba;
 import com.esibuy.esibuy_backend.util.RelojMutable;
 
 /**
- * Logica de activar, consultar, desactivar y regenerar los codigos del segundo factor (HdU 2FA, fase 2).
+ * Logica de activar, consultar y regenerar los codigos de recuperacion del segundo factor (no se puede desactivar: el PO lo quiere fijo en el prototipo) (HdU 2FA, fase 2).
  * Casos: CP-2FA-179 a CP-2FA-232.
  *
  * Colaboradores: repositorios, codificador de contrasenas, limitador, notificador y auditoria mockeados; el cifrador, el
@@ -75,14 +75,14 @@ import com.esibuy.esibuy_backend.util.RelojMutable;
  * devuelven son justo los que se guardan (hasheados).
  *
  * Reglas que fijan (decididas con el equipo y en el plan):
- *  - Operar con el 2FA exige la contrasena (se repite aunque haya sesion). Desactivar y regenerar los codigos exigen
+ *  - Operar con el 2FA exige la contrasena (se repite aunque haya sesion). Regenerar los codigos exige
  *    ademas un codigo valido: el TOTP del movil o uno de recuperacion.
  *  - Orden: formato (un campo vacio es un 400 que no cuenta como fallo), limite de fallos, usuario, estado del 2FA,
  *    contrasena y, solo entonces, el codigo. Una contrasena mal puesta no llega a probar el codigo.
  *  - Los fallos (contrasena o codigo incorrectos) se suman al limitador y quedan en la auditoria; un TOTP ya aceptado no
  *    vale otra vez (anti-reutilizacion atomica en la base de datos) y cuenta como fallo.
- *  - Un codigo de recuperacion se consume una sola vez, tambien al desactivar o regenerar, y su uso es una alerta.
- *  - Al activar, desactivar o regenerar, se marcan las credenciales como cambiadas un milisegundo antes del instante del
+ *  - Un codigo de recuperacion se consume una sola vez, tambien al regenerar los codigos o entrar, y su uso es una alerta.
+ *  - Al activar o regenerar, se marcan las credenciales como cambiadas un milisegundo antes del instante del
  *    cambio: asi se invalidan las demas sesiones y la que se renueve justo despues (el controlador) sobrevive, porque una
  *    sesion vale solo si empezo estrictamente despues de la marca.
  *  - Cada cambio avisa por correo (en segundo plano) sin secretos ni codigos, y se audita.
@@ -525,172 +525,6 @@ class ServicioDosFactoresTest {
         verifyNoInteractions(repositorioDosFactores);
     }
 
-    // ------------------------------------------------------------------ desactivar
-
-    @Test
-    void desactivar_conContrasenaYCodigoTotp_quitaElDosFactores() { // CP-2FA-205
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-        long paso = totp.pasoActual();
-        when(repositorioDosFactores.registrarPasoAceptado(ID, paso)).thenReturn(true);
-        when(repositorioDosFactores.desactivar(ID)).thenReturn(true);
-
-        servicio.desactivar(ID, CONTRASENA, codigoActual(), CONTEXTO);
-
-        InOrder orden = inOrder(repositorioDosFactores, limitador, notificador, auditoria);
-        orden.verify(repositorioDosFactores).registrarPasoAceptado(ID, paso);
-        orden.verify(repositorioDosFactores).desactivar(ID);
-        orden.verify(repositorioDosFactores).marcarCredencialesCambiadas(ID, AHORA.minusMillis(1));
-        orden.verify(limitador).registrarExito(ID);
-        orden.verify(auditoria).registrarDosFactoresDesactivado(CONTEXTO, EMAIL, ID);
-        assertThat(correoEnviado().asunto()).isEqualTo(plantillas.dosFactoresDesactivado(EMAIL).asunto());
-    }
-
-    @Test
-    void desactivar_conUnCodigoDeRecuperacion_loConsumeYAvisaDelUso() { // CP-2FA-206
-        String codigo = generadorCodigos.nuevoCodigo();
-        List<String> hashes = new ArrayList<>(hashesDeLosCodigos(9));
-        hashes.add(generadorCodigos.hash(codigo));
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashes));
-        when(repositorioDosFactores.consumirCodigoRecuperacion(ID, generadorCodigos.hash(codigo), AHORA)).thenReturn(true);
-        when(repositorioDosFactores.desactivar(ID)).thenReturn(true);
-
-        servicio.desactivar(ID, CONTRASENA, GeneradorCodigosRecuperacion.formatear(codigo).toLowerCase(), CONTEXTO);
-
-        verify(repositorioDosFactores).consumirCodigoRecuperacion(ID, generadorCodigos.hash(codigo), AHORA);
-        verify(repositorioDosFactores, never()).registrarPasoAceptado(anyString(), anyLong());
-        verify(repositorioDosFactores).desactivar(ID);
-        // Alerta del uso (le quedaban 9 de 10) y un solo correo: el de que se ha desactivado
-        verify(auditoria).registrarDosFactoresCodigoRecuperacionUsado(CONTEXTO, EMAIL, ID, 9);
-        assertThat(correoEnviado().asunto()).isEqualTo(plantillas.dosFactoresDesactivado(EMAIL).asunto());
-        verifyNoMoreInteractions(notificador);
-    }
-
-    @Test
-    void desactivar_contrasenaIncorrecta_noLlegaAProbarElCodigo() { // CP-2FA-207
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-
-        Map<String, Set<CodigoError>> errores =
-                erroresDe(() -> servicio.desactivar(ID, "otra-contrasena", codigoActual(), CONTEXTO));
-
-        assertThat(errores).containsOnlyKeys("contrasena");
-        assertThat(errores.get("contrasena")).containsExactly(CodigoError.CONTRASENA_INCORRECTA);
-        verify(limitador).registrarFallo(ID, IP);
-        verifyNoInteractions(repositorioDosFactores, notificador);
-    }
-
-    @Test
-    void desactivar_codigoIncorrecto_seRechazaYSeCuentaComoFallo() { // CP-2FA-208
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-
-        Map<String, Set<CodigoError>> errores =
-                erroresDe(() -> servicio.desactivar(ID, CONTRASENA, "000000", CONTEXTO));
-
-        assertThat(errores).containsOnlyKeys("codigo");
-        assertThat(errores.get("codigo")).containsExactly(CodigoError.CODIGO_INCORRECTO);
-        verify(limitador).registrarFallo(ID, IP);
-        verify(auditoria).registrarDosFactoresFallido(CONTEXTO, EMAIL, ID, MotivoFalloDosFactores.CODIGO_INCORRECTO);
-        verify(repositorioDosFactores, never()).desactivar(anyString());
-        verifyNoInteractions(notificador);
-    }
-
-    @Test
-    void desactivar_totpYaAceptado_seRechazaComoReutilizadoYCuentaComoFallo() { // CP-2FA-209
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-        // El codigo es correcto, pero otra peticion ya lo gasto: el registro atomico del paso devuelve falso
-        when(repositorioDosFactores.registrarPasoAceptado(ID, totp.pasoActual())).thenReturn(false);
-
-        Map<String, Set<CodigoError>> errores =
-                erroresDe(() -> servicio.desactivar(ID, CONTRASENA, codigoActual(), CONTEXTO));
-
-        assertThat(errores.get("codigo")).containsExactly(CodigoError.CODIGO_INCORRECTO);
-        verify(auditoria).registrarDosFactoresFallido(CONTEXTO, EMAIL, ID, MotivoFalloDosFactores.CODIGO_REUTILIZADO);
-        verify(limitador).registrarFallo(ID, IP);
-        verify(repositorioDosFactores, never()).desactivar(anyString());
-    }
-
-    @Test
-    void desactivar_codigoDeRecuperacionYaUsadoODesconocido_seRechaza() { // CP-2FA-210
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-        String ajeno = generadorCodigos.nuevoCodigo();
-        when(repositorioDosFactores.consumirCodigoRecuperacion(eq(ID), anyString(), any())).thenReturn(false);
-
-        Map<String, Set<CodigoError>> errores =
-                erroresDe(() -> servicio.desactivar(ID, CONTRASENA, ajeno, CONTEXTO));
-
-        assertThat(errores.get("codigo")).containsExactly(CodigoError.CODIGO_INCORRECTO);
-        verify(limitador).registrarFallo(ID, IP);
-        verify(repositorioDosFactores, never()).desactivar(anyString());
-    }
-
-    @Test
-    void desactivar_sinDosFactoresActivo_lanzaOperacionNoPermitida() { // CP-2FA-211
-        dadoUnUsuario(null);
-        assertThrows(OperacionNoPermitidaException.class, () -> servicio.desactivar(ID, CONTRASENA, "123456", CONTEXTO));
-
-        dadoUnUsuario(pendiente(AHORA));
-        assertThrows(OperacionNoPermitidaException.class, () -> servicio.desactivar(ID, CONTRASENA, "123456", CONTEXTO));
-
-        verifyNoInteractions(repositorioDosFactores);
-    }
-
-    @Test
-    void desactivar_conElLimiteAgotado_lanza429SinComprobarLaContrasena() { // CP-2FA-212
-        when(limitador.permitido(ID, IP)).thenReturn(false);
-
-        assertThrows(DemasiadosIntentosDosFactoresException.class,
-                () -> servicio.desactivar(ID, CONTRASENA, codigoActual(), CONTEXTO));
-
-        verify(auditoria).registrarDosFactoresLimitado(CONTEXTO, ID);
-        verifyNoInteractions(codificador, repositorioDosFactores, repositorioUsuario);
-    }
-
-    static Stream<Arguments> camposVacios() {
-        return Stream.of(
-                Arguments.of(null, "123456", Set.of("contrasena")),
-                Arguments.of("", "123456", Set.of("contrasena")),
-                Arguments.of(CONTRASENA, null, Set.of("codigo")),
-                Arguments.of(CONTRASENA, "  ", Set.of("codigo")),
-                Arguments.of(null, null, Set.of("contrasena", "codigo")));
-    }
-
-    @ParameterizedTest(name = "contrasena=\"{0}\" codigo=\"{1}\"")
-    @MethodSource("camposVacios")
-    void desactivar_camposVacios_esUn400ConTodosLosCamposQueNoCuentaComoFallo(String contrasena, String codigo,
-            Set<String> camposConError) { // CP-2FA-213
-        Map<String, Set<CodigoError>> errores = erroresDe(() -> servicio.desactivar(ID, contrasena, codigo, CONTEXTO));
-
-        assertThat(errores).containsOnlyKeys(camposConError);
-        assertThat(errores.values()).allSatisfy(codigos -> assertThat(codigos).containsExactly(CodigoError.OBLIGATORIO));
-        verify(limitador, never()).registrarFallo(anyString(), anyString());
-        verifyNoInteractions(repositorioDosFactores);
-    }
-
-    @Test
-    void desactivar_siLaCuentaYaNoTieneDosFactores_lanzaOperacionNoPermitidaSinAvisar() { // CP-2FA-214
-        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
-        when(repositorioDosFactores.registrarPasoAceptado(ID, totp.pasoActual())).thenReturn(true);
-        when(repositorioDosFactores.desactivar(ID)).thenReturn(false); // otra peticion se adelanto
-
-        assertThrows(OperacionNoPermitidaException.class,
-                () -> servicio.desactivar(ID, CONTRASENA, codigoActual(), CONTEXTO));
-
-        verify(repositorioDosFactores, never()).marcarCredencialesCambiadas(anyString(), any());
-        verifyNoInteractions(notificador);
-        verify(auditoria, never()).registrarDosFactoresDesactivado(any(), anyString(), anyString());
-    }
-
-    @Test
-    void desactivar_siElSecretoNoSePuedeDescifrar_fallaCerradoSinDetalles() { // CP-2FA-215
-        dadoUnUsuario(DosFactores.activo(cifrador.cifrar(SECRETO, "otro-usuario"), AHORA, GeneradorTotp.NINGUN_PASO,
-                codigosSinUsar(hashesDeLosCodigos(3))));
-
-        ServicioNoDisponibleException error = assertThrows(ServicioNoDisponibleException.class,
-                () -> servicio.desactivar(ID, CONTRASENA, codigoActual(), CONTEXTO));
-
-        assertThat(error.getCause()).isNull();
-        verify(repositorioDosFactores, never()).desactivar(anyString());
-    }
-
     // ------------------------------------------------------------------ regenerar los codigos
 
     @Test
@@ -809,6 +643,53 @@ class ServicioDosFactoresTest {
         assertThat(conOcho.regenerarCodigos(ID, CONTRASENA, codigoActual(), CONTEXTO).codigosRecuperacion()).hasSize(8);
     }
 
+    @Test
+    void regenerarCodigos_codigoDeRecuperacionYaUsadoODesconocido_seRechaza() { // CP-2FA-210
+        dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
+        String ajeno = generadorCodigos.nuevoCodigo();
+        when(repositorioDosFactores.consumirCodigoRecuperacion(eq(ID), anyString(), any())).thenReturn(false);
+
+        Map<String, Set<CodigoError>> errores =
+                erroresDe(() -> servicio.regenerarCodigos(ID, CONTRASENA, ajeno, CONTEXTO));
+
+        assertThat(errores.get("codigo")).containsExactly(CodigoError.CODIGO_INCORRECTO);
+        verify(limitador).registrarFallo(ID, IP);
+        verify(repositorioDosFactores, never()).reemplazarCodigosRecuperacion(anyString(), anyList());
+    }
+
+    static Stream<Arguments> camposVacios() {
+        return Stream.of(
+                Arguments.of(null, "123456", Set.of("contrasena")),
+                Arguments.of("", "123456", Set.of("contrasena")),
+                Arguments.of(CONTRASENA, null, Set.of("codigo")),
+                Arguments.of(CONTRASENA, "  ", Set.of("codigo")),
+                Arguments.of(null, null, Set.of("contrasena", "codigo")));
+    }
+
+    @ParameterizedTest(name = "contrasena=\"{0}\" codigo=\"{1}\"")
+    @MethodSource("camposVacios")
+    void regenerarCodigos_camposVacios_esUn400ConTodosLosCamposQueNoCuentaComoFallo(String contrasena, String codigo,
+            Set<String> camposConError) { // CP-2FA-213
+        Map<String, Set<CodigoError>> errores = erroresDe(() -> servicio.regenerarCodigos(ID, contrasena, codigo, CONTEXTO));
+
+        assertThat(errores).containsOnlyKeys(camposConError);
+        assertThat(errores.values()).allSatisfy(codigos -> assertThat(codigos).containsExactly(CodigoError.OBLIGATORIO));
+        verify(limitador, never()).registrarFallo(anyString(), anyString());
+        verifyNoInteractions(repositorioDosFactores);
+    }
+
+    @Test
+    void regenerarCodigos_siElSecretoNoSePuedeDescifrar_fallaCerradoSinDetalles() { // CP-2FA-215
+        dadoUnUsuario(DosFactores.activo(cifrador.cifrar(SECRETO, "otro-usuario"), AHORA, GeneradorTotp.NINGUN_PASO,
+                codigosSinUsar(hashesDeLosCodigos(3))));
+
+        ServicioNoDisponibleException error = assertThrows(ServicioNoDisponibleException.class,
+                () -> servicio.regenerarCodigos(ID, CONTRASENA, codigoActual(), CONTEXTO));
+
+        assertThat(error.getCause()).isNull();
+        verify(repositorioDosFactores, never()).reemplazarCodigosRecuperacion(anyString(), anyList());
+    }
+
     // ------------------------------------------------------------------ nada sensible en los logs
 
     @Test
@@ -831,7 +712,7 @@ class ServicioDosFactoresTest {
             dadoUnUsuario(activo(GeneradorTotp.NINGUN_PASO, hashesDeLosCodigos(10)));
             String errada = "Otra-Contrasena-99!";
             assertThrows(DatosDosFactoresInvalidosException.class,
-                    () -> conAuditoriaReal.desactivar(ID, errada, "000000", CONTEXTO));
+                    () -> conAuditoriaReal.regenerarCodigos(ID, errada, "000000", CONTEXTO));
 
             List<String> secretosYCodigos = new ArrayList<>(codigos.codigosRecuperacion());
             secretosYCodigos.addAll(List.of(CONTRASENA, errada, codigoDeActivacion, activacion.secreto(),
