@@ -1,0 +1,138 @@
+# CI del backend (Spring Boot / Maven / Java 21).
+#
+# Cuando se lanza:
+#   - PR hacia main (obligatoria: la rama main debe exigir que este pipeline este en verde)
+#   - push a release
+#
+# Etapas: Compilar -> Tests (JUnit + JaCoCo) -> SonarQube. Si una falla, las siguientes no se ejecutan.
+#
+# Todo corre en el agente propio (agente-equipo4, Windows), que necesita estar en marcha, con Docker Desktop encendido (los
+# tests usan Testcontainers), Maven y Java, y la VPN de la universidad para Sonar. El token de Sonar esta en
+# sonar-project.properties.
+
+trigger:
+  branches:
+    include:
+      - release
+      - release/*
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  pom: 'esibuy-backend/pom.xml'
+  directorioBackend: 'esibuy-backend'
+
+pool:
+  name: Default
+  demands:
+    - agent.name -equals agente-equipo4
+
+stages:
+  - stage: Compilar
+    displayName: '1. Compilar'
+    jobs:
+      - job: Compilacion
+        displayName: 'Compilar con Maven'
+        steps:
+          - script: echo "Compilando el backend (rama $(Build.SourceBranchName), commit $(Build.SourceVersion))"
+            displayName: 'Inicio de la compilacion'
+
+          - task: Maven@4
+            displayName: 'mvn clean compile'
+            inputs:
+              mavenPOMFile: '$(pom)'
+              goals: 'clean compile'
+              options: '-B'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: 'default'
+              publishJUnitResults: false
+
+          - script: echo "Compilacion correcta"
+            displayName: 'Fin de la compilacion'
+
+  - stage: Tests
+    displayName: '2. Tests y cobertura'
+    dependsOn: Compilar
+    jobs:
+      - job: JUnit
+        displayName: 'Tests JUnit y cobertura JaCoCo'
+        steps:
+          - script: echo "Ejecutando los tests (los de integracion levantan MongoDB con Testcontainers; hace falta Docker)"
+            displayName: 'Inicio de los tests'
+
+          # Falla pronto y con un mensaje claro si Docker no esta encendido
+          - script: docker info --format "Docker {{.ServerVersion}} listo"
+            displayName: 'Comprobar Docker'
+
+          # verify = compila, ejecuta los tests y genera el informe de JaCoCo (target/site/jacoco/jacoco.xml)
+          - task: Maven@4
+            displayName: 'mvn clean verify'
+            inputs:
+              mavenPOMFile: '$(pom)'
+              goals: 'clean verify'
+              options: '-B'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: 'default'
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              testRunTitle: 'Tests del backend'
+
+          - task: PublishCodeCoverageResults@2
+            displayName: 'Publicar cobertura de JaCoCo'
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: '$(directorioBackend)/target/site/jacoco/jacoco.xml'
+
+          # Lo que necesita SonarQube (clases compiladas e informe de cobertura) y el jar, que es el artefacto de la entrega
+          - task: CopyFiles@2
+            displayName: 'Preparar artefacto (clases, cobertura y jar)'
+            inputs:
+              SourceFolder: '$(directorioBackend)/target'
+              Contents: |
+                classes/**
+                site/jacoco/jacoco.xml
+                *.jar
+                !*.jar.original
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/backend'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publicar artefacto del backend'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/backend'
+              artifact: 'backend'
+
+          - script: echo "Tests correctos y artefacto publicado"
+            displayName: 'Fin de los tests'
+
+  - stage: Sonar
+    displayName: '3. SonarQube'
+    dependsOn: Tests
+    jobs:
+      - job: AnalisisSonar
+        displayName: 'Analisis con SonarQube'
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            displayName: 'Descargar el codigo'
+
+          - script: echo "Analizando el backend con SonarQube"
+            displayName: 'Inicio del analisis'
+
+          # Trae las clases compiladas y el informe de JaCoCo de la etapa anterior a esibuy-backend/target
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Descargar clases e informe de cobertura'
+            inputs:
+              artifact: 'backend'
+              path: '$(Build.SourcesDirectory)/esibuy-backend/target'
+
+          # El servidor, la clave del proyecto, el token y las rutas estan en esibuy-backend/sonar-project.properties
+          - script: sonar-scanner
+            displayName: 'sonar-scanner'
+            workingDirectory: '$(Build.SourcesDirectory)/esibuy-backend'
+            # Para que la etapa falle si no se supera el Quality Gate, anadir: -Dsonar.qualitygate.wait=true
+
+          - script: echo "Analisis de SonarQube terminado"
+            displayName: 'Fin del analisis'
