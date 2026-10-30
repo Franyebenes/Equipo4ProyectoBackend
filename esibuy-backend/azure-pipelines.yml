@@ -3,11 +3,12 @@
 # Cuando se lanza:
 #   - PR hacia main (obligatoria: la rama main debe exigir que este pipeline este en verde)
 #   - push a release
-#   - semanalmente sobre Develop (los lunes a las 06:00 UTC, haya cambios o no)
 #
 # Etapas: Compilar -> Tests (JUnit + JaCoCo) -> SonarQube. Si una falla, las siguientes no se ejecutan.
-# Compilar y Tests corren en el agente hospedado de Azure (ubuntu-latest). SonarQube corre en un agente propio, porque el
-# servidor de la universidad solo es accesible desde su red. El token de Sonar esta en sonar-project.properties.
+#
+# Todo corre en el agente propio (agente-equipo4, Windows), que necesita estar en marcha, con Docker Desktop encendido (los
+# tests usan Testcontainers), Maven y Java, y la VPN de la universidad para Sonar. El token de Sonar esta en
+# sonar-project.properties.
 
 trigger:
   branches:
@@ -20,23 +21,18 @@ pr:
     include:
       - main
 
-schedules:
-  - cron: '0 6 * * 1'
-    displayName: 'Ejecucion semanal sobre Develop'
-    branches:
-      include:
-        - Develop
-    always: true
-
 variables:
   pom: 'esibuy-backend/pom.xml'
   directorioBackend: 'esibuy-backend'
 
+pool:
+  name: Default
+  demands:
+    - agent.name -equals agente-equipo4
+
 stages:
   - stage: Compilar
     displayName: '1. Compilar'
-    pool:
-      vmImage: 'ubuntu-latest'
     jobs:
       - job: Compilacion
         displayName: 'Compilar con Maven'
@@ -51,7 +47,7 @@ stages:
               goals: 'clean compile'
               options: '-B'
               javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '1.21'
+              jdkVersionOption: 'default'
               publishJUnitResults: false
 
           - script: echo "Compilacion correcta"
@@ -60,16 +56,16 @@ stages:
   - stage: Tests
     displayName: '2. Tests y cobertura'
     dependsOn: Compilar
-    pool:
-      vmImage: 'ubuntu-latest'
     jobs:
       - job: JUnit
         displayName: 'Tests JUnit y cobertura JaCoCo'
         steps:
-          - script: |
-              echo "Ejecutando los tests (los de integracion levantan MongoDB con Testcontainers; hace falta Docker)"
-              docker version --format 'Docker {{.Server.Version}}'
+          - script: echo "Ejecutando los tests (los de integracion levantan MongoDB con Testcontainers; hace falta Docker)"
             displayName: 'Inicio de los tests'
+
+          # Falla pronto y con un mensaje claro si Docker no esta encendido
+          - script: docker info --format "Docker {{.ServerVersion}} listo"
+            displayName: 'Comprobar Docker'
 
           # verify = compila, ejecuta los tests y genera el informe de JaCoCo (target/site/jacoco/jacoco.xml)
           - task: Maven@4
@@ -79,7 +75,7 @@ stages:
               goals: 'clean verify'
               options: '-B'
               javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '1.21'
+              jdkVersionOption: 'default'
               publishJUnitResults: true
               testResultsFiles: '**/surefire-reports/TEST-*.xml'
               testRunTitle: 'Tests del backend'
@@ -114,14 +110,9 @@ stages:
   - stage: Sonar
     displayName: '3. SonarQube'
     dependsOn: Tests
-    # Agente local con VPN y sonar-scanner: la etapa solo corre en el
-    pool:
-      name: Default
-      demands:
-        - agent.name -equals agente-equipo4
     jobs:
       - job: AnalisisSonar
-        displayName: 'Analisis con SonarQube (agente local)'
+        displayName: 'Analisis con SonarQube'
         steps:
           - checkout: self
             fetchDepth: 0
@@ -137,7 +128,7 @@ stages:
               artifact: 'backend'
               path: '$(Build.SourcesDirectory)/esibuy-backend/target'
 
-          # El servidor, la clave del proyecto y las rutas estan en esibuy-backend/sonar-project.properties
+          # El servidor, la clave del proyecto, el token y las rutas estan en esibuy-backend/sonar-project.properties
           - script: sonar-scanner
             displayName: 'sonar-scanner'
             workingDirectory: '$(Build.SourcesDirectory)/esibuy-backend'
