@@ -58,6 +58,8 @@ public class ConfiguracionSeguridad {
                         .requestMatchers("/api/pedidos", "/api/pedidos/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
                         // Metodos de pago: solo clientes y premium, el resto recibe 403
                         .requestMatchers("/api/metodos-pago", "/api/metodos-pago/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
+                        // Direcciones, listas y suscripcion: solo clientes y premium, el resto recibe 403
+                        .requestMatchers("/api/cliente/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
                         // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
