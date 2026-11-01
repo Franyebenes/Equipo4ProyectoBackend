@@ -46,6 +46,8 @@ public class ServicioProductoImpl implements ServicioProducto {
     static final String MENSAJE_DESCUENTO_INVALIDO = "El descuento debe estar entre 0 y 100 %";
     // HU15.1 (sprint 2): descuento premium
     static final String MENSAJE_DESCUENTO_PREMIUM_INVALIDO = "El descuento premium debe estar entre 0 y 100 %";
+    static final String MENSAJE_DESCUENTOS_SUPERAN_100 =
+            "El descuento y el descuento premium juntos no pueden superar el 100 %";
     static final String MENSAJE_ESTADO_OBLIGATORIO = "Indica si el producto queda activo o inactivo";
     static final String MENSAJE_STOCK_OBLIGATORIO = "Indica la cantidad de stock";
     static final String MENSAJE_STOCK_NEGATIVO = "El stock debe ser un número entero no negativo";
@@ -222,7 +224,7 @@ public class ServicioProductoImpl implements ServicioProducto {
                 && (datos.descuento() < DESCUENTO_MINIMO || datos.descuento() > DESCUENTO_MAXIMO)) {
             throw new ProductoInvalidoException(MENSAJE_DESCUENTO_INVALIDO);
         }
-        validarDescuentoPremium(datos.descuentoPremium());
+        validarDescuentoPremium(datos.descuento(), datos.descuentoPremium());
         if (datos.imagen() != null && !imagenValida(datos.imagen())) {
             throw new ProductoInvalidoException(MENSAJE_IMAGEN_INVALIDA);
         }
@@ -235,12 +237,18 @@ public class ServicioProductoImpl implements ServicioProducto {
         }
     }
 
-    // HU15.1 (sprint 2): el descuento premium es opcional; si se indica, entre 0 y 100 %. Se aplica ademas del
-    // descuento para todos (ver PrecioProducto#precioFinal).
-    private static void validarDescuentoPremium(Double descuentoPremium) {
-        if (descuentoPremium != null
-                && (descuentoPremium < DESCUENTO_MINIMO || descuentoPremium > DESCUENTO_MAXIMO)) {
+    // HU15.1 (sprint 2): el descuento premium es opcional; si se indica, entre 0 y 100 %. Se suma al descuento
+    // para todos (ver PrecioProducto#precioFinal), asi que entre los dos no pueden pasar del 100 %.
+    private static void validarDescuentoPremium(Double descuento, Double descuentoPremium) {
+        if (descuentoPremium == null) {
+            return;
+        }
+        if (descuentoPremium < DESCUENTO_MINIMO || descuentoPremium > DESCUENTO_MAXIMO) {
             throw new ProductoInvalidoException(MENSAJE_DESCUENTO_PREMIUM_INVALIDO);
+        }
+        double descuentoGeneral = descuento == null ? 0 : descuento;
+        if (descuentoGeneral + descuentoPremium > DESCUENTO_MAXIMO) {
+            throw new ProductoInvalidoException(MENSAJE_DESCUENTOS_SUPERAN_100);
         }
     }
 

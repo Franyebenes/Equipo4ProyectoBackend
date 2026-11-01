@@ -1,5 +1,6 @@
 package com.esibuy.esibuy_backend.controlador;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
 import com.esibuy.esibuy_backend.servicio.ServicioCarrito;
@@ -50,7 +52,7 @@ class ControladorCarritoTest {
     void anadir_cliente_devuelve204YUsaElClienteDeLaSesion() throws Exception {
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isNoContent());
-        verify(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        verify(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
     }
 
     // P12
@@ -59,7 +61,7 @@ class ControladorCarritoTest {
     void anadir_premium_devuelve204() throws Exception {
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isNoContent());
-        verify(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        verify(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, true);
     }
 
     // P10
@@ -68,7 +70,7 @@ class ControladorCarritoTest {
     void anadir_vendedor_devuelve403YNoAnadeNada() throws Exception {
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     // P10
@@ -77,7 +79,7 @@ class ControladorCarritoTest {
     void anadir_administrador_devuelve403YNoAnadeNada() throws Exception {
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     // P9
@@ -85,7 +87,7 @@ class ControladorCarritoTest {
     void anadir_sinIniciarSesion_devuelve401YNoAnadeNada() throws Exception {
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isUnauthorized());
-        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     @Test
@@ -93,13 +95,13 @@ class ControladorCarritoTest {
     void anadir_sinTokenCsrf_devuelve403YNoAnadeNada() throws Exception {
         mockMvc.perform(post(RUTA).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isForbidden());
-        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt());
+        verify(servicioCarrito, never()).anadir(anyString(), anyString(), anyInt(), anyBoolean());
     }
 
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void anadir_sinStock_devuelve409ConMensaje() throws Exception {
-        doThrow(new StockInsuficienteException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        doThrow(new StockInsuficienteException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
 
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isConflict())
@@ -109,7 +111,7 @@ class ControladorCarritoTest {
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void anadir_productoNoDisponible_devuelve404ConMensaje() throws Exception {
-        doThrow(new ProductoNoDisponibleException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        doThrow(new ProductoNoDisponibleException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
 
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isNotFound())
@@ -119,10 +121,20 @@ class ControladorCarritoTest {
     @Test
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void anadir_cantidadNoValida_devuelve400ConMensaje() throws Exception {
-        doThrow(new CantidadNoValidaException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        doThrow(new CantidadNoValidaException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
 
         mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value("La cantidad debe ser al menos 1"));
+    }
+
+    @Test
+    @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
+    void anadir_productoSoloPremiumSiendoClienteNormal_devuelve403ConMensaje() throws Exception {
+        doThrow(new ProductoSoloPremiumException()).when(servicioCarrito).anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
+
+        mockMvc.perform(post(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(DOS_UNIDADES))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.mensaje").value("Este producto solo está disponible para clientes premium"));
     }
 }

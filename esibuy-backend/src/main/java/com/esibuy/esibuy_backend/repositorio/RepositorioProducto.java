@@ -18,4 +18,9 @@ public interface RepositorioProducto extends MongoRepository<Producto, String> {
     // Numero de productos del vendedor: antes de eliminarlo, para no dejar productos huerfanos.
     @Query(value = "{ 'idVendedor': ?0 }", count = true)
     long contarPorVendedor(ObjectId idVendedor);
+
+    // Solo los productos activos, de todos los vendedores. Sin la imagen: despues se piden
+    // solo las de la pagina que se muestra.
+    @Query(value = "{ 'visible': true }", fields = "{ 'imagen': 0 }")
+    List<Producto> buscarActivos();
 }

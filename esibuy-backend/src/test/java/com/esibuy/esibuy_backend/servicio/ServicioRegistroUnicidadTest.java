@@ -2,6 +2,7 @@ package com.esibuy.esibuy_backend.servicio;
 
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
+import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
@@ -41,7 +42,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarCliente(solicitud));
+        assertThrows(RegistroNoCompletadoException.class, () -> registrarCliente(solicitud));
 
         // Then
         verifyNoInteractions(codificador);
@@ -56,7 +57,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
                 .conEmail("ANA.GARCIA@EJEMPLO.ES").construir();
 
         // When
-        assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarCliente(solicitud));
+        assertThrows(RegistroNoCompletadoException.class, () -> registrarCliente(solicitud));
 
         // Then
         verificarQueNoSeGuardoNingunUsuario();
@@ -69,7 +70,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
         SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida().construir();
 
         // When
-        assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarVendedor(solicitud));
+        assertThrows(RegistroNoCompletadoException.class, () -> registrarVendedor(solicitud));
 
         // Then
         verificarQueNoSeGuardoNingunUsuario();
@@ -83,7 +84,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
                 .conEmail(EMAIL_VENDEDOR).construir();
 
         // When
-        assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarCliente(solicitud));
+        assertThrows(RegistroNoCompletadoException.class, () -> registrarCliente(solicitud));
 
         // Then
         verificarQueNoSeGuardoNingunUsuario();
@@ -93,12 +94,12 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
     void registrarCliente_condicionDeCarreraConDuplicateKey_seTraduceARegistroNoCompletado() { // CP-REG-41
         // Given: la comprobacion previa pasa, pero otro registro simultaneo gana la carrera
         doThrow(new DuplicateKeyException("E11000 duplicate key error collection: ESIBuy.users index: email_1"))
-                .when(repositorioUsuario).save(any());
+                .when(repositorioUsuario).insert(any(Usuario.class));
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
         RegistroNoCompletadoException excepcion =
-                assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarCliente(solicitud));
+                assertThrows(RegistroNoCompletadoException.class, () -> registrarCliente(solicitud));
 
         // Then
         assertThat(excepcion.getCause()).as("no debe arrastrar el detalle interno de MongoDB").isNull();
@@ -109,18 +110,18 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
         // Given / When: camino 1, duplicado detectado en la comprobacion previa
         when(repositorioUsuario.existePorEmail(EMAIL_CLIENTE)).thenReturn(true);
         RegistroNoCompletadoException porComprobacionPrevia = assertThrows(RegistroNoCompletadoException.class,
-                () -> servicio.registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida().construir()));
+                () -> registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida().construir()));
 
         // camino 2, mismo email con otra capitalizacion
         RegistroNoCompletadoException porMayusculas = assertThrows(RegistroNoCompletadoException.class,
-                () -> servicio.registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida()
+                () -> registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida()
                         .conEmail("ANA.GARCIA@EJEMPLO.ES").construir()));
 
         // camino 3, condicion de carrera (la comprobacion previa no lo ve)
         doReturn(false).when(repositorioUsuario).existePorEmail(anyString());
-        doThrow(new DuplicateKeyException("E11000 duplicate key")).when(repositorioUsuario).save(any());
+        doThrow(new DuplicateKeyException("E11000 duplicate key")).when(repositorioUsuario).insert(any(Usuario.class));
         RegistroNoCompletadoException porCarrera = assertThrows(RegistroNoCompletadoException.class,
-                () -> servicio.registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida().construir()));
+                () -> registrarCliente(ConstructorSolicitudCliente.unaSolicitudValida().construir()));
 
         // Then
         
@@ -147,7 +148,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
 
         // When
         DatosRegistroInvalidosException excepcion =
-                assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+                assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
 
         // Then
         assertThat(excepcion.getErrores().get("nombreComercial")).contains(CodigoError.NOMBRE_COMERCIAL_DUPLICADO);
@@ -165,7 +166,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
 
         // When
         DatosRegistroInvalidosException excepcion =
-                assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+                assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
 
         // Then
         assertThat(excepcion.getErrores().get("nombreComercial")).contains(CodigoError.NOMBRE_COMERCIAL_DUPLICADO);
@@ -184,7 +185,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
 
         // When
         DatosRegistroInvalidosException excepcion =
-                assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+                assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
 
         // Then
         assertThat(excepcion.getErrores().get("categoriaPrincipalId")).contains(CodigoError.CATEGORIA_INEXISTENTE);
@@ -201,7 +202,7 @@ class ServicioRegistroUnicidadTest extends ServicioRegistroBaseTest {
 
         // When
         DatosRegistroInvalidosException excepcion =
-                assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+                assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
 
         // Then
         assertThat(excepcion.getErrores().get("categoriaPrincipalId")).contains(CodigoError.FORMATO_INVALIDO);

@@ -275,7 +275,7 @@ class ServicioAutenticacionRechazoTest extends ServicioAutenticacionBaseTest {
         assertThat(new SolicitudLoginDTO(EMAIL, CONTRASENA).toString()).doesNotContain(CONTRASENA);
         assertThat(Arrays.stream(ResultadoAutenticacion.class.getRecordComponents())
                 .map(componente -> componente.getName()))
-                .containsExactlyInAnyOrder("id", "email", "nombre", "rol", "avatar");
+                .containsExactlyInAnyOrder("id", "email", "nombre", "rol", "avatar", "requiereSegundoFactor");
     }
 
     // ------------------------------------------------------------------ CP-BLQ-09

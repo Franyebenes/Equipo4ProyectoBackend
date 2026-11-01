@@ -41,6 +41,9 @@ public class ServicioTokensRecuperacion {
     // 43 caracteres base64url: 256 bits sin relleno. Cualquier otra cosa no es un token. 
     private static final Pattern FORMATO_TOKEN = Pattern.compile("^[A-Za-z0-9_-]{43}$");
 
+    private static final String CAMPO_ESTADO = "estado";
+    private static final String CAMPO_HASH = "hashToken";
+
     private final MongoTemplate mongo;
     private final GeneradorTokens generador;
     private final Clock reloj;
@@ -75,7 +78,7 @@ public class ServicioTokensRecuperacion {
         if (!tieneFormatoDeToken(token)) {
             return rechazo(Motivo.DESCONOCIDO);
         }
-        TokenRecuperacion guardado = mongo.findOne(query(where("hashToken").is(GeneradorTokens.hash(token))),
+        TokenRecuperacion guardado = mongo.findOne(query(where(CAMPO_HASH).is(GeneradorTokens.hash(token))),
                 TokenRecuperacion.class);
         return evaluar(guardado, reloj.instant());
     }
@@ -88,9 +91,9 @@ public class ServicioTokensRecuperacion {
         Instant ahora = reloj.instant();
         String hash = GeneradorTokens.hash(token);
         TokenRecuperacion consumido = mongo.findAndModify(
-                query(where("hashToken").is(hash).and("estado").is(EstadoToken.VIGENTE.name())
+                query(where(CAMPO_HASH).is(hash).and(CAMPO_ESTADO).is(EstadoToken.VIGENTE.name())
                         .and("caducaEn").gt(ahora)),
-                new Update().set("estado", EstadoToken.USADO.name()).set("usadoEn", ahora),
+                new Update().set(CAMPO_ESTADO, EstadoToken.USADO.name()).set("usadoEn", ahora),
                 FindAndModifyOptions.options().returnNew(true), TokenRecuperacion.class);
         if (consumido != null) {
             return new ResultadoToken(Motivo.VALIDO, consumido.getIdUsuario());
@@ -98,7 +101,7 @@ public class ServicioTokensRecuperacion {
 
         // No se pudo consumir: se averigua por que, solo para el motivo (que va a la auditoria)
         ResultadoToken motivo = evaluar(
-                mongo.findOne(query(where("hashToken").is(hash)), TokenRecuperacion.class), ahora);
+                mongo.findOne(query(where(CAMPO_HASH).is(hash)), TokenRecuperacion.class), ahora);
         return motivo.esValido() ? rechazo(Motivo.DESCONOCIDO) : motivo;
     }
 
@@ -106,8 +109,8 @@ public class ServicioTokensRecuperacion {
     public long invalidarTodos(String idUsuario) {
         exigirObjectId(idUsuario);
         return mongo.updateMulti(
-                query(where("idUsuario").is(new ObjectId(idUsuario)).and("estado").is(EstadoToken.VIGENTE.name())),
-                new Update().set("estado", EstadoToken.INVALIDADO.name()), TokenRecuperacion.class).getModifiedCount();
+                query(where("idUsuario").is(new ObjectId(idUsuario)).and(CAMPO_ESTADO).is(EstadoToken.VIGENTE.name())),
+                new Update().set(CAMPO_ESTADO, EstadoToken.INVALIDADO.name()), TokenRecuperacion.class).getModifiedCount();
     }
 
     // El estado USADO prevalece sobre CADUCADO: reutilizar un enlace ya gastado es una alerta de seguridad.

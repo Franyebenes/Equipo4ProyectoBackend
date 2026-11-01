@@ -27,11 +27,22 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.ConflictoNegocioException;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
 import com.esibuy.esibuy_backend.excepcion.CuerpoDemasiadoGrandeException;
+import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosDosFactoresException;
 import com.esibuy.esibuy_backend.excepcion.DemasiadosIntentosRestablecimientoException;
+import com.esibuy.esibuy_backend.excepcion.EstadoPedidoNoPermitidoException;
+import com.esibuy.esibuy_backend.excepcion.PedidoInvalidoException;
+import com.esibuy.esibuy_backend.excepcion.PedidoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoNoEnPedidoException;
+import com.esibuy.esibuy_backend.excepcion.ProductoYaValoradoException;
+import com.esibuy.esibuy_backend.excepcion.ValoracionInvalidaException;
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
+import com.esibuy.esibuy_backend.excepcion.FiltroNoValidoException;
+import com.esibuy.esibuy_backend.excepcion.FavoritoNoEncontradoException;
+import com.esibuy.esibuy_backend.excepcion.FavoritoRepetidoException;
 import com.esibuy.esibuy_backend.excepcion.StockModificadoException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ProductoInvalidoException; // HU15.1
@@ -39,10 +50,12 @@ import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.RecursoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
+import com.esibuy.esibuy_backend.excepcion.SegundoFactorNoVigenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioConProductosException;
 import com.esibuy.esibuy_backend.excepcion.UsuarioNoEncontradoException;
-
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoInvalidoException;
+import com.esibuy.esibuy_backend.excepcion.MetodoPagoNoEncontradoException;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidTypeIdException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
@@ -65,6 +78,8 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     static final String MENSAJE_PETICION_INVALIDA = "La peticion no es valida";
     static final String MENSAJE_CUERPO_DEMASIADO_GRANDE = "La peticion es demasiado grande";
+    static final String MENSAJE_SEGUNDO_FACTOR_NO_VIGENTE =
+            "La verificacion en dos pasos no es valida o ha caducado. Vuelve a iniciar sesion";
     static final String MENSAJE_DEMASIADOS_INTENTOS = "Demasiados intentos. Vuelve a intentarlo mas tarde";
     static final String MENSAJE_SERVICIO_NO_DISPONIBLE =
             "El servicio no esta disponible en este momento. Vuelve a intentarlo mas tarde";
@@ -93,6 +108,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
+    // Siempre el mismo 401 y el mismo mensaje, sea cual sea el motivo: no hay desafio, caduco o la cuenta cambio.
+    @ExceptionHandler(SegundoFactorNoVigenteException.class)
+    public ResponseEntity<Map<String, Object>> segundoFactorNoVigente() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(CLAVE_MENSAJE, MENSAJE_SEGUNDO_FACTOR_NO_VIGENTE));
+    }
+
     @ExceptionHandler(LoginBloqueadoTemporalmenteException.class)
     public ResponseEntity<Map<String, Object>> loginBloqueado(LoginBloqueadoTemporalmenteException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -103,6 +124,12 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     // Una IP agoto sus intentos de restablecer la contrasena: 429 sin detalles (ni la IP ni el token).
     @ExceptionHandler(DemasiadosIntentosRestablecimientoException.class)
     public ResponseEntity<Map<String, Object>> demasiadosIntentosRestablecimiento() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
+    }
+
+    // Una cuenta o una IP agoto sus fallos con el segundo factor: 429 sin detalles (ni la cuenta, ni la IP, ni el codigo).
+    @ExceptionHandler(DemasiadosIntentosDosFactoresException.class)
+    public ResponseEntity<Map<String, Object>> demasiadosIntentosDosFactores() {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(CLAVE_MENSAJE, MENSAJE_DEMASIADOS_INTENTOS));
     }
 
@@ -130,6 +157,29 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UsuarioConProductosException.class)
     public ResponseEntity<Map<String, Object>> usuarioConProductos(UsuarioConProductosException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // HU-20: filtros del catalogo sin sentido (precio negativo, minimo mayor que el maximo...)
+    // HU-31 Favoritos: ya estaba (409) o no estaba (404)
+    @ExceptionHandler(FavoritoRepetidoException.class)
+    public ResponseEntity<Map<String, Object>> favoritoRepetido(FavoritoRepetidoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(FavoritoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> favoritoNoEncontrado(FavoritoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(FiltroNoValidoException.class)
+    public ResponseEntity<Map<String, Object>> filtroNoValido(FiltroNoValidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    // Carrito: un cliente normal no puede comprar un producto solo premium
+    @ExceptionHandler(ProductoSoloPremiumException.class)
+    public ResponseEntity<Map<String, Object>> productoSoloPremium(ProductoSoloPremiumException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
 
     @ExceptionHandler(ProductoNoEncontradoException.class)
@@ -184,7 +234,16 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> cantidadNoValida(CantidadNoValidaException ex) {
         return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
+    // HU-24.x Metodos de pago
+    @ExceptionHandler(MetodoPagoInvalidoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoInvalido(MetodoPagoInvalidoException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
 
+    @ExceptionHandler(MetodoPagoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> metodoPagoNoEncontrado(MetodoPagoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
     @ExceptionHandler(ProductoNoDisponibleException.class)
     public ResponseEntity<Map<String, Object>> productoNoDisponible(ProductoNoDisponibleException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
@@ -194,6 +253,23 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
     public ResponseEntity<Map<String, Object>> stockInsuficiente(StockInsuficienteException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
     }
+
+    // HU-26 a HU-30 Pedidos y valoraciones del cliente
+    @ExceptionHandler({PedidoInvalidoException.class, ValoracionInvalidaException.class})
+    public ResponseEntity<Map<String, Object>> pedidoInvalido(RuntimeException ex) {
+        return ResponseEntity.badRequest().body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler({PedidoNoEncontradoException.class, ProductoNoEnPedidoException.class})
+    public ResponseEntity<Map<String, Object>> pedidoNoEncontrado(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
+    @ExceptionHandler({EstadoPedidoNoPermitidoException.class, ProductoYaValoradoException.class})
+    public ResponseEntity<Map<String, Object>> estadoPedidoNoPermitido(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(CLAVE_MENSAJE, ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> errorInesperado(Exception ex) {
         log.error("Error inesperado al procesar la peticion", ex);

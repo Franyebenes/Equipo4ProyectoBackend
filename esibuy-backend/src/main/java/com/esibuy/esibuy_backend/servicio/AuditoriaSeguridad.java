@@ -23,6 +23,8 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
 
     private static final Logger log = LoggerFactory.getLogger(AuditoriaSeguridad.class);
 
+    private static final String DESCONOCIDO = "(desconocido)";
+
     public void registrarLoginCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
         if (log.isInfoEnabled()) {
             log.info("LOGIN_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
@@ -65,7 +67,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRestablecimientoTokenInvalido(ContextoPeticion contexto, ResultadoToken.Motivo motivo) {
         if (log.isWarnEnabled()) {
             log.warn("RESTABLECIMIENTO_TOKEN_INVALIDO {} motivo={}", datosSinCorreo(contexto),
-                    motivo == null ? "(desconocido)" : motivo.name());
+                    motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
@@ -106,7 +108,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRecuperacionLimitada(ContextoPeticion contexto, String correo, MotivoLimiteRecuperacion motivo) {
         if (log.isWarnEnabled()) {
             log.warn("RECUPERACION_LIMITADA {} motivo={}", datosDeLaPeticion(contexto, correo),
-                    motivo == null ? "(desconocido)" : motivo.name());
+                    motivo == null ? DESCONOCIDO : motivo.name());
         }
     }
 
@@ -129,7 +131,7 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
     public void registrarRecuperacionCuentaNoApta(ContextoPeticion contexto, String correo, EstadoUsuario estado) {
         if (log.isWarnEnabled()) {
             log.warn("RECUPERACION_CUENTA_NO_APTA {} estado={}", datosDeLaPeticion(contexto, correo),
-                    estado == null ? "(desconocido)" : estado.name());
+                    estado == null ? DESCONOCIDO : estado.name());
         }
     }
 
@@ -160,6 +162,109 @@ public class AuditoriaSeguridad implements AlertasSeguridad {
         if (log.isWarnEnabled()) {
             log.warn("ALERTA_SEGURIDAD tipo=BLOQUEO_CUENTA email={} ip={} segundos={}",
                     EnmascaradorDatosLog.correo(correo), EnmascaradorDatosLog.texto(ip), segundosDeBloqueo);
+        }
+    }
+
+    // La persona ha pedido el QR para activar el 2FA (aun no esta activo). Tests: CP-2FA-226.
+    public void registrarDosFactoresActivacionIniciada(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("DOS_FACTORES_ACTIVACION_INICIADA {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // 2FA activado tras confirmar el primer codigo. Tests: CP-2FA-227.
+    public void registrarDosFactoresActivado(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("DOS_FACTORES_ACTIVADO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Codigos de recuperacion sustituidos por otros nuevos. Tests: CP-2FA-229.
+    public void registrarDosFactoresCodigosRegenerados(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("DOS_FACTORES_CODIGOS_REGENERADOS {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Alerta: se uso un codigo de recuperacion. Se escribe cuantos quedan, nunca el codigo. Tests: CP-2FA-230.
+    public void registrarDosFactoresCodigoRecuperacionUsado(ContextoPeticion contexto, String correo, String idUsuario,
+            int quedan) {
+        if (log.isWarnEnabled()) {
+            log.warn("ALERTA_SEGURIDAD tipo=CODIGO_RECUPERACION_USADO {} userId={} quedan={}",
+                    datosDeLaPeticion(contexto, correo), EnmascaradorDatosLog.texto(idUsuario), quedan);
+        }
+    }
+
+    // Contrasena o codigo incorrectos al operar con el 2FA, o activacion no vigente. Solo el motivo. Tests: CP-2FA-231.
+    public void registrarDosFactoresFallido(ContextoPeticion contexto, String correo, String idUsuario,
+            MotivoFalloDosFactores motivo) {
+        if (log.isWarnEnabled()) {
+            log.warn("DOS_FACTORES_FALLIDO {} userId={} motivo={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario), motivo == null ? DESCONOCIDO : motivo.name());
+        }
+    }
+
+    // Cuenta creada con el 2FA activo. Tests: AuditoriaSeguridadRegistroDosFactoresFinalTest.
+    public void registrarRegistroDosFactoresCompletado(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("REGISTRO_DOS_FACTORES_COMPLETADO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Registro rechazado por el 2FA (codigo incorrecto o secreto pendiente no vigente). Solo el motivo.
+    public void registrarRegistroDosFactoresFallido(ContextoPeticion contexto, String correo, MotivoFalloDosFactores motivo) {
+        if (log.isWarnEnabled()) {
+            log.warn("REGISTRO_DOS_FACTORES_FALLIDO {} motivo={}", datosDeLaPeticion(contexto, correo),
+                    motivo == null ? DESCONOCIDO : motivo.name());
+        }
+    }
+
+    // El secreto pendiente del registro se descarto por agotar los codigos fallidos. Sin correo: el controlador no lo tiene.
+    public void registrarRegistroDosFactoresAgotado(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("REGISTRO_DOS_FACTORES_AGOTADO {}", datosSinCorreo(contexto));
+        }
+    }
+
+    // La cuenta o la IP agotaron sus fallos. Ocurre antes de cargar la cuenta, asi que solo hay id. Tests: CP-2FA-232.
+    public void registrarDosFactoresLimitado(ContextoPeticion contexto, String idUsuario) {
+        if (log.isWarnEnabled()) {
+            log.warn("DOS_FACTORES_LIMITADO {} userId={}", datosSinCorreo(contexto),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Contrasena correcta de una cuenta con 2FA, a falta del codigo: no es un login correcto. Tests: CP-2FA-329.
+    public void registrarLoginPrimerFactorCorrecto(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isInfoEnabled()) {
+            log.info("LOGIN_PRIMER_FACTOR_CORRECTO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Segundo paso del login sin un desafio valido (no habia, caduco o la cuenta cambio). Sin correo ni id. Tests: CP-2FA-330.
+    public void registrarLoginSegundoFactorNoVigente(ContextoPeticion contexto) {
+        if (log.isWarnEnabled()) {
+            log.warn("LOGIN_SEGUNDO_FACTOR_NO_VIGENTE {}", datosSinCorreo(contexto));
+        }
+    }
+
+    // Se fallaron todos los intentos de un desafio y se descarto. Tests: CP-2FA-331.
+    public void registrarLoginSegundoFactorAgotado(ContextoPeticion contexto, String correo, String idUsuario) {
+        if (log.isWarnEnabled()) {
+            log.warn("LOGIN_SEGUNDO_FACTOR_AGOTADO {} userId={}", datosDeLaPeticion(contexto, correo),
+                    EnmascaradorDatosLog.texto(idUsuario));
+        }
+    }
+
+    // Alguien ha pedido el QR del 2FA para registrarse (todavia no hay cuenta, asi que no hay userId). Tests: CP-2FA-411.
+    public void registrarRegistroDosFactoresIniciado(ContextoPeticion contexto, String correo) {
+        if (log.isInfoEnabled()) {
+            log.info("REGISTRO_DOS_FACTORES_INICIADO {}", datosDeLaPeticion(contexto, correo));
         }
     }
 

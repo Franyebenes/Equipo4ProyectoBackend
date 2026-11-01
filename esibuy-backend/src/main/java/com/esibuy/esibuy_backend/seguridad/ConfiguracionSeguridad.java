@@ -36,12 +36,12 @@ public class ConfiguracionSeguridad {
     private static final long SEGUNDOS_HSTS = 31_536_000L;
 
     @Bean
-       public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
+    public SecurityFilterChain cadenaFiltrosSeguridad(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
-                // Hay sesion (la crea el login), asi que el login exige token CSRF. El registro no crea sesion ni
-                // usa la existente: sigue exento
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/auth/registro"))
+                // Hay sesion (la crea el login y, antes del registro, el secreto del 2FA pendiente), asi que todas las
+                // peticiones que cambian algo exigen token CSRF, tambien el registro
+                .csrf(Customizer.withDefaults())
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .headers(cabeceras -> cabeceras.httpStrictTransportSecurity(
                         hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(SEGUNDOS_HSTS)))
@@ -54,6 +54,10 @@ public class ConfiguracionSeguridad {
                         .requestMatchers("/api/vendedor/**").hasRole(Rol.VENDEDOR.name())
                         // Carrito: solo clientes y premium, el resto recibe 403
                         .requestMatchers("/api/carrito", "/api/carrito/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
+                        // Pedidos y valoraciones: solo clientes y premium, el resto recibe 403
+                        .requestMatchers("/api/pedidos", "/api/pedidos/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
+                        // Metodos de pago: solo clientes y premium, el resto recibe 403
+                        .requestMatchers("/api/metodos-pago", "/api/metodos-pago/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
                         // Direcciones, listas y suscripcion: solo clientes y premium, el resto recibe 403
                         .requestMatchers("/api/cliente/**").hasAnyRole(Rol.CLIENTE.name(), Rol.PREMIUM.name())
                         // Cualquier metodo: un GET llega a MVC y recibe un 405 en lugar de un 403

@@ -4,7 +4,8 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 /**
  * Subdocumento "precio" de productos: precio base y descuentos en porcentaje (0-100), segun el esquema de la
- * coleccion en MongoDB. El descuento es para todos los clientes; el premium se aplica ademas, solo a los premium.
+ * coleccion en MongoDB. El descuento es para todos los clientes; el premium es un descuento extra solo para los
+ * premium, que se suma al anterior (10 % + 15 % = 25 %).
  */
 public class PrecioProducto {
 
@@ -38,19 +39,26 @@ public class PrecioProducto {
     }
 
     /**
-     * Precio que paga el cliente. Primero se aplica el descuento para todos y, si el cliente es premium, sobre ese
-     * precio el descuento premium. 
+     * Precio que paga el cliente. Todos tienen el descuento general; un premium tiene ademas el premium, y los dos
+     * se suman: con un 10 % y un 15 % premium, el premium paga un 25 % menos. Redondeado a centimos y nunca
+     * negativo (el alta y la modificacion ya impiden que la suma pase del 100 %).
      */
     public double precioFinal(boolean clientePremium) {
-        double resultado = base * (1 - porcentaje(descuento));
-        if (clientePremium) {
-            resultado *= 1 - porcentaje(descuentoPremium);
-        }
-        // Redondeado a centimos
+        double descuentoTotal = descuentoTotal(clientePremium);
+        double resultado = base * Math.max(0, 1 - descuentoTotal / 100);
         return Math.round(resultado * 100) / 100.0;
     }
 
-    private static double porcentaje(Double descuento) {
-        return descuento == null ? 0 : descuento / 100;
+    /** Porcentaje de descuento que tiene el cliente: el general y, si es premium, tambien el premium. */
+    public double descuentoTotal(boolean clientePremium) {
+        double total = valor(descuento);
+        if (clientePremium) {
+            total += valor(descuentoPremium);
+        }
+        return total;
+    }
+
+    private static double valor(Double porcentaje) {
+        return porcentaje == null ? 0 : porcentaje;
     }
 }

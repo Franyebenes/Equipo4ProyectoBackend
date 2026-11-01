@@ -27,6 +27,7 @@ import org.springframework.data.mongodb.core.query.Update;
 
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
+import com.esibuy.esibuy_backend.excepcion.ProductoSoloPremiumException;
 import com.esibuy.esibuy_backend.excepcion.StockInsuficienteException;
 import com.esibuy.esibuy_backend.modelo.Carrito;
 import com.esibuy.esibuy_backend.modelo.PrecioProducto;
@@ -58,7 +59,7 @@ class ServicioCarritoAnadirTest {
         hayStock(true);
         carritoVacio();
         // When
-        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
         // Then
         Carrito carrito = carritoGuardado();
         assertThat(carrito.getIdCliente()).isEqualTo(ID_CLIENTE);
@@ -76,7 +77,7 @@ class ServicioCarritoAnadirTest {
         existente.anadir(ID_PRODUCTO, 1);
         when(repositorioCarrito.buscarPorCliente(new ObjectId(ID_CLIENTE))).thenReturn(Optional.of(existente));
         // When
-        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
         // Then
         Carrito carrito = carritoGuardado();
         assertThat(carrito.getLineas()).hasSize(1);
@@ -90,7 +91,7 @@ class ServicioCarritoAnadirTest {
         hayStock(true);
         carritoVacio();
         // When
-        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2);
+        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 2, false);
         // Then: "resta 2 al stock, solo si el stock es >= 2"
         ArgumentCaptor<Query> consulta = ArgumentCaptor.forClass(Query.class);
         ArgumentCaptor<Update> cambio = ArgumentCaptor.forClass(Update.class);
@@ -106,7 +107,7 @@ class ServicioCarritoAnadirTest {
         productoEnBaseDeDatos(true);
         hayStock(false);
         // When / Then
-        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 50))
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 50, false))
                 .isInstanceOf(StockInsuficienteException.class);
         verify(repositorioCarrito, never()).save(any());
     }
@@ -116,7 +117,7 @@ class ServicioCarritoAnadirTest {
         // Given
         productoEnBaseDeDatos(false);
         // When / Then
-        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1))
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1, false))
                 .isInstanceOf(ProductoNoDisponibleException.class);
         verifyNoInteractions(mongoTemplate, repositorioCarrito);
     }
@@ -126,7 +127,7 @@ class ServicioCarritoAnadirTest {
         // Given
         when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.empty());
         // When / Then
-        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1))
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1, false))
                 .isInstanceOf(ProductoNoDisponibleException.class);
         verifyNoInteractions(mongoTemplate, repositorioCarrito);
     }
@@ -134,7 +135,7 @@ class ServicioCarritoAnadirTest {
     @Test
     void anadirConIdDeProductoMalFormadoLanzaNoDisponible() {
         // When / Then
-        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, "no-es-un-id", 1))
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, "no-es-un-id", 1, false))
                 .isInstanceOf(ProductoNoDisponibleException.class);
         verifyNoInteractions(repositorioProducto, mongoTemplate, repositorioCarrito);
     }
@@ -143,12 +144,53 @@ class ServicioCarritoAnadirTest {
     @ValueSource(ints = {0, -1})
     void anadirConCantidadMenorQueUnoLanzaCantidadNoValida(int cantidad) {
         // When / Then
-        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, cantidad))
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, cantidad, false))
                 .isInstanceOf(CantidadNoValidaException.class);
         verifyNoInteractions(repositorioProducto, mongoTemplate, repositorioCarrito);
     }
 
-    // ---------- Ayudas ----------
+    @Test
+    void anadirGuardaCuandoSeModificoElCarritoParaQuePuedaCaducar() {
+        // Given
+        productoEnBaseDeDatos(true);
+        hayStock(true);
+        carritoVacio();
+        // When
+        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1, false);
+        // Then
+        assertThat(carritoGuardado().getUltimaModificacion()).isNotNull();
+    }
+
+    @Test
+    void anadirProductoSoloPremiumSiendoClienteNormalLanzaSoloPremiumYNoReservaStock() {
+        // Given
+        productoSoloPremiumEnBaseDeDatos();
+        // When / Then
+        assertThatThrownBy(() -> servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1, false))
+                .isInstanceOf(ProductoSoloPremiumException.class);
+        verifyNoInteractions(mongoTemplate, repositorioCarrito);
+    }
+
+    @Test
+    void anadirProductoSoloPremiumSiendoPremiumLoAnade() {
+        // Given
+        productoSoloPremiumEnBaseDeDatos();
+        hayStock(true);
+        carritoVacio();
+        // When
+        servicio.anadir(ID_CLIENTE, ID_PRODUCTO, 1, true);
+        // Then
+        assertThat(carritoGuardado().buscarLinea(ID_PRODUCTO).orElseThrow().getCantidad()).isEqualTo(1);
+    }
+
+
+    private void productoSoloPremiumEnBaseDeDatos() {
+        Producto producto = Producto.builder()
+                .id(ID_PRODUCTO).nombre("Reloj").stock(10).visible(true).soloPremium(true)
+                .precio(new PrecioProducto(100.0, null, 10.0))
+                .build();
+        when(repositorioProducto.findById(ID_PRODUCTO)).thenReturn(Optional.of(producto));
+    }
 
     private void productoEnBaseDeDatos(boolean visible) {
         Producto producto = Producto.builder()

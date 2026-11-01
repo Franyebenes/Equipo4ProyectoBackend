@@ -100,6 +100,8 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
     private ObjectMapper objectMapper;
     @Autowired
     private MongoTemplate mongo;
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder codificador;
 
     @MockitoBean
     private ValidadorDominioEmail validadorDominioEmail;
@@ -140,10 +142,8 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
 
     /** Registra un cliente con el endpoint real y lo activa, como haría el panel de administración. */
     private void registrarYActivar(String email) throws Exception {
-        mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
-                objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
-                        .conEmail(email).construir()))).andExpect(status().isCreated());
-        cambiarEstado(email, "ACTIVO");
+        // Una cuenta sin 2FA (como las anteriores a el): el registro con 2FA se prueba en RegistroDosFactoresIntegracionMongoTest
+        RegistroConDosFactoresDePrueba.insertarCliente(usuarios, codificador, email, CONTRASENA, "ACTIVO");
     }
 
     private void cambiarEstado(String email, String estado) {
@@ -180,9 +180,7 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
     void login_tras_registrarseConLasMismasCredenciales_devuelve200YCreaLaSesion() throws Exception { // CP-LIN-01
         // Given: un cliente recién registrado; hasta que un administrador lo activa no puede entrar
         String email = "lin01@ejemplo.es";
-        mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
-                objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
-                        .conEmail(email).construir()))).andExpect(status().isCreated());
+        RegistroConDosFactoresDePrueba.insertarCliente(usuarios, codificador, email, CONTRASENA, "DESACTIVADO");
         // Con la contraseña correcta o con una incorrecta recibe el mismo rechazo genérico: no se le dice que la
         // cuenta está desactivada
         login(email, CONTRASENA).andExpect(status().isUnauthorized())
@@ -228,9 +226,7 @@ class LoginIntegracionMongoTest extends IntegracionLoginBase {
     void login_cuentaDesactivadaConContrasenaCorrecta_respondeExactamenteIgualQueContrasenaIncorrecta() throws Exception { // CP-LIN-03
         // Given: una cuenta recién registrada, sin activar
         String email = "lin03b@ejemplo.es";
-        mockMvc.perform(post(RUTA_REGISTRO).contentType(MediaType.APPLICATION_JSON).content(
-                objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida()
-                        .conEmail(email).construir()))).andExpect(status().isCreated());
+        RegistroConDosFactoresDePrueba.insertarCliente(usuarios, codificador, email, CONTRASENA, "DESACTIVADO");
 
         // When
         MvcResult desactivada = login(email, CONTRASENA).andExpect(status().isUnauthorized()).andReturn();
