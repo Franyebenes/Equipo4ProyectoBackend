@@ -9,6 +9,7 @@ db.pedidos.drop();
 db.valoraciones.drop();
 db.incidencias.drop();
 db.tokens_recuperacion.drop();
+db.pagosSuscripcion.drop();
 
 // ==========================================
 // 1. COLECCIÓN: USUARIOS (users)
@@ -256,3 +257,6 @@ db.tokens_recuperacion.createIndex({ "hashToken": 1 }, { unique: true });
 db.tokens_recuperacion.createIndex({ "caducaEn": 1 }, { expireAfterSeconds: 86400 });
 // Un solo token VIGENTE por usuario, garantizado por la base de datos aunque dos solicitudes coincidan
 db.tokens_recuperacion.createIndex({ "idUsuario": 1, "estado": 1 }, { unique: true, partialFilterExpression: { "estado": "VIGENTE" } });
+
+
+db.pagosSuscripcion.createIndex({"idCliente":1});
