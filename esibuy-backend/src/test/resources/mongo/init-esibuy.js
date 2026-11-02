@@ -10,6 +10,7 @@ db.valoraciones.drop();
 db.incidencias.drop();
 db.tokens_recuperacion.drop();
 db.pagosSuscripcion.drop();
+db.direcciones.drop();
 
 // ==========================================
 // 1. COLECCIÓN: USUARIOS (users)
@@ -260,3 +261,10 @@ db.tokens_recuperacion.createIndex({ "idUsuario": 1, "estado": 1 }, { unique: tr
 
 
 db.pagosSuscripcion.createIndex({"idCliente":1});
+
+// ==========================================
+// COLECCIÓN: DIRECCIONES (HU-25.x)
+// ==========================================
+db.direcciones.createIndex({ "idUsuario": 1 });
+// Para el bloqueo: ¿hay un pedido en curso de este cliente con esta direccion?
+db.pedidos.createIndex({ "idCliente": 1, "direccionEnvio.idDireccion": 1 });
