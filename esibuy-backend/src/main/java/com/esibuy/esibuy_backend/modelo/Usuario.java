@@ -105,6 +105,21 @@ public class Usuario {
                 fechaNacimiento, nombreComercial, categoriaPrincipalId, avatarUrl);
     }
 
+    /**
+     * Cambia un cliente entre CLIENTE y PREMIUM . Cualquier otro cambio de rol esta prohibido aqui: este camino
+     * nunca puede convertir a un cliente en VENDEDOR o ADMIN.
+     */
+    public void cambiarTipoCliente(Rol nuevoRol) {
+        if (!esRolDeCliente(roles.get(0)) || !esRolDeCliente(nuevoRol)) {
+            throw new IllegalStateException("Solo un cliente puede cambiar entre CLIENTE y PREMIUM");
+        }
+        this.roles = List.of(nuevoRol);
+    }
+
+    private static boolean esRolDeCliente(Rol rol) {
+        return rol == Rol.CLIENTE || rol == Rol.PREMIUM;
+    }
+
     @Override
     public String toString() {
         return "Usuario[id=" + id + ", roles=" + roles + ", estado=" + estado + "]";
