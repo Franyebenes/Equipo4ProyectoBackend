@@ -69,16 +69,18 @@ public class ServicioPedido {
     private final RepositorioValoracion repositorioValoracion;
     private final MongoTemplate mongoTemplate;
     private final Clock reloj;
+    private final ServicioDireccion servicioDireccion;
 
     public ServicioPedido(RepositorioPedido repositorioPedido, RepositorioCarrito repositorioCarrito,
                           RepositorioProducto repositorioProducto, RepositorioValoracion repositorioValoracion,
-                          MongoTemplate mongoTemplate, Clock reloj) {
+                          MongoTemplate mongoTemplate, Clock reloj, ServicioDireccion servicioDireccion) {
         this.repositorioPedido = repositorioPedido;
         this.repositorioCarrito = repositorioCarrito;
         this.repositorioProducto = repositorioProducto;
         this.repositorioValoracion = repositorioValoracion;
         this.mongoTemplate = mongoTemplate;
         this.reloj = reloj;
+        this.servicioDireccion = servicioDireccion;
     }
 
         // HU-26 Realizar pedido sin elegir vendedor: vale si todos los productos del carrito son del mismo vendedor
@@ -90,7 +92,9 @@ public class ServicioPedido {
     // del carrito de ese vendedor con los precios de este momento y solo esos salen del carrito; los de otros
     // vendedores se quedan para otra compra. Sin vendedor elegido, el carrito tiene que ser de uno solo.
     public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion, String idVendedor) {
-        DireccionEnvio direccionEnvio = validarDireccion(direccion);
+        DireccionEnvio direccionEnvio = direccion != null && direccion.idDireccion() != null
+            ? servicioDireccion.paraPedido(idCliente, direccion.idDireccion()) // de la libreta: 404 si no es suya
+            : validarDireccion(direccion);                                     // escrita a mano
         if (idVendedor != null && !ObjectId.isValid(idVendedor)) {
             throw new PedidoInvalidoException(MENSAJE_SIN_PRODUCTOS_VENDEDOR);
         }
@@ -237,7 +241,7 @@ public class ServicioPedido {
                 .toList();
         DireccionEnvio direccion = pedido.getDireccionEnvio();
         DireccionEnvioDTO direccionDTO = direccion == null ? null
-                : new DireccionEnvioDTO(direccion.getCalle(), direccion.getCiudad(), direccion.getCodigoPostal());
+                : new DireccionEnvioDTO(direccion.getCalle(), direccion.getCiudad(), direccion.getCodigoPostal(), direccion.getIdDireccion());
         return new PedidoDTO(pedido.getId(), pedido.getEstado(), pedido.getFecha(), pedido.getPrecioTotal(),
                 direccionDTO, lineas);
     }
