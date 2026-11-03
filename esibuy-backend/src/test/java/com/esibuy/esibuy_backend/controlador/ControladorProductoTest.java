@@ -21,12 +21,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEncontradoException;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
-import com.esibuy.esibuy_backend.servicio.FiltroCatalogo;
 import com.esibuy.esibuy_backend.servicio.ServicioProducto;
 
 /**
  * HU-15.2 Endpoints GET /api/vendedor/productos y /{id}: solo para vendedores, siempre con el vendedor de la sesion,
- * y las respuestas y mensajes que recibe el frontend. HU Buscar y Filtrar catalogo propio: parametros del filtro.
+ * y las respuestas y mensajes que recibe el frontend.
  */
 @WebMvcTest(ControladorProducto.class)
 @Import(ConfiguracionSeguridad.class)
@@ -35,10 +34,9 @@ class ControladorProductoTest {
     // El principal de la sesion es el id del usuario (EstablecedorSesion)
     private static final String ID_VENDEDOR = "64b7f0c2a1b2c3d4e5f60001";
     private static final String ID_PRODUCTO = "64b7f0c2a1b2c3d4e5f60101";
-    private static final String ID_MODA = "64b7f0c2a1b2c3d4e5f60201";
     private static final String RUTA = "/api/vendedor/productos";
     private static final ProductoCatalogoDTO BOLSO = new ProductoCatalogoDTO(ID_PRODUCTO, "Bolso de piel",
-            "Bolso hecho a mano.", null, List.of("Moda"), 49.9, 10.0, null, 3, true, false);
+            "Bolso hecho a mano.", null, List.of("Moda"), 49.9, 10.0, null, 3, true);
 
     @Autowired
     private MockMvc mockMvc;
@@ -49,7 +47,7 @@ class ControladorProductoTest {
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void listar_vendedor_devuelve200ConLosProductosDeSuSesion() throws Exception {
         // Given
-        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR, FiltroCatalogo.sinFiltros())).thenReturn(List.of(BOLSO));
+        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR)).thenReturn(List.of(BOLSO));
 
         // When / Then
         mockMvc.perform(get(RUTA))
@@ -60,69 +58,19 @@ class ControladorProductoTest {
                 .andExpect(jsonPath("$[0].precio").value(49.9))
                 .andExpect(jsonPath("$[0].stock").value(3))
                 .andExpect(jsonPath("$[0].visible").value(true));
-        verify(servicioProducto).listarProductosDelVendedor(ID_VENDEDOR, FiltroCatalogo.sinFiltros());
+        verify(servicioProducto).listarProductosDelVendedor(ID_VENDEDOR);
     }
 
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void listar_vendedorSinProductos_devuelve200ConListaVacia() throws Exception {
         // Given
-        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR, FiltroCatalogo.sinFiltros())).thenReturn(List.of());
+        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR)).thenReturn(List.of());
 
         // When / Then
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
-    }
-
-    @Test
-    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
-    void listar_conBusqueda_pasaElTextoAlServicioConElVendedorDeLaSesion() throws Exception {
-        // Given
-        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("bolso", null, null, null, null)))
-                .thenReturn(List.of(BOLSO));
-
-        // When / Then
-        mockMvc.perform(get(RUTA).param("busqueda", "bolso"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].nombre").value("Bolso de piel"));
-        verify(servicioProducto).listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("bolso", null, null, null, null));
-    }
-
-    @Test
-    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
-    void listar_busquedaSinResultados_devuelve200ConListaVacia() throws Exception {
-        // Given
-        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR, new FiltroCatalogo("mesa", null, null, null, null))).thenReturn(List.of());
-
-        // When / Then: el frontend muestra el mensaje informativo
-        mockMvc.perform(get(RUTA).param("busqueda", "mesa"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
-    }
-
-    @Test
-    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
-    void listar_conTodosLosFiltros_losPasaJuntosAlServicio() throws Exception {
-        // Given
-        FiltroCatalogo filtro = new FiltroCatalogo("bolso", ID_MODA, true, 10.0, 50.5);
-        when(servicioProducto.listarProductosDelVendedor(ID_VENDEDOR, filtro)).thenReturn(List.of(BOLSO));
-
-        // When / Then
-        mockMvc.perform(get(RUTA).param("busqueda", "bolso").param("idCategoria", ID_MODA).param("activo", "true")
-                        .param("precioMinimo", "10").param("precioMaximo", "50.5"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].nombre").value("Bolso de piel"));
-        verify(servicioProducto).listarProductosDelVendedor(ID_VENDEDOR, filtro);
-    }
-
-    @Test
-    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
-    void listar_precioQueNoEsUnNumero_devuelve400YNoConsulta() throws Exception {
-        // When / Then
-        mockMvc.perform(get(RUTA).param("precioMinimo", "barato"))
-                .andExpect(status().isBadRequest());
-        verify(servicioProducto, never()).listarProductosDelVendedor(any(), any());
     }
 
     @Test
@@ -131,7 +79,7 @@ class ControladorProductoTest {
         // When / Then
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).listarProductosDelVendedor(any(), any());
+        verify(servicioProducto, never()).listarProductosDelVendedor(any());
     }
 
     @Test
@@ -140,7 +88,7 @@ class ControladorProductoTest {
         // When / Then: el administrador supervisa productos en su propia HU (modo lectura), no aqui
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isForbidden());
-        verify(servicioProducto, never()).listarProductosDelVendedor(any(), any());
+        verify(servicioProducto, never()).listarProductosDelVendedor(any());
     }
 
     @Test
@@ -150,7 +98,7 @@ class ControladorProductoTest {
         // When / Then
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isUnauthorized());
-        verify(servicioProducto, never()).listarProductosDelVendedor(any(), any());
+        verify(servicioProducto, never()).listarProductosDelVendedor(any());
     }
 
     @Test

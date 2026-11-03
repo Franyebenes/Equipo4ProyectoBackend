@@ -55,7 +55,7 @@ class ServicioProductoAltaTest {
 
     private static ProductoAltaDTO alta(String nombre, String descripcion, Double precio, List<String> categorias,
                                         Integer stock) {
-        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null, null, null, null, null);
+        return new ProductoAltaDTO(nombre, descripcion, precio, categorias, stock, null);
     }
 
     @Test
@@ -68,10 +68,9 @@ class ServicioProductoAltaTest {
                 .nombre("Lámpara").descripcion("Lámpara de sobremesa.").imagen(IMAGEN)
                 .precio(new PrecioProducto(80.0, null, null)).stock(4).visible(true).build());
 
-        // When: nombre y descripcion llegan con espacios sobrantes; sin indicar si esta activo ni descuento
+        // When: nombre y descripcion llegan con espacios sobrantes
         ProductoCatalogoDTO resultado = servicio.crearProducto(ID_VENDEDOR, new ProductoAltaDTO(
-                "  Lámpara  ", "  Lámpara de sobremesa.  ", 80.0, List.of(ID_HOGAR), 4, IMAGEN, null, null, null,
-                null));
+                "  Lámpara  ", "  Lámpara de sobremesa.  ", 80.0, List.of(ID_HOGAR), 4, IMAGEN));
 
         // Then: se guarda limpio, sin id (lo genera MongoDB), del vendedor de la sesion, visible y sin descuentos
         ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
@@ -90,7 +89,7 @@ class ServicioProductoAltaTest {
         assertThat(producto.getVisible()).isTrue();
         // y se devuelve como en el listado, con la categoria por nombre
         assertThat(resultado).isEqualTo(new ProductoCatalogoDTO(ID_PRODUCTO, "Lámpara", "Lámpara de sobremesa.",
-                IMAGEN, List.of("Hogar"), 80.0, null, null, 4, true, false));
+                IMAGEN, List.of("Hogar"), 80.0, null, null, 4, true));
     }
 
     @Test
@@ -202,62 +201,5 @@ class ServicioProductoAltaTest {
 
         // Then
         verify(repositorioProducto).save(any(Producto.class));
-    }
-
-    @Test
-    void crearProducto_desactivadoYConDescuento_guardaElEstadoYElDescuentoElegidos() {
-        // Given: el vendedor lo crea desactivado y con un 15 % de descuento
-        when(repositorioCategoria.findAllById(any()))
-                .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
-        when(repositorioProducto.save(any(Producto.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
-        ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Lámpara de sobremesa.", 80.0, List.of(ID_HOGAR), 4,
-                null, false, 15.0, null, null);
-
-        // When
-        ProductoCatalogoDTO resultado = servicio.crearProducto(ID_VENDEDOR, datos);
-
-        // Then: se guarda oculto para los clientes y con el descuento en precio.descuento
-        ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
-        verify(repositorioProducto).save(guardado.capture());
-        assertThat(guardado.getValue().getVisible()).isFalse();
-        assertThat(guardado.getValue().getPrecio().getBase()).isEqualTo(80.0);
-        assertThat(guardado.getValue().getPrecio().getDescuento()).isEqualTo(15.0);
-        assertThat(guardado.getValue().getPrecio().getDescuentoPremium()).isNull();
-        assertThat(resultado.visible()).isFalse();
-        assertThat(resultado.descuento()).isEqualTo(15.0);
-    }
-
-    @ParameterizedTest
-    @ValueSource(doubles = {0.0, 100.0})
-    void crearProducto_descuentoEnLosLimites_seGuarda(double descuento) {
-        // Given: 0 y 100 son los limites del esquema de la BBDD
-        when(repositorioCategoria.findAllById(any()))
-                .thenReturn(List.of(new Categoria(ID_HOGAR, "Hogar", "Muebles y decoración.")));
-        when(repositorioProducto.save(any(Producto.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
-        ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1,
-                null, true, descuento, null, null);
-
-        // When
-        servicio.crearProducto(ID_VENDEDOR, datos);
-
-        // Then
-        ArgumentCaptor<Producto> guardado = ArgumentCaptor.forClass(Producto.class);
-        verify(repositorioProducto).save(guardado.capture());
-        assertThat(guardado.getValue().getPrecio().getDescuento()).isEqualTo(descuento);
-        assertThat(guardado.getValue().getVisible()).isTrue();
-    }
-
-    @ParameterizedTest
-    @ValueSource(doubles = {-1.0, -0.5, 100.5, 150.0})
-    void crearProducto_descuentoFueraDeRango_lanzaExcepcionYNoGuarda(double descuento) {
-        // Given
-        ProductoAltaDTO datos = new ProductoAltaDTO("Lámpara", "Descripción", 10.0, List.of(ID_HOGAR), 1,
-                null, true, descuento, null, null);
-
-        // When / Then
-        assertThatThrownBy(() -> servicio.crearProducto(ID_VENDEDOR, datos))
-                .isInstanceOf(ProductoInvalidoException.class)
-                .hasMessage(ServicioProductoImpl.MENSAJE_DESCUENTO_INVALIDO);
-        verify(repositorioProducto, never()).save(any());
     }
 }

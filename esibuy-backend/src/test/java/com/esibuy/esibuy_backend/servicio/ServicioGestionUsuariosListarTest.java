@@ -58,7 +58,7 @@ class ServicioGestionUsuariosListarTest extends ServicioGestionUsuariosBase {
     }
 
     @Test
-    void listar_sinFiltroDeEstado_noFiltraPorEstado() {
+    void listar_sinFiltroDeEstado_excluyeLosEliminados() {
         // Given
         when(mongoTemplate.find(any(Query.class), eq(Usuario.class))).thenReturn(List.of());
 
@@ -66,7 +66,7 @@ class ServicioGestionUsuariosListarTest extends ServicioGestionUsuariosBase {
         servicio.listar(0, 20, null, null, null);
 
         // Then
-        assertThat(consultaEnviadaAMongo()).doesNotContain("estado");
+        assertThat(consultaEnviadaAMongo()).contains("$ne").contains("ELIMINADO");
     }
 
     @Test

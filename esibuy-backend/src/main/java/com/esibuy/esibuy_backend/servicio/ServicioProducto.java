@@ -7,12 +7,7 @@ import com.esibuy.esibuy_backend.dto.ProductoCatalogoDTO;
 
 public interface ServicioProducto {
 
-    List<ProductoCatalogoDTO> listarProductosDelVendedor(String idVendedor, FiltroCatalogo filtro);
+    List<ProductoCatalogoDTO> listarProductosDelVendedor(String idVendedor);
     ProductoCatalogoDTO obtenerProductoDelVendedor(String idVendedor, String idProducto);
     ProductoCatalogoDTO crearProducto(String idVendedor, ProductoAltaDTO datos);
-    ProductoCatalogoDTO cambiarEstado(String idVendedor, String idProducto, Boolean activo);
-    ProductoCatalogoDTO cambiarStock(String idVendedor, String idProducto, Integer stock, Integer stockAnterior);
-    void eliminarProducto(String idVendedor, String idProducto);
-    ProductoCatalogoDTO modificarProducto(String idVendedor, String idProducto, ProductoAltaDTO datos,
-                                          Integer stockAnterior);
 }

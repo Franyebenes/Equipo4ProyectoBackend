@@ -43,7 +43,4 @@ public sealed interface SolicitudRegistro permits SolicitudRegistroClienteDTO, S
     String contrasena();
 
     String repetirContrasena();
-
-    /** Codigo TOTP de 6 digitos que prueba que la persona ha configurado su aplicacion autenticadora. */
-    String codigoDosFactores();
 }
