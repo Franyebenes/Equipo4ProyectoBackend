@@ -69,12 +69,12 @@ abstract class ServicioGestionUsuariosBase {
     }
 
     protected void existeEnBaseDeDatos(Usuario usuario) {
-        when(repositorioUsuario.findByIdAndEstadoNot(usuario.getId(), EstadoUsuario.ELIMINADO))
+        when(repositorioUsuario.findById(usuario.getId()))
                 .thenReturn(Optional.of(usuario));
     }
 
     protected void noExisteEnBaseDeDatos(String id) {
-        when(repositorioUsuario.findByIdAndEstadoNot(id, EstadoUsuario.ELIMINADO)).thenReturn(Optional.empty());
+        when(repositorioUsuario.findById(id)).thenReturn(Optional.empty());
     }
 
     protected void guardarDevuelveLoMismo() {

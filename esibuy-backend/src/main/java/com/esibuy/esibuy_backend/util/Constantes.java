@@ -13,6 +13,8 @@ public final class Constantes {
     // Las mismas reglas estan en el frontend (core/caracteres-permitidos.ts).
     /** Nombre: letras (tambien con tilde, ñ o ü), numeros y espacios. */
     public static final String PATRON_NOMBRE = "^[\\p{L}\\d ]+$";
+    /** Texto libre sin los caracteres que ReglasCampos prohibe en el registro: < > { } $ */
+    public static final String PATRON_TEXTO_SEGURO = "^[^<>{}$]*$";
     /** Descripcion: lo mismo que el nombre, saltos de linea y los signos de puntuacion . , ; : ¿ ? ¡ ! ( ) - */
     public static final String PATRON_DESCRIPCION = "^[\\p{L}\\d \\t\\r\\n.,;:¿?¡!()-]+$";
     public static final String MENSAJE_NOMBRE_NO_PERMITIDO =

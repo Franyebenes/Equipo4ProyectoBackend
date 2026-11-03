@@ -13,11 +13,15 @@ import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.util.Constantes;
 
 /**
- * Politica de contrasenas (decisiones D1, D7 y D9). Tests: ValidadorContrasenaTest (CP-PWD-01 a CP-PWD-12).
+ * Politica de contrasenas. Tests: ValidadorContrasenaTest (CP-PWD-01 a CP-PWD-19).
  *
- * <p>No impone reglas de composicion (mayusculas, digitos, simbolos): solo longitud, diccionarios de
- * contrasenas prohibidas y ausencia de datos personales. Devuelve todos los incumplimientos a la vez y nunca
- * registra ni devuelve la contrasena.
+ * <p>Exige longitud, composicion (al menos una mayuscula, una minuscula, un numero y un caracter especial),
+ * que no este en los diccionarios de contrasenas prohibidas y que no contenga datos personales. Devuelve todos
+ * los incumplimientos a la vez y nunca registra ni devuelve la contrasena.
+ *
+ * <p>Composicion: el numero es un digito 0-9; mayuscula y minuscula son letras Unicode (acentuadas y la "n con
+ * tilde" incluidas); el caracter especial es cualquier signo de puntuacion o simbolo Unicode (un emoji cuenta, pero
+ * no es obligatorio). Los espacios se permiten pero no cuentan como caracter especial.
  */
 @Component
 public class ValidadorContrasena {
@@ -41,6 +45,7 @@ public class ValidadorContrasena {
         // NFC: la misma contrasena escrita con caracteres compuestos o descompuestos da el mismo resultado
         String enNfc = Normalizer.normalize(contrasena, Normalizer.Form.NFC);
         validarLongitud(enNfc, errores);
+        validarComposicion(enNfc, errores);
         validarDiccionarios(enNfc, errores);
         if (contieneDatosPersonales(enNfc, datosPersonales)) {
             errores.add(CodigoError.CONTRASENA_CON_DATOS_PERSONALES);
@@ -56,6 +61,49 @@ public class ValidadorContrasena {
         } else if (longitud > Constantes.LONGITUD_MAXIMA) {
             errores.add(CodigoError.CONTRASENA_LARGA);
         }
+    }
+
+    /** Recorre por puntos de codigo (un emoji es un solo caracter) y anade un error por cada clase que no aparece. */
+    private static void validarComposicion(String contrasena, Set<CodigoError> errores) {
+        boolean hayNumero = false;
+        boolean hayEspecial = false;
+        boolean hayMayuscula = false;
+        boolean hayMinuscula = false;
+        for (int i = 0; i < contrasena.length(); ) {
+            int puntoDeCodigo = contrasena.codePointAt(i);
+            i += Character.charCount(puntoDeCodigo);
+            int tipo = Character.getType(puntoDeCodigo);
+            if (puntoDeCodigo >= '0' && puntoDeCodigo <= '9') {
+                hayNumero = true;
+            } else if (tipo == Character.UPPERCASE_LETTER) {
+                hayMayuscula = true;
+            } else if (tipo == Character.LOWERCASE_LETTER) {
+                hayMinuscula = true;
+            } else if (esPuntuacionOSimbolo(tipo)) {
+                hayEspecial = true;
+            }
+        }
+        anadirSiFalta(hayNumero, CodigoError.CONTRASENA_SIN_NUMERO, errores);
+        anadirSiFalta(hayEspecial, CodigoError.CONTRASENA_SIN_CARACTER_ESPECIAL, errores);
+        anadirSiFalta(hayMayuscula, CodigoError.CONTRASENA_SIN_MAYUSCULA, errores);
+        anadirSiFalta(hayMinuscula, CodigoError.CONTRASENA_SIN_MINUSCULA, errores);
+    }
+
+    private static void anadirSiFalta(boolean presente, CodigoError error, Set<CodigoError> errores) {
+        if (!presente) {
+            errores.add(error);
+        }
+    }
+
+    /** Categorias Unicode P* (puntuacion) y S* (simbolos: matematicos, de moneda, modificadores y otros, como emojis). */
+    private static boolean esPuntuacionOSimbolo(int tipo) {
+        return switch (tipo) {
+            case Character.CONNECTOR_PUNCTUATION, Character.DASH_PUNCTUATION, Character.START_PUNCTUATION,
+                 Character.END_PUNCTUATION, Character.INITIAL_QUOTE_PUNCTUATION,
+                 Character.FINAL_QUOTE_PUNCTUATION, Character.OTHER_PUNCTUATION, Character.MATH_SYMBOL,
+                 Character.CURRENCY_SYMBOL, Character.MODIFIER_SYMBOL, Character.OTHER_SYMBOL -> true;
+            default -> false;
+        };
     }
 
     /** Las comunes se comparan sin distinguir mayusculas; las filtradas, tal cual. */
