@@ -48,7 +48,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        registrarCliente(solicitud);
+        servicio.registrarCliente(solicitud);
 
         // Then
         String hash = usuarioGuardado().getPasswordHash();
@@ -67,11 +67,11 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
                 .conEmail("segundo@ejemplo.es").construir();
 
         // When
-        registrarCliente(primero);
-        registrarCliente(segundo);
+        servicio.registrarCliente(primero);
+        servicio.registrarCliente(segundo);
 
         // Then
-        verify(repositorioUsuario, times(2)).insert(usuarioCaptor.capture());
+        verify(repositorioUsuario, times(2)).save(usuarioCaptor.capture());
         List<Usuario> guardados = usuarioCaptor.getAllValues();
         assertThat(guardados.get(0).getPasswordHash()).isNotEqualTo(guardados.get(1).getPasswordHash());
     }
@@ -82,7 +82,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        registrarCliente(solicitud);
+        servicio.registrarCliente(solicitud);
 
         // Then
         String hash = usuarioGuardado().getPasswordHash();
@@ -96,7 +96,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        var respuesta = registrarCliente(solicitud);
+        var respuesta = servicio.registrarCliente(solicitud);
         Usuario usuario = usuarioGuardado();
 
         // Then
@@ -115,7 +115,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         // When
         List<String> textosDeLog;
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
-            registrarCliente(solicitud);
+            servicio.registrarCliente(solicitud);
             textosDeLog = logs.textosCompletos();
         }
 
@@ -129,14 +129,14 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
     void registrarCliente_registroDuplicado_losLogsYLaExcepcionNoContienenContrasenaNiEmailCompleto() { // CP-REG-12
         // Given: fallo por condicion de carrera, que es el camino que mas detalle suele registrar
         doThrow(new DuplicateKeyException("E11000 duplicate key error"))
-                .when(repositorioUsuario).insert(any(Usuario.class));
+                .when(repositorioUsuario).save(any());
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
         List<String> textosDeLog;
         RegistroNoCompletadoException excepcion;
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
-            excepcion = assertThrows(RegistroNoCompletadoException.class, () -> registrarCliente(solicitud));
+            excepcion = assertThrows(RegistroNoCompletadoException.class, () -> servicio.registrarCliente(solicitud));
             textosDeLog = logs.textosCompletos();
         }
 
@@ -156,7 +156,7 @@ class ServicioRegistroContrasenaHashTest extends ServicioRegistroBaseTest {
         // When
         List<String> textosDeLog;
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
-            assertThrows(DatosRegistroInvalidosException.class, () -> registrarCliente(solicitud));
+            assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarCliente(solicitud));
             textosDeLog = logs.textosCompletos();
         }
 

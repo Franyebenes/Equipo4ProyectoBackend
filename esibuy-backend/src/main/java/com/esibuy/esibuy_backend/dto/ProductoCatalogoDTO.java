@@ -4,8 +4,7 @@ import java.util.List;
 
 /**
  * Producto tal y como lo ve su vendedor en "Mi catalogo" (listado y detalle). Las categorias van por nombre; el
- * precio es el base y los descuentos son porcentajes (pueden ser null). "visible" indica si el producto esta activo
- * y "soloPremium" si solo lo ven los clientes premium.
+ * precio es el base y los descuentos son porcentajes (pueden ser null). "visible" indica si el producto esta activo.
  */
 public record ProductoCatalogoDTO(
         String id,
@@ -17,6 +16,5 @@ public record ProductoCatalogoDTO(
         Double descuento,
         Double descuentoPremium,
         Integer stock,
-        Boolean visible,
-        Boolean soloPremium) {
+        Boolean visible) {
 }

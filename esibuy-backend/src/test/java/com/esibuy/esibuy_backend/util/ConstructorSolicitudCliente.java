@@ -12,7 +12,6 @@ import java.time.LocalDate;
 public final class ConstructorSolicitudCliente {
 
     public static final String EMAIL_POR_DEFECTO = "ana.garcia@ejemplo.es";
-    public static final String CODIGO_DOS_FACTORES_POR_DEFECTO = "123456";
     public static final String CONTRASENA_VALIDA = "Tren-Azul-Lluvia-77";
 
     private String nombre = "Ana";
@@ -24,7 +23,6 @@ public final class ConstructorSolicitudCliente {
     private String avatar = "avatar-01";
     private String contrasena = CONTRASENA_VALIDA;
     private String repetirContrasena = CONTRASENA_VALIDA;
-    private String codigoDosFactores = CODIGO_DOS_FACTORES_POR_DEFECTO;
     private TipoCuenta tipoCuenta = TipoCuenta.CLIENTE;
 
     private ConstructorSolicitudCliente() {
@@ -87,13 +85,8 @@ public final class ConstructorSolicitudCliente {
         return this;
     }
 
-    public ConstructorSolicitudCliente conCodigoDosFactores(String valor) {
-        this.codigoDosFactores = valor;
-        return this;
-    }
-
     public SolicitudRegistroClienteDTO construir() {
         return new SolicitudRegistroClienteDTO(tipoCuenta, nombre, apellidos, fechaNacimiento, dni, email,
-                telefono, avatar, contrasena, repetirContrasena, codigoDosFactores);
+                telefono, avatar, contrasena, repetirContrasena);
     }
 }

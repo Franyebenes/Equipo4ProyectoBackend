@@ -51,8 +51,6 @@ class SesionCicloCompletoIntegracionTest extends IntegracionLoginBase {
     @Autowired
     private MongoTemplate mongo;
     @Autowired
-    private org.springframework.security.crypto.password.PasswordEncoder codificador;
-    @Autowired
     private ObjectMapper objectMapper;
 
     @MockitoBean
@@ -112,7 +110,11 @@ class SesionCicloCompletoIntegracionTest extends IntegracionLoginBase {
     @Test
     void sesion_cicloCompleto_loginMeLogoutYMeOtraVez() throws Exception {
         // Given: un cliente registrado y activado (lo activaría el panel de administración)
-        RegistroConDosFactoresDePrueba.insertarCliente(mongo.getCollection("usuarios"), codificador, EMAIL, CONTRASENA, "ACTIVO");
+        String registro = objectMapper.writeValueAsString(
+                ConstructorSolicitudCliente.unaSolicitudValida().conEmail(EMAIL).construir());
+        assertEquals(201, enviar(peticion("/api/auth/registro").header("Content-Type", "application/json")
+                .POST(BodyPublishers.ofString(registro))).statusCode());
+        mongo.getCollection("usuarios").updateOne(Filters.eq("email", EMAIL), Updates.set("estado", "ACTIVO"));
 
         // When: pide el token y entra
         HttpResponse<String> primeraVisita = enviar(peticion("/api/auth/csrf").GET());
