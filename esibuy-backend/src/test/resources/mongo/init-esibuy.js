@@ -11,6 +11,7 @@ db.incidencias.drop();
 db.tokens_recuperacion.drop();
 db.pagosSuscripcion.drop();
 db.direcciones.drop();
+db.listas.drop()
 
 // ==========================================
 // 1. COLECCIÓN: USUARIOS (users)
@@ -268,3 +269,11 @@ db.pagosSuscripcion.createIndex({"idCliente":1});
 db.direcciones.createIndex({ "idUsuario": 1 });
 // Para el bloqueo: ¿hay un pedido en curso de este cliente con esta direccion?
 db.pedidos.createIndex({ "idCliente": 1, "direccionEnvio.idDireccion": 1 });
+
+// ==========================================
+// 9. COLECCIÓN: LISTAS (listas de productos y Favoritos)
+// ==========================================
+// Nombre unico por cliente sin distinguir mayusculas. Debe coincidir con RepositorioListaProductos.COLLATION_NOMBRE
+db.listas.createIndex({ "idUsuario": 1, "nombre": 1 }, { unique: true, collation: { locale: "es", strength: 2 } });
+// Como mucho una lista por defecto (Favoritos) por cliente, aunque dos peticiones lleguen a la vez
+db.listas.createIndex({ "idUsuario": 1 }, { unique: true, partialFilterExpression: { "porDefecto": true }, name: "favoritos_unica" });
