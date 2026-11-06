@@ -51,7 +51,7 @@ public class ServicioPedido {
     static final String MENSAJE_DIRECCION_INCOMPLETA = "Indica la calle, la ciudad y el código postal de envío";
     static final String MENSAJE_CODIGO_POSTAL_INVALIDO = "El código postal debe tener 5 números";
     static final String MENSAJE_DIRECCION_LARGA = "La dirección es demasiado larga";
-    static final String MENSAJE_NO_CANCELABLE = "Solo se puede cancelar un pedido pagado que aún no se ha enviado";
+    static final String MENSAJE_NO_CANCELABLE = "Solo se puede cancelar un pedido que aún no se ha enviado";
     static final String MENSAJE_NO_CONFIRMABLE = "Este pedido ya está finalizado o cancelado";
     static final String MENSAJE_VARIOS_VENDEDORES =
             "Tu carrito tiene productos de varios vendedores: elige de cuál quieres hacer la compra";

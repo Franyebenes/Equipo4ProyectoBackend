@@ -93,9 +93,19 @@ class ServicioPedidoCancelarTest {
         assertThat(((Document) cambios.getAllValues().get(1).getUpdateObject().get("$inc")).get("stock")).isEqualTo(3);
     }
 
+    @Test
+    void cancelarUnPedidoEnPreparacionTambienLoCancelaPorqueAunNoSeHaEnviado() {
+        // Given: el vendedor ya lo esta preparando, pero todavia no lo ha enviado
+        pedidoEnBaseDeDatos(ID_CLIENTE, EstadoPedido.EN_PREPARACION);
+        when(repositorioPedido.save(any())).thenAnswer(invocacion -> invocacion.getArgument(0));
+        // When
+        PedidoDTO pedido = servicio.cancelar(ID_CLIENTE, ID_PEDIDO);
+        // Then
+        assertThat(pedido.estado()).isEqualTo(EstadoPedido.CANCELADO);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = EstadoPedido.class,
-            names = {"EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO", "FINALIZADO", "CANCELADO"})
+    @EnumSource(value = EstadoPedido.class, names = {"ENVIADO", "EN_REPARTO", "ENTREGADO", "FINALIZADO", "CANCELADO"})
     void cancelarUnPedidoQueNoEstaPagadoLanzaExcepcionSinTocarElStock(EstadoPedido estado) {
         // Given
         pedidoEnBaseDeDatos(ID_CLIENTE, estado);

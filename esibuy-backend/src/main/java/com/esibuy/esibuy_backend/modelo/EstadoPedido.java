@@ -8,13 +8,18 @@ import java.util.List;
  *
  * Envio: el vendedor hace avanzar el pedido por PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO y ENTREGADO, siempre
  * hacia delante (puede saltarse pasos, pero nunca volver atras). FINALIZADO lo marca el cliente al confirmar que lo ha
- * recibido y CANCELADO, el cliente al cancelarlo mientras esta PAGADO.
+ * recibido y CANCELADO, el cliente al cancelarlo mientras aun no se ha enviado (PAGADO o EN_PREPARACION).
  */
 public enum EstadoPedido {
     PENDIENTE, PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO, ENTREGADO, FINALIZADO, CANCELADO;
 
     // Pasos del envio en orden. Se inicializa despues de las constantes del enum
     private static final List<EstadoPedido> ENVIO = List.of(PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO, ENTREGADO);
+
+    /** Pasos del envio en orden: PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO y ENTREGADO. */
+    public static List<EstadoPedido> pasosDelEnvio() {
+        return ENVIO;
+    }
 
     /** true mientras el pedido sigue su curso; false si ya ha terminado (finalizado o cancelado). */
     public boolean enProceso() {

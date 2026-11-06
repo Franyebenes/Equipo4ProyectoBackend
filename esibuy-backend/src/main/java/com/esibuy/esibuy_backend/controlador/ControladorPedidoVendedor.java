@@ -47,12 +47,14 @@ public class ControladorPedidoVendedor {
     }
 
     // Procesar estado del pedido: avanza el envio y devuelve el detalle actualizado. 404 si no es suyo, 409 si el
-    // cambio no se permite (hacia atras o en un pedido ya entregado, finalizado o cancelado) y 400 sin estado
+    // cambio no se permite (hacia atras o en un pedido ya entregado, finalizado o cancelado) y 400 sin estado o con
+    // una fecha estimada de entrega que no vale (Estado del envio)
     @PatchMapping("/{id}/estado")
     @PreAuthorize("hasRole('VENDEDOR')")
     public ResponseEntity<PedidoRecibidoDetalleDTO> cambiarEstado(@PathVariable String id,
                                                                   @RequestBody SolicitudCambioEstadoPedidoDTO solicitud,
                                                                   Authentication autenticacion) {
-        return ResponseEntity.ok(servicioPedidoVendedor.cambiarEstado(autenticacion.getName(), id, solicitud.estado()));
+        return ResponseEntity.ok(servicioPedidoVendedor.cambiarEstado(autenticacion.getName(), id, solicitud.estado(),
+                solicitud.fechaEntregaEstimada()));
     }
 }

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -148,7 +149,7 @@ class ControladorPedidoVendedorTest {
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarEstado_vendedor_devuelve200ConElPedidoActualizadoYUsaElVendedorDeLaSesion() throws Exception {
-        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO))
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, null))
                 .thenReturn(detalle(EstadoPedido.ENVIADO, Instant.parse("2026-11-03T12:00:00Z"),
                         List.of(EstadoPedido.EN_REPARTO, EstadoPedido.ENTREGADO)));
 
@@ -159,13 +160,43 @@ class ControladorPedidoVendedorTest {
                 .andExpect(jsonPath("$.estado").value("ENVIADO"))
                 .andExpect(jsonPath("$.fechaActualizacion").exists())
                 .andExpect(jsonPath("$.estadosSiguientes[0]").value("EN_REPARTO"));
-        verify(servicioPedidoVendedor).cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO);
+        verify(servicioPedidoVendedor).cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, null);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void cambiarEstado_conFechaEstimada_laPasaAlServicioYLaDevuelve() throws Exception {
+        LocalDate fecha = LocalDate.of(2026, 11, 10);
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, fecha))
+                .thenReturn(detalle(EstadoPedido.ENVIADO, Instant.parse("2026-11-03T12:00:00Z"),
+                        List.of(EstadoPedido.EN_REPARTO, EstadoPedido.ENTREGADO)));
+
+        mockMvc.perform(patch(RUTA_ESTADO).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estado\":\"ENVIADO\",\"fechaEntregaEstimada\":\"2026-11-10\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fechaEntregaEstimada").value("2026-11-07"));
+        verify(servicioPedidoVendedor).cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, fecha);
+    }
+
+    @Test
+    @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
+    void cambiarEstado_fechaEstimadaQueNoVale_devuelve400ConElMensaje() throws Exception {
+        LocalDate ayer = LocalDate.of(2026, 11, 2);
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, ayer))
+                .thenThrow(new PedidoInvalidoException("La fecha estimada de entrega no puede ser anterior a hoy"));
+
+        mockMvc.perform(patch(RUTA_ESTADO).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estado\":\"ENVIADO\",\"fechaEntregaEstimada\":\"2026-11-02\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value("La fecha estimada de entrega no puede ser anterior a hoy"));
     }
 
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarEstado_noPermitido_devuelve409ConElMensaje() throws Exception {
-        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.PAGADO))
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.PAGADO, null))
                 .thenThrow(new EstadoPedidoNoPermitidoException("El envío solo puede avanzar"));
 
         mockMvc.perform(patch(RUTA_ESTADO).with(csrf())
@@ -178,7 +209,7 @@ class ControladorPedidoVendedorTest {
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarEstado_pedidoAjeno_devuelve404() throws Exception {
-        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO))
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO, null))
                 .thenThrow(new PedidoNoEncontradoException());
 
         mockMvc.perform(patch(RUTA_ESTADO).with(csrf())
@@ -190,7 +221,7 @@ class ControladorPedidoVendedorTest {
     @Test
     @WithMockUser(username = ID_VENDEDOR, roles = "VENDEDOR")
     void cambiarEstado_sinEstado_devuelve400ConElMensaje() throws Exception {
-        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, null))
+        when(servicioPedidoVendedor.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, null, null))
                 .thenThrow(new PedidoInvalidoException("Indica el nuevo estado del pedido"));
 
         mockMvc.perform(patch(RUTA_ESTADO).with(csrf())
@@ -207,7 +238,7 @@ class ControladorPedidoVendedorTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"estado\":\"VOLANDO\"}"))
                 .andExpect(status().isBadRequest());
-        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any());
+        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -217,7 +248,7 @@ class ControladorPedidoVendedorTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"estado\":\"ENVIADO\"}"))
                 .andExpect(status().isForbidden());
-        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any());
+        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -227,13 +258,13 @@ class ControladorPedidoVendedorTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"estado\":\"ENVIADO\"}"))
                 .andExpect(status().isForbidden());
-        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any());
+        verify(servicioPedidoVendedor, never()).cambiarEstado(anyString(), anyString(), any(), any());
     }
 
     private static PedidoRecibidoDetalleDTO detalle(EstadoPedido estado, Instant actualizado,
                                                     List<EstadoPedido> siguientes) {
-        return new PedidoRecibidoDetalleDTO(ID_PEDIDO, FECHA, "Ana López", 36.0, estado, 2, actualizado, siguientes,
-                new DireccionEnvioDTO("Calle Mayor 1", "Ciudad Real", "13001"),
+        return new PedidoRecibidoDetalleDTO(ID_PEDIDO, FECHA, "Ana López", 36.0, estado, 2, actualizado,
+                LocalDate.of(2026, 11, 7), siguientes, new DireccionEnvioDTO("Calle Mayor 1", "Ciudad Real", "13001"),
                 List.of(new LineaPedidoRecibidoDTO(ID_PRODUCTO, "Teclado", 2, 18.0, 36.0)));
     }
 }
