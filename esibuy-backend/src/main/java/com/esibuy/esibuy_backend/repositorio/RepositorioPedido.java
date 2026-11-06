@@ -14,4 +14,8 @@ public interface RepositorioPedido extends MongoRepository<Pedido, String> {
     // idCliente se guarda como ObjectId: se consulta con un ObjectId para que coincida el tipo y se use el indice
     @Query("{ 'idCliente': ?0 }")
     List<Pedido> buscarPorCliente(ObjectId idCliente, Sort orden);
+
+    // Pedidos recibidos por un vendedor. idVendedor tambien se guarda como ObjectId
+    @Query("{ 'idVendedor': ?0 }")
+    List<Pedido> buscarPorVendedor(ObjectId idVendedor, Sort orden);
 }
