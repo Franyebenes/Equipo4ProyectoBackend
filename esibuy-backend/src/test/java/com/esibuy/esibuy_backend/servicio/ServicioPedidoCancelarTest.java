@@ -94,7 +94,8 @@ class ServicioPedidoCancelarTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = EstadoPedido.class, names = {"ENVIADO", "ENTREGADO", "FINALIZADO", "CANCELADO"})
+    @EnumSource(value = EstadoPedido.class,
+            names = {"EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO", "FINALIZADO", "CANCELADO"})
     void cancelarUnPedidoQueNoEstaPagadoLanzaExcepcionSinTocarElStock(EstadoPedido estado) {
         // Given
         pedidoEnBaseDeDatos(ID_CLIENTE, estado);
@@ -126,7 +127,7 @@ class ServicioPedidoCancelarTest {
     // ---------- Confirmar recepcion ----------
 
     @ParameterizedTest
-    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "ENVIADO", "ENTREGADO"})
+    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO"})
     void confirmarRecepcionDeUnPedidoEnCursoLoFinaliza(EstadoPedido estado) {
         // Given
         pedidoEnBaseDeDatos(ID_CLIENTE, estado);

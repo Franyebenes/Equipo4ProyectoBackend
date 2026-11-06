@@ -167,10 +167,29 @@ db.createCollection("pedidos", {
          properties: {
             idCliente: { bsonType: "objectId" },
             estado: {
-               enum: [ "PENDIENTE", "PAGADO", "ENVIADO", "ENTREGADO", "FINALIZADO", "CANCELADO" ]
+               enum: [ "PENDIENTE", "PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO", "FINALIZADO",
+                       "CANCELADO" ]
             },
             precioTotal: { bsonType: "number", minimum: 0 },
             fecha: { bsonType: "date" },
+            // Seguimiento del envio (Procesar estado del pedido y Estado del envio): ultimo cambio, fecha estimada
+            // de entrega y cada estado por el que ha pasado el pedido con su fecha
+            fechaActualizacion: { bsonType: "date" },
+            fechaEntregaEstimada: { bsonType: "date" },
+            seguimiento: {
+               bsonType: "array",
+               items: {
+                  bsonType: "object",
+                  required: [ "estado", "fecha" ],
+                  properties: {
+                     estado: {
+                        enum: [ "PENDIENTE", "PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO",
+                                "FINALIZADO", "CANCELADO" ]
+                     },
+                     fecha: { bsonType: "date" }
+                  }
+               }
+            },
             direccionEnvio: { bsonType: "object" },
             lineas: { // Equivalente a items
                bsonType: "array",
@@ -186,6 +205,8 @@ db.createCollection("pedidos", {
 });
 
 db.pedidos.createIndex({ "idCliente": 1 });
+// Pedidos recibidos por cada vendedor, los mas recientes primero
+db.pedidos.createIndex({ "idVendedor": 1, "fecha": -1 });
 
 // ==========================================
 // 5. COLECCIÓN: VALORACIONES (reviews)

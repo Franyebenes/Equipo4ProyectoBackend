@@ -4,27 +4,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.esibuy.esibuy_backend.dto.LineaPedidoRecibidoDTO;
 import com.esibuy.esibuy_backend.dto.PedidoRecibidoDTO;
 import com.esibuy.esibuy_backend.dto.PedidoRecibidoDetalleDTO;
+import com.esibuy.esibuy_backend.excepcion.EstadoPedidoNoPermitidoException;
+import com.esibuy.esibuy_backend.excepcion.PedidoInvalidoException;
 import com.esibuy.esibuy_backend.excepcion.PedidoNoEncontradoException;
 import com.esibuy.esibuy_backend.modelo.DireccionEnvio;
 import com.esibuy.esibuy_backend.modelo.EstadoPedido;
@@ -39,6 +53,10 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 /**
  * Ver pedidos recibidos: el vendedor solo ve los pedidos de sus productos, los mas recientes primero, con el nombre del
  * cliente, el importe, el estado y, en el detalle, la direccion de envio y las lineas.
+ *
+ * Procesar estado del pedido: el vendedor solo hace avanzar el envio de sus pedidos, nunca hacia atras ni en uno ya
+ * entregado, finalizado o cancelado, y cada cambio guarda su fecha. El cambio no pisa uno hecho a la vez por el
+ * cliente.
  */
 @ExtendWith(MockitoExtension.class)
 class ServicioPedidoVendedorTest {
@@ -53,11 +71,16 @@ class ServicioPedidoVendedorTest {
     private static final String ID_PEDIDO_ANTIGUO = "64c000000000000000000102";
     private static final Instant FECHA = Instant.parse("2026-11-02T09:30:00Z");
     private static final Instant FECHA_ANTIGUA = Instant.parse("2026-10-20T18:00:00Z");
+    private static final Instant AHORA = Instant.parse("2026-11-03T12:00:00Z");
 
     @Mock
     private RepositorioPedido repositorioPedido;
     @Mock
     private RepositorioUsuario repositorioUsuario;
+    @Mock
+    private MongoTemplate mongoTemplate;
+    @Spy
+    private Clock reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     @InjectMocks
     private ServicioPedidoVendedor servicio;
 
@@ -154,6 +177,10 @@ class ServicioPedidoVendedorTest {
         assertThat(detalle.direccionEnvio().idDireccion()).isNull();
         assertThat(detalle.lineas()).extracting(LineaPedidoRecibidoDTO::nombre).containsExactly("Teclado", "Ratón");
         assertThat(detalle.lineas()).extracting(LineaPedidoRecibidoDTO::subtotal).containsExactly(36.0, 9.5);
+        // Recien hecho: su ultima actualizacion es la fecha del pedido y el vendedor puede empezar el envio
+        assertThat(detalle.fechaActualizacion()).isEqualTo(FECHA);
+        assertThat(detalle.estadosSiguientes()).containsExactly(EstadoPedido.EN_PREPARACION, EstadoPedido.ENVIADO,
+                EstadoPedido.EN_REPARTO, EstadoPedido.ENTREGADO);
     }
 
     @Test
@@ -181,6 +208,121 @@ class ServicioPedidoVendedorTest {
         // When / Then
         assertThatThrownBy(() -> servicio.detalle(ID_VENDEDOR, "no-es-un-id"))
                 .isInstanceOf(PedidoNoEncontradoException.class);
+        verify(repositorioPedido, never()).findById(anyString());
+    }
+
+    // ---------- Cambiar estado ----------
+
+    @Test
+    void cambiarEstado_alSiguientePaso_loGuardaConLaFechaYDevuelveElDetalleActualizado() {
+        // Given
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.PAGADO)));
+        Pedido actualizado = pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.EN_PREPARACION);
+        ReflectionTestUtils.setField(actualizado, "fechaActualizacion", AHORA);
+        ArgumentCaptor<Query> consulta = ArgumentCaptor.forClass(Query.class);
+        ArgumentCaptor<Update> cambio = ArgumentCaptor.forClass(Update.class);
+        when(mongoTemplate.findAndModify(consulta.capture(), cambio.capture(), any(FindAndModifyOptions.class),
+                eq(Pedido.class))).thenReturn(actualizado);
+        when(repositorioUsuario.findAllById(any())).thenReturn(List.of(cliente(ID_CLIENTE, "Ana", "López")));
+        // When
+        PedidoRecibidoDetalleDTO detalle = servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.EN_PREPARACION);
+        // Then: solo se cambia si el pedido sigue en el estado comprobado
+        Document filtro = consulta.getValue().getQueryObject();
+        assertThat(filtro.get("_id")).isEqualTo(new ObjectId(ID_PEDIDO));
+        assertThat(filtro.get("estado")).isEqualTo("PAGADO");
+        Document nuevosValores = cambio.getValue().getUpdateObject().get("$set", Document.class);
+        assertThat(nuevosValores.get("estado")).isEqualTo("EN_PREPARACION");
+        assertThat(nuevosValores.get("fechaActualizacion")).isEqualTo(AHORA);
+        // y devuelve el pedido ya cambiado, con los pasos que le quedan
+        assertThat(detalle.estado()).isEqualTo(EstadoPedido.EN_PREPARACION);
+        assertThat(detalle.fechaActualizacion()).isEqualTo(AHORA);
+        assertThat(detalle.estadosSiguientes()).containsExactly(EstadoPedido.ENVIADO, EstadoPedido.EN_REPARTO,
+                EstadoPedido.ENTREGADO);
+        assertThat(detalle.cliente()).isEqualTo("Ana López");
+    }
+
+    @Test
+    void cambiarEstado_puedeSaltarsePasosHaciaDelante() {
+        // Given: de pagado directamente a enviado
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.PAGADO)));
+        when(mongoTemplate.findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class),
+                eq(Pedido.class))).thenReturn(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.ENVIADO));
+        when(repositorioUsuario.findAllById(any())).thenReturn(List.of(cliente(ID_CLIENTE, "Ana", "López")));
+        // When
+        PedidoRecibidoDetalleDTO detalle = servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO);
+        // Then
+        assertThat(detalle.estado()).isEqualTo(EstadoPedido.ENVIADO);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "ENVIADO, EN_PREPARACION",
+        "ENVIADO, ENVIADO",
+        "EN_REPARTO, PAGADO",
+        "PAGADO, PENDIENTE",
+        "PAGADO, FINALIZADO",
+        "PAGADO, CANCELADO"
+    })
+    void cambiarEstado_haciaAtrasAlMismoOFueraDelEnvio_lanzaConflictoSinGuardar(EstadoPedido actual,
+                                                                              EstadoPedido nuevo) {
+        // Given
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, actual)));
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, nuevo))
+                .isInstanceOf(EstadoPedidoNoPermitidoException.class)
+                .hasMessage(ServicioPedidoVendedor.MENSAJE_SOLO_AVANZA);
+        verify(mongoTemplate, never()).findAndModify(any(Query.class), any(Update.class),
+                any(FindAndModifyOptions.class), eq(Pedido.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoPedido.class, names = {"ENTREGADO", "FINALIZADO", "CANCELADO"})
+    void cambiarEstado_deUnPedidoEntregadoFinalizadoOCancelado_lanzaConflictoSinGuardar(EstadoPedido actual) {
+        // Given
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, actual)));
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENTREGADO))
+                .isInstanceOf(EstadoPedidoNoPermitidoException.class)
+                .hasMessage(ServicioPedidoVendedor.MENSAJE_SIN_MAS_CAMBIOS);
+        verify(mongoTemplate, never()).findAndModify(any(Query.class), any(Update.class),
+                any(FindAndModifyOptions.class), eq(Pedido.class));
+    }
+
+    @Test
+    void cambiarEstado_siElPedidoCambioALaVez_lanzaConflictoYNoPisaElOtroCambio() {
+        // Given: al guardar, el pedido ya no esta PAGADO (el cliente lo acaba de cancelar)
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.PAGADO)));
+        when(mongoTemplate.findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class),
+                eq(Pedido.class))).thenReturn(null);
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.EN_PREPARACION))
+                .isInstanceOf(EstadoPedidoNoPermitidoException.class)
+                .hasMessage(ServicioPedidoVendedor.MENSAJE_CAMBIADO_A_LA_VEZ);
+    }
+
+    @Test
+    void cambiarEstado_deUnPedidoDeOtroVendedor_lanzaNoEncontradoSinGuardar() {
+        // Given
+        when(repositorioPedido.findById(ID_PEDIDO))
+                .thenReturn(Optional.of(pedido(ID_PEDIDO, ID_OTRO_VENDEDOR, ID_CLIENTE, FECHA, EstadoPedido.PAGADO)));
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, EstadoPedido.ENVIADO))
+                .isInstanceOf(PedidoNoEncontradoException.class);
+        verify(mongoTemplate, never()).findAndModify(any(Query.class), any(Update.class),
+                any(FindAndModifyOptions.class), eq(Pedido.class));
+    }
+
+    @Test
+    void cambiarEstado_sinIndicarElEstado_lanzaPeticionInvalidaSinConsultar() {
+        // When / Then
+        assertThatThrownBy(() -> servicio.cambiarEstado(ID_VENDEDOR, ID_PEDIDO, null))
+                .isInstanceOf(PedidoInvalidoException.class)
+                .hasMessage(ServicioPedidoVendedor.MENSAJE_ESTADO_OBLIGATORIO);
         verify(repositorioPedido, never()).findById(anyString());
     }
 

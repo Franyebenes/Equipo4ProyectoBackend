@@ -29,6 +29,9 @@ public class Pedido {
     private double precioTotal;
     @Field("fecha")
     private Instant fecha;
+    // Ultima vez que cambio el pedido (su estado). En los pedidos anteriores a este campo no existe
+    @Field("fechaActualizacion")
+    private Instant fechaActualizacion;
     @Field("direccionEnvio")
     private DireccionEnvio direccionEnvio;
     @Field("lineas")
@@ -46,6 +49,7 @@ public class Pedido {
         this.lineas = List.copyOf(lineas);
         this.precioTotal = precioTotal;
         this.fecha = fecha;
+        this.fechaActualizacion = fecha;
         this.estado = EstadoPedido.PAGADO;
     }
 
@@ -79,6 +83,11 @@ public class Pedido {
         return fecha;
     }
 
+    /** Ultima vez que cambio el pedido. Si es anterior a guardar este dato, la fecha en que se hizo. */
+    public Instant getFechaActualizacion() {
+        return fechaActualizacion != null ? fechaActualizacion : fecha;
+    }
+
     public DireccionEnvio getDireccionEnvio() {
         return direccionEnvio;
     }
@@ -98,15 +107,17 @@ public class Pedido {
 
     /** El cliente puede confirmar que lo ha recibido en cualquier momento mientras el pedido sigue en curso. */
     public boolean sePuedeConfirmarRecepcion() {
-        return estado == EstadoPedido.PAGADO || estado == EstadoPedido.ENVIADO || estado == EstadoPedido.ENTREGADO;
+        return estado.esPasoDelEnvio();
     }
 
-    public void cancelar() {
+    public void cancelar(Instant cuando) {
         this.estado = EstadoPedido.CANCELADO;
+        this.fechaActualizacion = cuando;
     }
 
-    public void finalizar() {
+    public void finalizar(Instant cuando) {
         this.estado = EstadoPedido.FINALIZADO;
+        this.fechaActualizacion = cuando;
     }
 
     @Override
