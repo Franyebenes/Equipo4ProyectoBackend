@@ -8,7 +8,7 @@ import java.util.List;
  *
  * Envio: el vendedor hace avanzar el pedido por PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO y ENTREGADO, siempre
  * hacia delante (puede saltarse pasos, pero nunca volver atras). FINALIZADO lo marca el cliente al confirmar que lo ha
- * recibido y CANCELADO, el cliente al cancelarlo mientras esta PAGADO.
+ * recibido y CANCELADO, el cliente al cancelarlo mientras aun no se ha enviado (PAGADO o EN_PREPARACION).
  */
 public enum EstadoPedido {
     PENDIENTE, PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO, ENTREGADO, FINALIZADO, CANCELADO;

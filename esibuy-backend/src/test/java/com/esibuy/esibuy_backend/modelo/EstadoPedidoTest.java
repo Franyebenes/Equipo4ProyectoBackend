@@ -81,6 +81,22 @@ class EstadoPedidoTest {
         assertThat(finalizado.getFechaActualizacion()).isEqualTo(DESPUES);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "EN_PREPARACION"})
+    void mientrasNoSeHaEnviado_elClientePuedeCancelarlo(EstadoPedido estado) {
+        Pedido pedido = pedido();
+        ReflectionTestUtils.setField(pedido, "estado", estado);
+        assertThat(pedido.sePuedeCancelar()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoPedido.class, names = {"ENVIADO", "EN_REPARTO", "ENTREGADO", "FINALIZADO", "CANCELADO"})
+    void unaVezEnviadoOTerminado_yaNoSePuedeCancelar(EstadoPedido estado) {
+        Pedido pedido = pedido();
+        ReflectionTestUtils.setField(pedido, "estado", estado);
+        assertThat(pedido.sePuedeCancelar()).isFalse();
+    }
+
     @Test
     void unPedidoNuevo_empiezaSuSeguimientoPagadoCuandoSeHizo() {
         assertThat(pedido().getSeguimiento()).singleElement().satisfies(evento -> {

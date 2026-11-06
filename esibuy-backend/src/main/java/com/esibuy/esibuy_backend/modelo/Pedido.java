@@ -119,9 +119,9 @@ public class Pedido {
         return lineas.stream().filter(l -> l.getIdProducto().equals(idProducto)).findFirst();
     }
 
-    /** Solo se puede cancelar mientras esta pagado y aun no se ha enviado. */
+    /** Se puede cancelar mientras aun no se ha enviado: pagado o en preparacion. */
     public boolean sePuedeCancelar() {
-        return estado == EstadoPedido.PAGADO;
+        return estado == EstadoPedido.PAGADO || estado == EstadoPedido.EN_PREPARACION;
     }
 
     /** El cliente puede confirmar que lo ha recibido en cualquier momento mientras el pedido sigue en curso. */
