@@ -6,12 +6,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.esibuy.esibuy_backend.dto.PedidoRecibidoDTO;
 import com.esibuy.esibuy_backend.dto.PedidoRecibidoDetalleDTO;
+import com.esibuy.esibuy_backend.dto.SolicitudCambioEstadoPedidoDTO;
 import com.esibuy.esibuy_backend.servicio.ServicioPedidoVendedor;
 
 /**
@@ -41,5 +44,15 @@ public class ControladorPedidoVendedor {
     @PreAuthorize("hasRole('VENDEDOR')")
     public ResponseEntity<PedidoRecibidoDetalleDTO> detalle(@PathVariable String id, Authentication autenticacion) {
         return ResponseEntity.ok(servicioPedidoVendedor.detalle(autenticacion.getName(), id));
+    }
+
+    // Procesar estado del pedido: avanza el envio y devuelve el detalle actualizado. 404 si no es suyo, 409 si el
+    // cambio no se permite (hacia atras o en un pedido ya entregado, finalizado o cancelado) y 400 sin estado
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasRole('VENDEDOR')")
+    public ResponseEntity<PedidoRecibidoDetalleDTO> cambiarEstado(@PathVariable String id,
+                                                                  @RequestBody SolicitudCambioEstadoPedidoDTO solicitud,
+                                                                  Authentication autenticacion) {
+        return ResponseEntity.ok(servicioPedidoVendedor.cambiarEstado(autenticacion.getName(), id, solicitud.estado()));
     }
 }

@@ -167,7 +167,7 @@ public class ServicioPedido {
         for (LineaPedido linea : pedido.getLineas()) {
             devolverStock(linea.getIdProducto(), linea.getCantidad());
         }
-        pedido.cancelar();
+        pedido.cancelar(reloj.instant());
         log.info("Pedido cancelado: cliente={} pedido={}", idCliente, idPedido);
         return aDTO(repositorioPedido.save(pedido), valoracionesPorLinea(idCliente));
     }
@@ -178,7 +178,7 @@ public class ServicioPedido {
         if (!pedido.sePuedeConfirmarRecepcion()) {
             throw new EstadoPedidoNoPermitidoException(MENSAJE_NO_CONFIRMABLE);
         }
-        pedido.finalizar();
+        pedido.finalizar(reloj.instant());
         log.info("Pedido finalizado por el cliente: cliente={} pedido={}", idCliente, idPedido);
         return aDTO(repositorioPedido.save(pedido), valoracionesPorLinea(idCliente));
     }
