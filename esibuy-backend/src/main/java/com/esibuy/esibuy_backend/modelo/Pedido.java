@@ -1,6 +1,8 @@
 package com.esibuy.esibuy_backend.modelo;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +34,12 @@ public class Pedido {
     // Ultima vez que cambio el pedido (su estado). En los pedidos anteriores a este campo no existe
     @Field("fechaActualizacion")
     private Instant fechaActualizacion;
+    // Estado del envio: cada estado por el que ha pasado el pedido, con su fecha, y la fecha de entrega que indico el
+    // vendedor al enviarlo (si no la indico, se calcula). Los pedidos anteriores a estos campos no los tienen
+    @Field("seguimiento")
+    private List<EventoSeguimiento> seguimiento;
+    @Field("fechaEntregaEstimada")
+    private Instant fechaEntregaEstimada;
     @Field("direccionEnvio")
     private DireccionEnvio direccionEnvio;
     @Field("lineas")
@@ -51,6 +59,7 @@ public class Pedido {
         this.fecha = fecha;
         this.fechaActualizacion = fecha;
         this.estado = EstadoPedido.PAGADO;
+        this.seguimiento = new ArrayList<>(List.of(new EventoSeguimiento(EstadoPedido.PAGADO, fecha)));
     }
 
     /** Sin vendedor: se mantiene para el codigo y los tests anteriores. */
@@ -88,6 +97,16 @@ public class Pedido {
         return fechaActualizacion != null ? fechaActualizacion : fecha;
     }
 
+    /** Estados por los que ha pasado, del primero al ultimo. Vacio en los pedidos anteriores a guardarlos. */
+    public List<EventoSeguimiento> getSeguimiento() {
+        return seguimiento == null ? List.of() : Collections.unmodifiableList(seguimiento);
+    }
+
+    /** Fecha de entrega que indico el vendedor, o null si no indico ninguna. */
+    public Instant getFechaEntregaEstimada() {
+        return fechaEntregaEstimada;
+    }
+
     public DireccionEnvio getDireccionEnvio() {
         return direccionEnvio;
     }
@@ -111,13 +130,21 @@ public class Pedido {
     }
 
     public void cancelar(Instant cuando) {
-        this.estado = EstadoPedido.CANCELADO;
-        this.fechaActualizacion = cuando;
+        cambiarA(EstadoPedido.CANCELADO, cuando);
     }
 
     public void finalizar(Instant cuando) {
-        this.estado = EstadoPedido.FINALIZADO;
+        cambiarA(EstadoPedido.FINALIZADO, cuando);
+    }
+
+    // Cambia el estado y lo anota en el seguimiento con su fecha
+    private void cambiarA(EstadoPedido nuevo, Instant cuando) {
+        this.estado = nuevo;
         this.fechaActualizacion = cuando;
+        if (seguimiento == null) {
+            seguimiento = new ArrayList<>();
+        }
+        seguimiento.add(new EventoSeguimiento(nuevo, cuando));
     }
 
     @Override

@@ -16,6 +16,11 @@ public enum EstadoPedido {
     // Pasos del envio en orden. Se inicializa despues de las constantes del enum
     private static final List<EstadoPedido> ENVIO = List.of(PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO, ENTREGADO);
 
+    /** Pasos del envio en orden: PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO y ENTREGADO. */
+    public static List<EstadoPedido> pasosDelEnvio() {
+        return ENVIO;
+    }
+
     /** true mientras el pedido sigue su curso; false si ya ha terminado (finalizado o cancelado). */
     public boolean enProceso() {
         return this != FINALIZADO && this != CANCELADO;

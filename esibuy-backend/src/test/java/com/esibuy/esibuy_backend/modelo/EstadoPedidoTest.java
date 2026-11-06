@@ -12,7 +12,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Procesar estado del pedido: recorrido del envio (PAGADO, EN_PREPARACION, ENVIADO, EN_REPARTO, ENTREGADO), que solo
- * avanza, y fecha de la ultima actualizacion del pedido.
+ * avanza, y fecha de la ultima actualizacion del pedido. Estado del envio: cada cambio se anota en su seguimiento.
  */
 class EstadoPedidoTest {
 
@@ -79,6 +79,40 @@ class EstadoPedidoTest {
         finalizado.finalizar(DESPUES);
         assertThat(finalizado.getEstado()).isEqualTo(EstadoPedido.FINALIZADO);
         assertThat(finalizado.getFechaActualizacion()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    void unPedidoNuevo_empiezaSuSeguimientoPagadoCuandoSeHizo() {
+        assertThat(pedido().getSeguimiento()).singleElement().satisfies(evento -> {
+            assertThat(evento.getEstado()).isEqualTo(EstadoPedido.PAGADO);
+            assertThat(evento.getFecha()).isEqualTo(FECHA);
+        });
+    }
+
+    @Test
+    void cancelarOFinalizar_seAnotaEnElSeguimiento() {
+        Pedido pedido = pedido();
+        pedido.finalizar(DESPUES);
+        assertThat(pedido.getSeguimiento()).extracting(EventoSeguimiento::getEstado)
+                .containsExactly(EstadoPedido.PAGADO, EstadoPedido.FINALIZADO);
+        assertThat(pedido.getSeguimiento().get(1).getFecha()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    void unPedidoAnteriorAlSeguimiento_noTieneHistorialPeroSeAnotanLosCambiosNuevos() {
+        Pedido antiguo = pedido();
+        ReflectionTestUtils.setField(antiguo, "seguimiento", null);
+        assertThat(antiguo.getSeguimiento()).isEmpty();
+
+        antiguo.cancelar(DESPUES);
+        assertThat(antiguo.getSeguimiento()).extracting(EventoSeguimiento::getEstado)
+                .containsExactly(EstadoPedido.CANCELADO);
+    }
+
+    @Test
+    void losPasosDelEnvioVanEnOrden() {
+        assertThat(EstadoPedido.pasosDelEnvio()).containsExactly(EstadoPedido.PAGADO, EstadoPedido.EN_PREPARACION,
+                EstadoPedido.ENVIADO, EstadoPedido.EN_REPARTO, EstadoPedido.ENTREGADO);
     }
 
     @ParameterizedTest

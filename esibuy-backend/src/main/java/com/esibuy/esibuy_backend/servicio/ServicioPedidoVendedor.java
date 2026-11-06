@@ -1,6 +1,8 @@
 package com.esibuy.esibuy_backend.servicio;
 
 import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,6 +32,7 @@ import com.esibuy.esibuy_backend.excepcion.PedidoInvalidoException;
 import com.esibuy.esibuy_backend.excepcion.PedidoNoEncontradoException;
 import com.esibuy.esibuy_backend.modelo.DireccionEnvio;
 import com.esibuy.esibuy_backend.modelo.EstadoPedido;
+import com.esibuy.esibuy_backend.modelo.EventoSeguimiento;
 import com.esibuy.esibuy_backend.modelo.LineaPedido;
 import com.esibuy.esibuy_backend.modelo.Pedido;
 import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
@@ -43,7 +46,8 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
  * tratan igual que los que no existen (404), para no revelar que existen.
  *
  * El vendedor tambien hace avanzar el envio de sus pedidos (Procesar estado del pedido): solo hacia delante y nunca
- * en un pedido entregado, finalizado o cancelado. Cada cambio guarda la fecha en que se hizo.
+ * en un pedido entregado, finalizado o cancelado. Cada cambio guarda la fecha en que se hizo y se anota en el
+ * seguimiento del pedido (Estado del envio). Al enviarlo puede indicar la fecha estimada de entrega.
  */
 @Service
 public class ServicioPedidoVendedor {
@@ -56,6 +60,12 @@ public class ServicioPedidoVendedor {
     static final String MENSAJE_SOLO_AVANZA = "El envío solo puede avanzar: elige un estado posterior al actual";
     static final String MENSAJE_CAMBIADO_A_LA_VEZ =
             "El pedido ha cambiado mientras lo actualizabas. Recarga la página y vuelve a intentarlo";
+    static final String MENSAJE_FECHA_SOLO_AL_ENVIAR =
+            "La fecha estimada de entrega solo se indica al pasar el pedido a «Enviado» o «En reparto»";
+    static final String MENSAJE_FECHA_PASADA = "La fecha estimada de entrega no puede ser anterior a hoy";
+
+    // Estados en los que el vendedor puede indicar la fecha estimada de entrega
+    private static final List<EstadoPedido> ESTADOS_CON_FECHA = List.of(EstadoPedido.ENVIADO, EstadoPedido.EN_REPARTO);
 
     private static final Sort MAS_RECIENTES_PRIMERO = Sort.by(Sort.Direction.DESC, "fecha");
     private static final String CAMPO_ESTADO = "estado";
@@ -66,13 +76,15 @@ public class ServicioPedidoVendedor {
     private final RepositorioUsuario repositorioUsuario;
     private final MongoTemplate mongoTemplate;
     private final Clock reloj;
+    private final CalculadoraEntrega calculadoraEntrega;
 
     public ServicioPedidoVendedor(RepositorioPedido repositorioPedido, RepositorioUsuario repositorioUsuario,
-                                  MongoTemplate mongoTemplate, Clock reloj) {
+                                  MongoTemplate mongoTemplate, Clock reloj, CalculadoraEntrega calculadoraEntrega) {
         this.repositorioPedido = repositorioPedido;
         this.repositorioUsuario = repositorioUsuario;
         this.mongoTemplate = mongoTemplate;
         this.reloj = reloj;
+        this.calculadoraEntrega = calculadoraEntrega;
     }
 
     // Ver pedidos recibidos: los pedidos de los productos del vendedor, los mas recientes primero
@@ -91,11 +103,14 @@ public class ServicioPedidoVendedor {
         return detalleDe(pedidoDelVendedor(idVendedor, idPedido));
     }
 
-    // Procesar estado del pedido: el vendedor hace avanzar el envio de uno de sus pedidos y se guarda cuando lo hizo
-    public PedidoRecibidoDetalleDTO cambiarEstado(String idVendedor, String idPedido, EstadoPedido nuevo) {
+    // Procesar estado del pedido: el vendedor hace avanzar el envio de uno de sus pedidos y se guarda cuando lo hizo.
+    // Estado del envio: el cambio se anota en el seguimiento y, al enviarlo, puede fijar la fecha estimada de entrega
+    public PedidoRecibidoDetalleDTO cambiarEstado(String idVendedor, String idPedido, EstadoPedido nuevo,
+                                                  LocalDate fechaEntregaEstimada) {
         if (nuevo == null) {
             throw new PedidoInvalidoException(MENSAJE_ESTADO_OBLIGATORIO);
         }
+        validarFechaEntrega(nuevo, fechaEntregaEstimada);
         Pedido pedido = pedidoDelVendedor(idVendedor, idPedido);
         EstadoPedido actual = pedido.getEstado();
         if (actual.siguientesDelEnvio().isEmpty()) {
@@ -107,7 +122,13 @@ public class ServicioPedidoVendedor {
         // Solo se cambia si sigue en el estado comprobado: si el cliente lo cancela a la vez, no se pisa su cambio
         Query sinCambiosDesdeLaLectura = Query.query(Criteria.where("_id").is(new ObjectId(pedido.getId()))
                 .and(CAMPO_ESTADO).is(actual.name()));
-        Update avance = new Update().set(CAMPO_ESTADO, nuevo.name()).set("fechaActualizacion", reloj.instant());
+        Instant ahora = reloj.instant();
+        Update avance = new Update().set(CAMPO_ESTADO, nuevo.name())
+                .set("fechaActualizacion", ahora)
+                .push("seguimiento", new EventoSeguimiento(nuevo, ahora));
+        if (fechaEntregaEstimada != null) {
+            avance.set("fechaEntregaEstimada", CalculadoraEntrega.aInstante(fechaEntregaEstimada));
+        }
         Pedido actualizado = mongoTemplate.findAndModify(sinCambiosDesdeLaLectura, avance,
                 FindAndModifyOptions.options().returnNew(true), Pedido.class);
         if (actualizado == null) {
@@ -118,6 +139,19 @@ public class ServicioPedidoVendedor {
         return detalleDe(actualizado);
     }
 
+    // La fecha estimada es opcional, solo al enviarlo y nunca anterior a hoy (en la hora de la tienda)
+    private void validarFechaEntrega(EstadoPedido nuevo, LocalDate fechaEntregaEstimada) {
+        if (fechaEntregaEstimada == null) {
+            return;
+        }
+        if (!ESTADOS_CON_FECHA.contains(nuevo)) {
+            throw new PedidoInvalidoException(MENSAJE_FECHA_SOLO_AL_ENVIAR);
+        }
+        if (fechaEntregaEstimada.isBefore(LocalDate.now(reloj.withZone(CalculadoraEntrega.ZONA)))) {
+            throw new PedidoInvalidoException(MENSAJE_FECHA_PASADA);
+        }
+    }
+
     private PedidoRecibidoDetalleDTO detalleDe(Pedido pedido) {
         Map<String, String> clientes = nombresDeClientes(Collections.singleton(pedido.getIdCliente()));
         List<LineaPedidoRecibidoDTO> lineas = pedido.getLineas().stream()
@@ -125,7 +159,8 @@ public class ServicioPedidoVendedor {
                 .toList();
         return new PedidoRecibidoDetalleDTO(pedido.getId(), pedido.getFecha(), nombreDelCliente(pedido, clientes),
                 pedido.getPrecioTotal(), pedido.getEstado(), unidades(pedido), pedido.getFechaActualizacion(),
-                pedido.getEstado().siguientesDelEnvio(), aDireccionDTO(pedido.getDireccionEnvio()), lineas);
+                calculadoraEntrega.estimada(pedido), pedido.getEstado().siguientesDelEnvio(),
+                aDireccionDTO(pedido.getDireccionEnvio()), lineas);
     }
 
     // Pedido del vendedor. Uno de otro vendedor se trata igual que uno inexistente (404)
