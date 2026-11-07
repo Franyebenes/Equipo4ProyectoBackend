@@ -170,7 +170,7 @@ class ControladorLoginTest {
         // Then: exactamente esos campos, sin hash, contraseña ni identificador de sesión
         String cuerpo = cuerpoDe(resultado);
         Map<String, Object> campos = JsonPath.read(cuerpo, "$");
-        assertThat(campos.keySet()).containsExactlyInAnyOrder("id", "email", "nombre", "rol", "mensaje");
+        assertThat(campos.keySet()).containsExactlyInAnyOrder("id", "email", "nombre", "rol", "avatar", "mensaje");
         HttpSession sesion = resultado.getRequest().getSession(false);
         assertThat(sesion).isNotNull();
         assertThat(cuerpo).doesNotContain(CONTRASENA).doesNotContain("JSESSIONID");

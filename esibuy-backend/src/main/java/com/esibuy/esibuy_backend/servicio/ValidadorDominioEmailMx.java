@@ -13,6 +13,7 @@ import javax.naming.directory.Attribute;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -43,6 +44,7 @@ public class ValidadorDominioEmailMx implements ValidadorDominioEmail {
 
     private final ConsultaDns dns;
 
+    @Autowired 
     public ValidadorDominioEmailMx() {
         this(ValidadorDominioEmailMx::consultarConJndi);
     }

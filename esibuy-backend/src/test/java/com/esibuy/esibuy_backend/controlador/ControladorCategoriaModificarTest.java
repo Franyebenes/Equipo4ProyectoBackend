@@ -19,6 +19,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.esibuy.esibuy_backend.dto.CategoriaDTO;
 import com.esibuy.esibuy_backend.excepcion.CategoriaDuplicadaException;
@@ -84,6 +86,20 @@ class ControladorCategoriaModificarTest {
                 .andExpect(jsonPath("$.nombre").value("Moda y calzado"))
                 .andExpect(jsonPath("$.descripcion").value("Ropa, zapatos y complementos."));
         verify(servicioCategoria).modificarCategoria(ID, recibida);
+    }
+
+        @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"nombre\":\"Moda & Co\",\"descripcion\":\"Ropa y complementos.\"}",
+            "{\"nombre\":\"<script>\",\"descripcion\":\"Ropa y complementos.\"}",
+            "{\"nombre\":\"Moda\",\"descripcion\":\"Ropa <b>barata</b>\"}",
+            "{\"nombre\":\"Moda\",\"descripcion\":\"100% algodón\"}"})
+    @WithMockUser(roles = "ADMIN")
+    void modificar_conCaracteresEspeciales_devuelve400YNoLlamaAlServicio(String cuerpo) throws Exception {
+        // When / Then: CategoriaDTO es el mismo al crear (POST), asi que alli se rechazan igual
+        mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isBadRequest());
+        verify(servicioCategoria, never()).modificarCategoria(anyString(), any());
     }
 
     @Test
