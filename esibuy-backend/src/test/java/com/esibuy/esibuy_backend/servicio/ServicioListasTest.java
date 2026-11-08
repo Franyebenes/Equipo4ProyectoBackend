@@ -29,6 +29,7 @@ import com.esibuy.esibuy_backend.excepcion.ConflictoNegocioException;
 import com.esibuy.esibuy_backend.excepcion.RecursoNoEncontradoException;
 import com.esibuy.esibuy_backend.modelo.ListaProductos;
 import com.esibuy.esibuy_backend.modelo.Producto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioFavorito;
 import com.esibuy.esibuy_backend.repositorio.RepositorioListaProductos;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +42,9 @@ class ServicioListasTest {
 
     @Mock
     private RepositorioListaProductos repositorio;
+    // Sin favoritos antiguos que migrar (un mock devuelve una lista vacia)
+    @Mock
+    private RepositorioFavorito repositorioFavorito;
     @Mock
     private MongoTemplate mongoTemplate;
     @InjectMocks
