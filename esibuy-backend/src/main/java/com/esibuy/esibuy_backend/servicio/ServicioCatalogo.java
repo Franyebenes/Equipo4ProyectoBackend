@@ -2,6 +2,7 @@ package com.esibuy.esibuy_backend.servicio;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,6 +25,7 @@ import com.esibuy.esibuy_backend.modelo.Producto;
 import com.esibuy.esibuy_backend.modelo.Valoracion;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
+import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioValoracion;
 
 @Service
@@ -38,12 +40,14 @@ public class ServicioCatalogo {
     private final RepositorioProducto repositorioProducto;
     private final RepositorioCategoria repositorioCategoria;
     private final RepositorioValoracion repositorioValoracion;
+    private final RepositorioUsuario repositorioUsuario;
 
     public ServicioCatalogo(RepositorioProducto repositorioProducto, RepositorioCategoria repositorioCategoria,
-                            RepositorioValoracion repositorioValoracion) {
+                            RepositorioValoracion repositorioValoracion, RepositorioUsuario repositorioUsuario) {
         this.repositorioProducto = repositorioProducto;
         this.repositorioCategoria = repositorioCategoria;
         this.repositorioValoracion = repositorioValoracion;
+        this.repositorioUsuario = repositorioUsuario;
     }
 
     /** Media de estrellas de un producto y cuantas valoraciones tiene. */
@@ -58,11 +62,15 @@ public class ServicioCatalogo {
      */
     public PaginaDTO<ProductoClienteDTO> buscar(FiltroCatalogoCliente filtro, int pagina, boolean clientePremium) {
         filtro.validar();
-        FiltroCatalogo porNombre = new FiltroCatalogo(filtro.busqueda(), filtro.idCategoria(), null, null, null);
+        FiltroCatalogo porCategoria = new FiltroCatalogo(null, filtro.idCategoria(), null, null, null);
         Map<String, Puntuacion> puntuaciones = puntuacionesPorProducto(repositorioValoracion.findAll());
         // El id de MongoDB empieza por la fecha de creacion: ordenado al reves, los mas nuevos primero
-        List<Producto> encontrados = repositorioProducto.buscarActivos().stream()
-                .filter(porNombre::admite)
+        List<Producto> activos = repositorioProducto.buscarActivos();
+        Map<String, String> tiendas = nombresDeTiendas(activos);
+        List<Producto> encontrados = activos.stream()
+                .filter(porCategoria::admite)
+                .filter(producto -> FiltroCatalogo.algunoContiene(filtro.busqueda(), producto.getNombre(),
+                        tiendas.get(producto.getIdVendedor())))
                 .filter(producto -> cumplePrecio(producto, filtro, clientePremium))
                 .filter(producto -> cumpleValoracion(puntuaciones.get(producto.getId()), filtro))
                 .filter(producto -> !filtro.soloDisponibles()
@@ -78,7 +86,8 @@ public class ServicioCatalogo {
         Map<String, String> nombresCategorias = nombresDeCategorias(dePagina);
         List<ProductoClienteDTO> contenido = dePagina.stream()
                 .map(producto -> aDTO(producto, imagenes, nombresCategorias, clientePremium,
-                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES)))
+                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES),
+                        tiendas.get(producto.getIdVendedor())))
                 .toList();
         return PaginaDTO.desde(
                 new PageImpl<>(contenido, PageRequest.of(numeroPagina, TAMANO_PAGINA), encontrados.size()));
@@ -96,9 +105,11 @@ public class ServicioCatalogo {
                 .collect(Collectors.toMap(Producto::getId, Producto::getImagen));
         Map<String, String> nombresCategorias = nombresDeCategorias(productos);
         Map<String, Puntuacion> puntuaciones = puntuacionesPorProducto(repositorioValoracion.findAll());
+        Map<String, String> tiendas = nombresDeTiendas(productos);
         return productos.stream()
                 .map(producto -> aDTO(producto, imagenes, nombresCategorias, clientePremium,
-                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES)))
+                        puntuaciones.getOrDefault(producto.getId(), SIN_VALORACIONES),
+                        tiendas.get(producto.getIdVendedor())))
                 .toList();
     }
 
@@ -128,6 +139,16 @@ public class ServicioCatalogo {
         return repositorioProducto.findAllById(ids).stream()
                 .filter(producto -> producto.getImagen() != null)
                 .collect(Collectors.toMap(Producto::getId, Producto::getImagen));
+    }
+
+    // Nombre comercial de cada vendedor, con una sola consulta para todos
+    private Map<String, String> nombresDeTiendas(List<Producto> productos) {
+        Set<String> ids = productos.stream().map(Producto::getIdVendedor).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<String, String> nombres = new HashMap<>();
+        repositorioUsuario.findAllById(ids)
+                .forEach(vendedor -> nombres.put(vendedor.getId(), vendedor.getPerfil().getNombreComercial()));
+        return nombres;
     }
 
     // Una sola consulta para las categorias de todos los productos de la pagina
@@ -173,13 +194,13 @@ public class ServicioCatalogo {
 
     private static ProductoClienteDTO aDTO(Producto producto, Map<String, String> imagenes,
                                            Map<String, String> nombresCategorias, boolean clientePremium,
-                                           Puntuacion puntuacion) {
+                                           Puntuacion puntuacion, String nombreTienda) {
         PrecioProducto precio = producto.getPrecio();
         boolean conPrecio = tienePrecio(precio);
         return new ProductoClienteDTO(producto.getId(), producto.getNombre(), imagenes.get(producto.getId()),
                 nombresCategorias(producto, nombresCategorias), conPrecio ? precio.getBase() : null,
                 conPrecio ? precio.precioFinal(clientePremium) : null, Boolean.TRUE.equals(producto.getSoloPremium()),
-                Disponibilidad.de(producto.getStock()), puntuacion.media(), puntuacion.numero());
+                Disponibilidad.de(producto.getStock()), puntuacion.media(), puntuacion.numero(), nombreTienda);
     }
 
     // Nombres de las categorias del producto (si se ha borrado alguna, no sale)

@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Captura todo lo que se escribe en el log mientras esta abierto (usar con try-with-resources).
+ * Captura lo que se escribe en el log mientras esta abierto (usar con try-with-resources).
  */
 public final class CapturadorLogs implements AutoCloseable {
 
@@ -34,7 +34,7 @@ public final class CapturadorLogs implements AutoCloseable {
     }
 
     /**
-     * Devuelve, para cada evento, todo el texto que podria filtrar informacion: mensaje formateado,
+     * Devuelve, para cada evento, el texto que podria filtrar informacion: mensaje formateado,
      * argumentos, MDC y traza completa de la excepcion (con sus causas).
      */
     public List<String> textosCompletos() {

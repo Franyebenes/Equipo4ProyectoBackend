@@ -53,6 +53,8 @@ public class ServicioPedido {
     static final String MENSAJE_DIRECCION_LARGA = "La dirección es demasiado larga";
     static final String MENSAJE_NO_CANCELABLE = "Solo se puede cancelar un pedido que aún no se ha enviado";
     static final String MENSAJE_NO_CONFIRMABLE = "Este pedido ya está finalizado o cancelado";
+    static final String MENSAJE_AUN_NO_ENTREGADO =
+            "Aún no puedes confirmar la recepción: el vendedor todavía no ha marcado el pedido como entregado";
     static final String MENSAJE_VARIOS_VENDEDORES =
             "Tu carrito tiene productos de varios vendedores: elige de cuál quieres hacer la compra";
     static final String MENSAJE_SIN_PRODUCTOS_VENDEDOR = "No tienes productos de ese vendedor en el carrito";
@@ -88,11 +90,17 @@ public class ServicioPedido {
         return realizar(idCliente, premium, direccion, null);
     }
 
+    private DireccionEnvio resolverDireccion(String idCliente, DireccionEnvioDTO direccion) {
+        return direccion != null && direccion.idDireccion() != null
+                ? servicioDireccion.paraPedido(idCliente, direccion.idDireccion())
+                : validarDireccion(direccion);
+    }
+
     // HU-26 Realizar pedido: cada pedido es de un solo vendedor (lo pidio el product owner). Se compran los productos
     // del carrito de ese vendedor con los precios de este momento y solo esos salen del carrito; los de otros
     // vendedores se quedan para otra compra. Sin vendedor elegido, el carrito tiene que ser de uno solo.
     public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion, String idVendedor) {
-        DireccionEnvio direccionEnvio = direccionDelPedido(idCliente, direccion);
+        DireccionEnvio direccionEnvio = resolverDireccion(idCliente, direccion);
         if (idVendedor != null && !ObjectId.isValid(idVendedor)) {
             throw new PedidoInvalidoException(MENSAJE_SIN_PRODUCTOS_VENDEDOR);
         }
@@ -108,22 +116,19 @@ public class ServicioPedido {
         Set<String> vendedores = new HashSet<>();
         for (LineaCarrito linea : carrito.getLineas()) {
             Producto producto = productos.get(linea.getIdProducto());
-            // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora y se limpia
             if (producto == null) {
+                // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora y se limpia
                 quitarDelCarrito.add(linea.getIdProducto());
-                continue;
+            } else if (idVendedor == null || idVendedor.equals(producto.getIdVendedor())) {
+                // Los productos de otros vendedores no entran en esta rama y se quedan en el carrito
+                if (!Boolean.TRUE.equals(producto.getVisible())) {
+                    throw new PedidoInvalidoException(MENSAJE_PRODUCTOS_NO_DISPONIBLES);
+                }
+                lineas.add(new LineaPedido(producto.getId(), producto.getNombre(), linea.getCantidad(),
+                        ServicioCarrito.precioFinal(producto.getPrecio(), premium)));
+                quitarDelCarrito.add(producto.getId());
+                vendedores.add(producto.getIdVendedor());
             }
-            // Los productos de otros vendedores se quedan en el carrito
-            if (idVendedor != null && !idVendedor.equals(producto.getIdVendedor())) {
-                continue;
-            }
-            if (!Boolean.TRUE.equals(producto.getVisible())) {
-                throw new PedidoInvalidoException(MENSAJE_PRODUCTOS_NO_DISPONIBLES);
-            }
-            lineas.add(new LineaPedido(producto.getId(), producto.getNombre(), linea.getCantidad(),
-                    ServicioCarrito.precioFinal(producto.getPrecio(), premium)));
-            quitarDelCarrito.add(producto.getId());
-            vendedores.add(producto.getIdVendedor());
         }
         if (lineas.isEmpty()) {
             throw new PedidoInvalidoException(idVendedor == null ? MENSAJE_CARRITO_VACIO : MENSAJE_SIN_PRODUCTOS_VENDEDOR);
@@ -142,15 +147,6 @@ public class ServicioPedido {
                 pedido.getId(), lineas.size(), total);
         return aDTO(pedido, Map.of());
     }
-
-    // La direccion de la libreta del cliente (404 si no es suya) o, si no se indica una, la escrita a mano.
-    private DireccionEnvio direccionDelPedido(String idCliente, DireccionEnvioDTO direccion) {
-        if (direccion != null && direccion.idDireccion() != null) {
-            return servicioDireccion.paraPedido(idCliente, direccion.idDireccion());
-        }
-        return validarDireccion(direccion);
-    }
-
     // HU-27 Historial de compras: los pedidos del cliente, los mas recientes primero, separados entre los que
     // siguen en curso y los que ya han terminado. Cada linea lleva la valoracion que le dio el cliente, si la hay.
     public HistorialPedidosDTO historial(String idCliente) {
@@ -180,10 +176,12 @@ public class ServicioPedido {
     }
 
     // HU-30 El cliente confirma que ha recibido el pedido y este pasa a FINALIZADO; desde entonces puede valorarlo.
+    // Solo cuando el vendedor lo ha marcado como entregado (antes de enviarlo, el cliente aun puede cancelarlo).
     public PedidoDTO confirmarRecepcion(String idCliente, String idPedido) {
         Pedido pedido = pedidoDelCliente(idCliente, idPedido);
         if (!pedido.sePuedeConfirmarRecepcion()) {
-            throw new EstadoPedidoNoPermitidoException(MENSAJE_NO_CONFIRMABLE);
+            throw new EstadoPedidoNoPermitidoException(
+                    pedido.getEstado().enProceso() ? MENSAJE_AUN_NO_ENTREGADO : MENSAJE_NO_CONFIRMABLE);
         }
         pedido.finalizar(reloj.instant());
         log.info("Pedido finalizado por el cliente: cliente={} pedido={}", idCliente, idPedido);

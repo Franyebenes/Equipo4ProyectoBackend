@@ -131,12 +131,27 @@ class EstadoPedidoTest {
                 EstadoPedido.ENVIADO, EstadoPedido.EN_REPARTO, EstadoPedido.ENTREGADO);
     }
 
+    @Test
+    void unaVezEntregado_elClientePuedeConfirmarLaRecepcion() {
+        Pedido pedido = pedido();
+        ReflectionTestUtils.setField(pedido, "estado", EstadoPedido.ENTREGADO);
+        assertThat(pedido.sePuedeConfirmarRecepcion()).isTrue();
+    }
+
     @ParameterizedTest
-    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO"})
-    void elClientePuedeConfirmarLaRecepcionDuranteTodoElEnvio(EstadoPedido estado) {
+    @EnumSource(value = EstadoPedido.class, mode = EnumSource.Mode.EXCLUDE, names = {"ENTREGADO"})
+    void siNoEstaEntregado_noSePuedeConfirmarLaRecepcion(EstadoPedido estado) {
         Pedido pedido = pedido();
         ReflectionTestUtils.setField(pedido, "estado", estado);
-        assertThat(pedido.sePuedeConfirmarRecepcion()).isTrue();
+        assertThat(pedido.sePuedeConfirmarRecepcion()).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(EstadoPedido.class)
+    void enNingunEstado_sePuedeCancelarYConfirmarLaRecepcionALaVez(EstadoPedido estado) {
+        Pedido pedido = pedido();
+        ReflectionTestUtils.setField(pedido, "estado", estado);
+        assertThat(pedido.sePuedeCancelar() && pedido.sePuedeConfirmarRecepcion()).isFalse();
     }
 
     private static Pedido pedido() {

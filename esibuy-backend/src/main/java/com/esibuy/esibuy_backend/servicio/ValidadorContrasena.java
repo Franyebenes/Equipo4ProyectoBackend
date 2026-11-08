@@ -69,9 +69,7 @@ public class ValidadorContrasena {
         boolean hayEspecial = false;
         boolean hayMayuscula = false;
         boolean hayMinuscula = false;
-        for (int i = 0; i < contrasena.length(); ) {
-            int puntoDeCodigo = contrasena.codePointAt(i);
-            i += Character.charCount(puntoDeCodigo);
+        for (int puntoDeCodigo : contrasena.codePoints().toArray()){
             int tipo = Character.getType(puntoDeCodigo);
             if (puntoDeCodigo >= '0' && puntoDeCodigo <= '9') {
                 hayNumero = true;

@@ -35,6 +35,9 @@ import com.esibuy.esibuy_backend.excepcion.PedidoNoEncontradoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoEnPedidoException;
 import com.esibuy.esibuy_backend.excepcion.ProductoYaValoradoException;
 import com.esibuy.esibuy_backend.excepcion.ValoracionInvalidaException;
+
+import org.jspecify.annotations.Nullable;
+
 import com.esibuy.esibuy_backend.excepcion.DatosInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.CantidadNoValidaException;
 import com.esibuy.esibuy_backend.excepcion.ProductoNoDisponibleException;
@@ -295,7 +298,7 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
      * solo un mensaje generico, sin repetir lo que envio el cliente.
      */
     @Override
-    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+    protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, 
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {
         Map<String, Set<CodigoError>> errores = errorEnCampo(ex);
@@ -307,8 +310,9 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
     /** Cuerpo comun para las excepciones estandar de Spring MVC: solo un mensaje, nunca la excepcion. */
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
-                                                             HttpStatusCode statusCode, WebRequest request) {
+    protected @Nullable ResponseEntity<Object> handleExceptionInternal(Exception ex, @Nullable Object body,
+                                                                   HttpHeaders headers, HttpStatusCode statusCode,
+                                                                   WebRequest request){
         Map<String, Object> cuerpo = Map.of(CLAVE_MENSAJE, mensajePara(statusCode));
         return super.handleExceptionInternal(ex, cuerpo, headers, statusCode, request);
     }

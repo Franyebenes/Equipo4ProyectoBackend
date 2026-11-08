@@ -8,8 +8,9 @@ import java.util.List;
  * @param soloPremium producto solo para clientes premium (al resto se le muestra, pero no lo puede comprar)
  * @param valoracionMedia    media de las valoraciones (de 1 a 5), o null si todavia no tiene
  * @param numeroValoraciones cuantas valoraciones tiene
+ * @param nombreTienda       nombre comercial del vendedor; null si no se conoce
  */
 public record ProductoClienteDTO(String id, String nombre, String imagen, List<String> categorias, Double precio,
                                  Double precioFinal, Boolean soloPremium, Disponibilidad disponibilidad,
-                                 Double valoracionMedia, int numeroValoraciones) {
+                                 Double valoracionMedia, int numeroValoraciones, String nombreTienda) {
 }

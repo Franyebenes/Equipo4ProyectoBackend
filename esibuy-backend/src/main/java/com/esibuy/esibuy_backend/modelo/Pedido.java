@@ -19,6 +19,12 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 @Document(collection = "pedidos")
 public class Pedido {
 
+    /**
+     * Cliente ficticio al que pasan los pedidos de quien se da de baja. Es un id reservado sin usuario detras: nadie
+     * puede iniciar sesion con el y el vendedor lo ve como "Cliente eliminado".
+     */
+    public static final String ID_CLIENTE_FICTICIO = "000000000000000000000000";
+
     @Id
     private String id;
     @Field(name = "idCliente", targetType = FieldType.OBJECT_ID)
@@ -124,9 +130,12 @@ public class Pedido {
         return estado == EstadoPedido.PAGADO || estado == EstadoPedido.EN_PREPARACION;
     }
 
-    /** El cliente puede confirmar que lo ha recibido en cualquier momento mientras el pedido sigue en curso. */
+    /**
+     * El cliente solo puede confirmar que lo ha recibido cuando el vendedor lo ha marcado como entregado. Asi nunca
+     * coincide con cancelar, que solo se puede antes del envio.
+     */
     public boolean sePuedeConfirmarRecepcion() {
-        return estado.esPasoDelEnvio();
+        return estado == EstadoPedido.ENTREGADO;
     }
 
     public void cancelar(Instant cuando) {
