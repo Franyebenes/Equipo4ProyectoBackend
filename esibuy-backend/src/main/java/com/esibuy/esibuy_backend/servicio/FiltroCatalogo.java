@@ -1,6 +1,7 @@
 package com.esibuy.esibuy_backend.servicio;
 
 import java.text.Normalizer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -68,6 +69,15 @@ public record FiltroCatalogo(String busqueda, String idCategoria, Boolean activo
         double precioFinal = ServicioCarrito.precioFinal(precio, false);
         return (precioMinimo == null || precioFinal >= precioMinimo)
                 && (precioMaximo == null || precioFinal <= precioMaximo);
+    }
+
+    /** true si la busqueda esta vacia o alguno de los textos la contiene, sin distinguir mayusculas ni tildes. */
+    static boolean algunoContiene(String busqueda, String... textos) {
+        if (vacio(busqueda)) {
+            return true;
+        }
+        String buscado = normalizar(busqueda);
+        return Arrays.stream(textos).anyMatch(texto -> texto != null && normalizar(texto).contains(buscado));
     }
 
     private static boolean vacio(String texto) {

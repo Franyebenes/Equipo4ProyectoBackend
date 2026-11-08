@@ -67,10 +67,14 @@ public class ServicioProductoAdmin {
         Map<String, IntSummaryStatistics> puntuaciones = repositorioValoracion.findAll().stream()
                 .collect(Collectors.groupingBy(Valoracion::getIdProducto,
                         Collectors.summarizingInt(Valoracion::getPuntos)));
-        FiltroCatalogo porNombreCategoriaYPrecio = new FiltroCatalogo(filtro.busqueda(), filtro.idCategoria(), null,
+        FiltroCatalogo porCategoriaYPrecio = new FiltroCatalogo(null, filtro.idCategoria(), null,
                 filtro.precioMinimo(), filtro.precioMaximo());
-        List<Producto> encontrados = mongoTemplate.find(consulta, Producto.class).stream()
-                .filter(porNombreCategoriaYPrecio::admite)
+        List<Producto> todos = mongoTemplate.find(consulta, Producto.class);
+        Map<String, String> vendedores = nombresVendedores(todos);
+        List<Producto> encontrados = todos.stream()
+                .filter(porCategoriaYPrecio::admite)
+                .filter(p -> FiltroCatalogo.algunoContiene(filtro.busqueda(), p.getNombre(),
+                        vendedores.get(p.getIdVendedor())))
                 .filter(p -> cumpleValoracion(puntuaciones.get(p.getId()), filtro))
                 .filter(p -> !filtro.soloDisponibles() || Disponibilidad.de(p.getStock()) != Disponibilidad.AGOTADO)
                 .toList();
@@ -80,7 +84,6 @@ public class ServicioProductoAdmin {
                 .limit(tamanoSeguro)
                 .toList();
         Map<String, String> imagenes = imagenesDe(productos);
-        Map<String, String> vendedores = nombresVendedores(productos);
         Map<String, String> categorias = nombresCategorias(productos);
 
         List<ProductoAdminDTO> contenido = productos.stream()

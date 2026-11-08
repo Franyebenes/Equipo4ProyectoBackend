@@ -47,6 +47,8 @@ class ServicioCatalogoFiltrosTest {
     private RepositorioCategoria repositorioCategoria;
     @Mock
     private RepositorioValoracion repositorioValoracion;
+    @Mock
+    private com.esibuy.esibuy_backend.repositorio.RepositorioUsuario repositorioUsuario;
     @InjectMocks
     private ServicioCatalogo servicio;
 

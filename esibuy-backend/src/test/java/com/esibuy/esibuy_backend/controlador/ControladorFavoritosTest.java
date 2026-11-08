@@ -48,7 +48,7 @@ class ControladorFavoritosTest {
     @WithMockUser(username = ID_CLIENTE, roles = "CLIENTE")
     void listar_cliente_devuelveSusFavoritosConLaInformacionDelCatalogo() throws Exception {
         when(servicioFavoritos.listar(ID_CLIENTE, false)).thenReturn(List.of(new ProductoClienteDTO(ID_TAZA, "Taza",
-                null, List.of("Cocina"), 4.0, 4.0, false, Disponibilidad.DISPONIBLE, null, 0)));
+                null, List.of("Cocina"), 4.0, 4.0, false, Disponibilidad.DISPONIBLE, null, 0, "Tienda")));
 
         mockMvc.perform(get(RUTA))
                 .andExpect(status().isOk())

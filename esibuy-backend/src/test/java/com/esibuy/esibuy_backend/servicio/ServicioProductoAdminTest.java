@@ -140,6 +140,22 @@ class ServicioProductoAdminTest {
     }
 
     @Test
+    void listar_buscaTambienPorNombreDeLaTienda() {
+        Producto deLaTienda = Producto.builder().id("p1").nombre("Taza").idVendedor(VENDEDOR)
+                .precio(new PrecioProducto(10.0, null, null)).stock(5).visible(true).build();
+        Usuario vendedor = new Usuario("tienda@gmail.com", "$argon2id$hash", Rol.VENDEDOR,
+                PerfilUsuario.builder().nombre("Ana").apellidos("Lopez").nombreComercial("Cerámica Ana").build());
+        ReflectionTestUtils.setField(vendedor, "id", VENDEDOR);
+        hayProductos(List.of(deLaTienda, producto("p2", "Plato", 10.0, 5)));
+        when(repositorioUsuario.findAllById(any())).thenReturn(List.of(vendedor));
+
+        PaginaDTO<ProductoAdminDTO> pagina = servicio.listar(new FiltroCatalogoCliente("ceramica", null, null, null, null, false), 0, 12);
+
+        assertThat(nombres(pagina)).containsExactly("Taza");
+        assertThat(pagina.contenido().get(0).vendedor()).isEqualTo("Cerámica Ana");
+    }
+
+    @Test
     void listar_filtraPorValoracionMinima() {
         hayProductos(List.of(producto("p1", "Bien valorado", 10.0, 5), producto("p2", "Mal valorado", 10.0, 5),
                 producto("p3", "Sin valorar", 10.0, 5)));

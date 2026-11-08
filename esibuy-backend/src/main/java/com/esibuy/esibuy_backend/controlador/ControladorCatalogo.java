@@ -29,7 +29,7 @@ public class ControladorCatalogo {
     }
 
     // HU-19 Buscar y HU-20 Filtrar productos. Todos los parametros son opcionales y se combinan: ?busqueda= (nombre
-    // completo o parcial), ?idCategoria=, ?precioMinimo= y ?precioMaximo= (el precio que paga el cliente),
+    // del producto o de la tienda, completo o parcial), ?idCategoria=, ?precioMinimo= y ?precioMaximo= (el precio que paga el cliente),
     // ?valoracionMinima= (1 a 5 estrellas), ?soloDisponibles=true (sin agotados) y ?pagina= empezando en 0. Si el
     // cliente es premium, los precios llevan tambien su descuento. Filtros sin sentido: 400 con el motivo.
     @GetMapping

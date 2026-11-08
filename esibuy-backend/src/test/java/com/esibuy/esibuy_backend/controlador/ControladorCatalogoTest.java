@@ -38,7 +38,7 @@ class ControladorCatalogoTest {
             new FiltroCatalogoCliente("taza", null, null, null, null, false);
     private static final PaginaDTO<ProductoClienteDTO> PAGINA = new PaginaDTO<>(List.of(new ProductoClienteDTO(
             "64b7f0c2a1b2c3d4e5f60101", "Taza", null, List.of("Cocina"), 4.0, 3.6, false,
-            Disponibilidad.POCO_STOCK, 4.5, 2)), 0, 12, 1, 1);
+            Disponibilidad.POCO_STOCK, 4.5, 2, "Tienda")), 0, 12, 1, 1);
 
     @Autowired
     private MockMvc mockMvc;
