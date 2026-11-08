@@ -19,7 +19,7 @@ public class ComprobadorUsoDireccionMongo implements ComprobadorUsoDireccion {
     static final String CAMPO_CLIENTE = "idCliente";
     static final String CAMPO_DIRECCION = "direccionEnvio.idDireccion";
     static final String CAMPO_ESTADO = "estado";
-    /** PENDIENTE, PAGADO, ENVIADO y ENTREGADO: los que aun no estan FINALIZADO ni CANCELADO. */
+    /** Todos los que aun no estan FINALIZADO ni CANCELADO (de PENDIENTE a ENTREGADO). */
     static final List<String> ESTADOS_EN_CURSO = Arrays.stream(EstadoPedido.values())
             .filter(EstadoPedido::enProceso)
             .map(Enum::name)

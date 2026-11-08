@@ -49,7 +49,8 @@ public class ServicioBajaCuenta {
             "No puedes darte de baja mientras tengas pedidos en curso. Complétalos e inténtalo de nuevo";
     static final String CODIGO_CLIENTE_CON_PEDIDOS = "CLIENTE_CON_PEDIDOS_EN_CURSO";
     static final String MENSAJE_CLIENTE_CON_PEDIDOS =
-            "No puedes darte de baja mientras tengas pedidos en curso. Cuando los recibas, confirma su recepción e inténtalo de nuevo";
+            "No puedes darte de baja mientras tengas pedidos en curso. Cancela los que aún no se han enviado o, "
+                    + "cuando te entreguen los demás, confirma su recepción e inténtalo de nuevo";
     static final String MENSAJE_USUARIO_NO_ENCONTRADO = "El usuario no existe";
 
     private static final String CAMPO_ID_CLIENTE = "idCliente";

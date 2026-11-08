@@ -45,8 +45,9 @@ import com.esibuy.esibuy_backend.repositorio.RepositorioProducto;
 import com.esibuy.esibuy_backend.repositorio.RepositorioValoracion;
 
 /**
- * HU-28 Cancelar pedido: solo si esta pagado, devolviendo el stock. HU-30 Confirmar recepcion: el pedido pasa a
- * FINALIZADO. En los dos casos el pedido tiene que ser del cliente de la sesion.
+ * HU-28 Cancelar pedido: solo si aun no se ha enviado, devolviendo el stock. HU-30 Confirmar recepcion: solo cuando el
+ * vendedor lo ha marcado como entregado, y el pedido pasa a FINALIZADO. En los dos casos el pedido tiene que ser del
+ * cliente de la sesion.
  */
 @ExtendWith(MockitoExtension.class)
 class ServicioPedidoCancelarTest {
@@ -136,17 +137,28 @@ class ServicioPedidoCancelarTest {
 
     // ---------- Confirmar recepcion ----------
 
-    @ParameterizedTest
-    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO", "ENTREGADO"})
-    void confirmarRecepcionDeUnPedidoEnCursoLoFinaliza(EstadoPedido estado) {
+    @Test
+    void confirmarRecepcionDeUnPedidoEntregadoLoFinaliza() {
         // Given
-        pedidoEnBaseDeDatos(ID_CLIENTE, estado);
+        pedidoEnBaseDeDatos(ID_CLIENTE, EstadoPedido.ENTREGADO);
         when(repositorioPedido.save(any())).thenAnswer(invocacion -> invocacion.getArgument(0));
         // When
         PedidoDTO pedido = servicio.confirmarRecepcion(ID_CLIENTE, ID_PEDIDO);
         // Then
         assertThat(pedido.estado()).isEqualTo(EstadoPedido.FINALIZADO);
         verifyNoInteractions(mongoTemplate);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoPedido.class, names = {"PAGADO", "EN_PREPARACION", "ENVIADO", "EN_REPARTO"})
+    void confirmarRecepcionDeUnPedidoQueAunNoEstaEntregadoLanzaExcepcionSinFinalizarlo(EstadoPedido estado) {
+        // Given
+        pedidoEnBaseDeDatos(ID_CLIENTE, estado);
+        // When / Then
+        assertThatThrownBy(() -> servicio.confirmarRecepcion(ID_CLIENTE, ID_PEDIDO))
+                .isInstanceOf(EstadoPedidoNoPermitidoException.class)
+                .hasMessage(ServicioPedido.MENSAJE_AUN_NO_ENTREGADO);
+        verify(repositorioPedido, never()).save(any());
     }
 
     @ParameterizedTest

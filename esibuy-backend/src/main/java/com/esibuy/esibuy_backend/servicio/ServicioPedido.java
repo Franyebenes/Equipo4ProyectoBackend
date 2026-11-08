@@ -53,6 +53,8 @@ public class ServicioPedido {
     static final String MENSAJE_DIRECCION_LARGA = "La dirección es demasiado larga";
     static final String MENSAJE_NO_CANCELABLE = "Solo se puede cancelar un pedido que aún no se ha enviado";
     static final String MENSAJE_NO_CONFIRMABLE = "Este pedido ya está finalizado o cancelado";
+    static final String MENSAJE_AUN_NO_ENTREGADO =
+            "Aún no puedes confirmar la recepción: el vendedor todavía no ha marcado el pedido como entregado";
     static final String MENSAJE_VARIOS_VENDEDORES =
             "Tu carrito tiene productos de varios vendedores: elige de cuál quieres hacer la compra";
     static final String MENSAJE_SIN_PRODUCTOS_VENDEDOR = "No tienes productos de ese vendedor en el carrito";
@@ -174,10 +176,12 @@ public class ServicioPedido {
     }
 
     // HU-30 El cliente confirma que ha recibido el pedido y este pasa a FINALIZADO; desde entonces puede valorarlo.
+    // Solo cuando el vendedor lo ha marcado como entregado (antes de enviarlo, el cliente aun puede cancelarlo).
     public PedidoDTO confirmarRecepcion(String idCliente, String idPedido) {
         Pedido pedido = pedidoDelCliente(idCliente, idPedido);
         if (!pedido.sePuedeConfirmarRecepcion()) {
-            throw new EstadoPedidoNoPermitidoException(MENSAJE_NO_CONFIRMABLE);
+            throw new EstadoPedidoNoPermitidoException(
+                    pedido.getEstado().enProceso() ? MENSAJE_AUN_NO_ENTREGADO : MENSAJE_NO_CONFIRMABLE);
         }
         pedido.finalizar(reloj.instant());
         log.info("Pedido finalizado por el cliente: cliente={} pedido={}", idCliente, idPedido);
