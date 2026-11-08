@@ -19,6 +19,12 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 @Document(collection = "pedidos")
 public class Pedido {
 
+    /**
+     * Cliente ficticio al que pasan los pedidos de quien se da de baja. Es un id reservado sin usuario detras: nadie
+     * puede iniciar sesion con el y el vendedor lo ve como "Cliente eliminado".
+     */
+    public static final String ID_CLIENTE_FICTICIO = "000000000000000000000000";
+
     @Id
     private String id;
     @Field(name = "idCliente", targetType = FieldType.OBJECT_ID)

@@ -1,11 +1,14 @@
 package com.esibuy.esibuy_backend.controlador;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,16 +19,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.esibuy.esibuy_backend.dto.PerfilDTO;
+import com.esibuy.esibuy_backend.excepcion.OperacionNoPermitidaException;
 import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
 import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
 import com.esibuy.esibuy_backend.seguridad.EstablecedorSesion;
+import com.esibuy.esibuy_backend.servicio.ServicioBajaCuenta;
 import com.esibuy.esibuy_backend.servicio.ServicioPerfil;
 
 /** HU-32.1 y HU-32.2. GET y PUT /api/perfil: cualquier rol, siempre sobre el usuario de la sesion. */
@@ -43,6 +49,8 @@ class ControladorPerfilTest {
     private ServicioPerfil servicioPerfil;
     @MockitoBean
     private EstablecedorSesion establecedorSesion; // No es @Component: lo crea ConfiguracionLogin
+    @MockitoBean
+    private ServicioBajaCuenta servicioBajaCuenta;
 
     private static Usuario usuario() {
         PerfilUsuario perfil = PerfilUsuario.builder().nombre("Ana").apellidos("Lopez").avatarUrl("avatar-01").build();
@@ -100,5 +108,37 @@ class ControladorPerfilTest {
         mockMvc.perform(put(RUTA).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(CUERPO_VALIDO))
                 .andExpect(status().isOk());
         verify(establecedorSesion).actualizar(any(), eq(usuario));
+    }
+
+    @Test
+    void darseDeBaja_sinSesion_devuelve401() throws Exception {
+        mockMvc.perform(delete(RUTA).with(csrf())).andExpect(status().isUnauthorized());
+        verify(servicioBajaCuenta, never()).darDeBaja(any());
+    }
+
+    @Test
+    @WithMockUser(username = ID, roles = "CLIENTE")
+    void darseDeBaja_sinTokenCsrf_devuelve403YNoBorra() throws Exception {
+        mockMvc.perform(delete(RUTA)).andExpect(status().isForbidden());
+        verify(servicioBajaCuenta, never()).darDeBaja(any());
+    }
+
+    @Test
+    @WithMockUser(username = ID, roles = "CLIENTE")
+    void darseDeBaja_conSesion_devuelve204EInvalidaLaSesion() throws Exception {
+        MockHttpSession sesion = new MockHttpSession();
+
+        mockMvc.perform(delete(RUTA).with(csrf()).session(sesion)).andExpect(status().isNoContent());
+
+        verify(servicioBajaCuenta).darDeBaja(ID);
+        assertTrue(sesion.isInvalid());
+    }
+
+    @Test
+    @WithMockUser(username = ID, roles = "ADMIN")
+    void darseDeBaja_administrador_devuelve409() throws Exception {
+        doThrow(new OperacionNoPermitidaException()).when(servicioBajaCuenta).darDeBaja(ID);
+
+        mockMvc.perform(delete(RUTA).with(csrf())).andExpect(status().isConflict());
     }
 }

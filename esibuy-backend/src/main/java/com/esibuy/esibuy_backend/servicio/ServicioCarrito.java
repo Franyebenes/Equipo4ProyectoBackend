@@ -262,6 +262,15 @@ public class ServicioCarrito {
         }
     }
 
+    /** Baja del cliente: borra su carrito y devuelve al stock lo reservado. Se lee y se borra en una sola operacion. */
+    public void liberarYBorrarCarrito(String idCliente) {
+        Query delCliente = new Query(Criteria.where("idCliente").is(new ObjectId(idCliente)));
+        Carrito carrito = mongoTemplate.findAndRemove(delCliente, Carrito.class);
+        if (carrito != null) {
+            carrito.getLineas().forEach(linea -> liberarStock(linea.getIdProducto(), linea.getCantidad()));
+        }
+    }
+
     /** Devuelve unidades al stock. Si el producto ya no existe, no hay nada que devolver. */
     private void liberarStock(String idProducto, int cantidad) {
         Query consulta = new Query(Criteria.where("_id").is(new ObjectId(idProducto)));

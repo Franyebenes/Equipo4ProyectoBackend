@@ -26,6 +26,11 @@ public enum EstadoPedido {
         return this != FINALIZADO && this != CANCELADO;
     }
 
+    /** true si el vendedor aun tiene que entregarlo: todavia no esta entregado, finalizado ni cancelado. */
+    public boolean pendienteDeEntrega() {
+        return this == PENDIENTE || !siguientesDelEnvio().isEmpty();
+    }
+
     /** true si es uno de los pasos del envio (de PAGADO a ENTREGADO). */
     public boolean esPasoDelEnvio() {
         return ENVIO.contains(this);

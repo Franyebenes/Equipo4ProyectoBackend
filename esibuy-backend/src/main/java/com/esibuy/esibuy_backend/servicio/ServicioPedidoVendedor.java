@@ -210,9 +210,10 @@ public class ServicioPedidoVendedor {
                 linea.getPrecioUnitario(), redondear(linea.getPrecioUnitario() * linea.getCantidad()));
     }
 
-    // El vendedor no necesita el id de la libreta de direcciones del cliente: solo a donde enviarlo
+    // El vendedor no necesita el id de la libreta de direcciones del cliente: solo a donde enviarlo. Sin calle es que
+    // el cliente se dio de baja y se borro la direccion
     private static DireccionEnvioDTO aDireccionDTO(DireccionEnvio direccion) {
-        return direccion == null ? null
+        return direccion == null || direccion.getCalle() == null ? null
                 : new DireccionEnvioDTO(direccion.getCalle(), direccion.getCiudad(), direccion.getCodigoPostal());
     }
 
