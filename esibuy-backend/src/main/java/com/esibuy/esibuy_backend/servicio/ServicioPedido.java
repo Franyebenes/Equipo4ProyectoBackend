@@ -92,9 +92,7 @@ public class ServicioPedido {
     // del carrito de ese vendedor con los precios de este momento y solo esos salen del carrito; los de otros
     // vendedores se quedan para otra compra. Sin vendedor elegido, el carrito tiene que ser de uno solo.
     public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion, String idVendedor) {
-        DireccionEnvio direccionEnvio = direccion != null && direccion.idDireccion() != null
-            ? servicioDireccion.paraPedido(idCliente, direccion.idDireccion()) // de la libreta: 404 si no es suya
-            : validarDireccion(direccion);                                     // escrita a mano
+        DireccionEnvio direccionEnvio = direccionDelPedido(idCliente, direccion);
         if (idVendedor != null && !ObjectId.isValid(idVendedor)) {
             throw new PedidoInvalidoException(MENSAJE_SIN_PRODUCTOS_VENDEDOR);
         }
@@ -144,6 +142,15 @@ public class ServicioPedido {
                 pedido.getId(), lineas.size(), total);
         return aDTO(pedido, Map.of());
     }
+
+    // La direccion de la libreta del cliente (404 si no es suya) o, si no se indica una, la escrita a mano.
+    private DireccionEnvio direccionDelPedido(String idCliente, DireccionEnvioDTO direccion) {
+        if (direccion != null && direccion.idDireccion() != null) {
+            return servicioDireccion.paraPedido(idCliente, direccion.idDireccion());
+        }
+        return validarDireccion(direccion);
+    }
+
     // HU-27 Historial de compras: los pedidos del cliente, los mas recientes primero, separados entre los que
     // siguen en curso y los que ya han terminado. Cada linea lleva la valoracion que le dio el cliente, si la hay.
     public HistorialPedidosDTO historial(String idCliente) {
