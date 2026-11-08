@@ -1,6 +1,6 @@
 package com.esibuy.esibuy_backend.servicio;
 
-import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDosFactoresDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
 import com.esibuy.esibuy_backend.dto.TipoCuenta;
@@ -30,7 +30,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        RespuestaRegistroDTO respuesta = servicio.registrarCliente(solicitud);
+        RespuestaRegistroDosFactoresDTO respuesta = registrarCliente(solicitud);
 
         // Then
         Usuario usuario = usuarioGuardado();
@@ -52,7 +52,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
                 .conTipoCuenta(TipoCuenta.PREMIUM).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         List<Rol> roles = usuarioGuardado().getRoles();
@@ -66,7 +66,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
         SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida().construir();
 
         // When
-        servicio.registrarVendedor(solicitud);
+        registrarVendedor(solicitud);
 
         // Then
         Usuario usuario = usuarioGuardado();
@@ -85,7 +85,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
                 .conTelefono(null).conAvatar(null).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         Usuario usuario = usuarioGuardado();
@@ -100,7 +100,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
                 .conAvatar(null).construir();
 
         // When
-        servicio.registrarVendedor(solicitud);
+        registrarVendedor(solicitud);
 
         // Then
         String avatarAsignado = usuarioGuardado().getPerfil().getAvatarUrl();
@@ -116,7 +116,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
                 .conAvatar(OTRO_AVATAR_VALIDO).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getAvatarUrl()).isEqualTo(OTRO_AVATAR_VALIDO);
@@ -129,7 +129,7 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
                 .conEmail("  Ana.GARCIA@Ejemplo.ES ").construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         verify(repositorioUsuario).existePorEmail("ana.garcia@ejemplo.es");
@@ -143,14 +143,14 @@ class ServicioRegistroCaminoFelizTest extends ServicioRegistroBaseTest {
         SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida().construir();
 
         // When
-        RespuestaRegistroDTO respuesta = servicio.registrarCliente(solicitud);
+        RespuestaRegistroDosFactoresDTO respuesta = registrarCliente(solicitud);
 
         // Then
         assertThat(respuesta.email()).isEqualTo(ConstructorSolicitudCliente.EMAIL_POR_DEFECTO);
         assertThat(respuesta.nombre()).isEqualTo("Ana");
         assertThat(respuesta.mensaje()).isNotBlank();
 
-        List<String> componentes = Arrays.stream(RespuestaRegistroDTO.class.getRecordComponents())
+        List<String> componentes = Arrays.stream(RespuestaRegistroDosFactoresDTO.class.getRecordComponents())
                 .map(RecordComponent::getName).toList();
         assertThat(componentes).doesNotContain("passwordHash", "contrasena", "password");
         assertThat(respuesta.toString())

@@ -45,11 +45,11 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
     }
 
     private DatosRegistroInvalidosException registrarClienteEsperandoErrores(SolicitudRegistroClienteDTO solicitud) {
-        return assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarCliente(solicitud));
+        return assertThrows(DatosRegistroInvalidosException.class, () -> registrarCliente(solicitud));
     }
 
     private DatosRegistroInvalidosException registrarVendedorEsperandoErrores(SolicitudRegistroVendedorDTO solicitud) {
-        return assertThrows(DatosRegistroInvalidosException.class, () -> servicio.registrarVendedor(solicitud));
+        return assertThrows(DatosRegistroInvalidosException.class, () -> registrarVendedor(solicitud));
     }
 
     // ------------------------------------------------------------------ CP-REG-21
@@ -148,7 +148,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
 
         // When
         ServicioNoDisponibleException excepcion =
-                assertThrows(ServicioNoDisponibleException.class, () -> servicio.registrarCliente(solicitud));
+                assertThrows(ServicioNoDisponibleException.class, () -> registrarCliente(solicitud));
 
         // Then
         assertThat(excepcion.getMessage()).doesNotContain("DNS");
@@ -180,7 +180,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conTelefono(telefono).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getTelefono()).isEqualTo(telefono);
@@ -193,7 +193,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conTelefono("").construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getTelefono()).isNull();
@@ -254,7 +254,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conNombre(nombreMaximo).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         assertThat(usuarioGuardado().getPerfil().getNombre()).isEqualTo(nombreMaximo);
@@ -328,7 +328,7 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
                 .conNombre("  Ana  ").conApellidos(apellidosEnNfd).construir();
 
         // When
-        servicio.registrarCliente(solicitud);
+        registrarCliente(solicitud);
 
         // Then
         Usuario usuario = usuarioGuardado();
@@ -408,6 +408,57 @@ class ServicioRegistroValidacionCamposTest extends ServicioRegistroBaseTest {
         // Then
         assertThat(excepcion.getErrores().get("contrasena")).contains(CodigoError.CONTRASENA_CON_DATOS_PERSONALES);
         verificarQueNoSeGuardoNingunUsuario();
+    }
+
+    @Test
+    void registrarCliente_contrasenaSinComposicion_rechazaEnElCampoContrasenaSinCodificar() { // CP-PWD-19
+        // Given: 12 letras minusculas, sin mayuscula, numero ni caracter especial
+        SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida()
+                .conContrasena("abcdefghijkl").construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarClienteEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getErrores().get("contrasena")).containsExactlyInAnyOrder(
+                CodigoError.CONTRASENA_SIN_MAYUSCULA,
+                CodigoError.CONTRASENA_SIN_NUMERO,
+                CodigoError.CONTRASENA_SIN_CARACTER_ESPECIAL);
+        verify(codificador, never()).encode(any());
+        verificarQueNoSeGuardoNingunUsuario();
+    }
+
+    @Test
+    void registrarVendedor_contrasenaSinComposicion_rechazaEnElCampoContrasenaSinCodificar() { // CP-PWD-19
+        // Given: 12 letras mayusculas, sin minuscula, numero ni caracter especial
+        SolicitudRegistroVendedorDTO solicitud = ConstructorSolicitudVendedor.unaSolicitudValida()
+                .conContrasena("ABCDEFGHIJKL").construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarVendedorEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getErrores().get("contrasena")).containsExactlyInAnyOrder(
+                CodigoError.CONTRASENA_SIN_MINUSCULA,
+                CodigoError.CONTRASENA_SIN_NUMERO,
+                CodigoError.CONTRASENA_SIN_CARACTER_ESPECIAL);
+        verify(codificador, never()).encode(any());
+        verificarQueNoSeGuardoNingunUsuario();
+    }
+
+    @Test
+    void registrarCliente_contrasenaSinComposicion_elMensajeNoIncluyeLaContrasena() { // CP-PWD-13
+        // Given
+        String contrasenaDebil = "abcdefghijkl";
+        SolicitudRegistroClienteDTO solicitud = ConstructorSolicitudCliente.unaSolicitudValida()
+                .conContrasena(contrasenaDebil).construir();
+
+        // When
+        DatosRegistroInvalidosException excepcion = registrarClienteEsperandoErrores(solicitud);
+
+        // Then
+        assertThat(excepcion.getMessage()).doesNotContain(contrasenaDebil);
+        assertThat(excepcion.toString()).doesNotContain(contrasenaDebil);
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.esibuy.esibuy_backend.dto.TipoCuenta;
 public final class ConstructorSolicitudVendedor {
 
     public static final String EMAIL_POR_DEFECTO = "luis.perez@tienda.es";
+    public static final String CODIGO_DOS_FACTORES_POR_DEFECTO = "123456";
     public static final String CONTRASENA_VALIDA = "Tren-Azul-Lluvia-77";
     public static final String NOMBRE_COMERCIAL_POR_DEFECTO = "Tienda Norte";
     /** ObjectId valido (24 caracteres hexadecimales). */
@@ -25,6 +26,7 @@ public final class ConstructorSolicitudVendedor {
     private String avatar = "avatar-01";
     private String contrasena = CONTRASENA_VALIDA;
     private String repetirContrasena = CONTRASENA_VALIDA;
+    private String codigoDosFactores = CODIGO_DOS_FACTORES_POR_DEFECTO;
 
     private ConstructorSolicitudVendedor() {
     }
@@ -80,8 +82,13 @@ public final class ConstructorSolicitudVendedor {
         return this;
     }
 
+    public ConstructorSolicitudVendedor conCodigoDosFactores(String valor) {
+        this.codigoDosFactores = valor;
+        return this;
+    }
+
     public SolicitudRegistroVendedorDTO construir() {
         return new SolicitudRegistroVendedorDTO(TipoCuenta.VENDEDOR, nombre, apellidos, categoriaPrincipalId,
-                nombreComercial, dni, email, telefono, avatar, contrasena, repetirContrasena);
+                nombreComercial, dni, email, telefono, avatar, contrasena, repetirContrasena, codigoDosFactores);
     }
 }

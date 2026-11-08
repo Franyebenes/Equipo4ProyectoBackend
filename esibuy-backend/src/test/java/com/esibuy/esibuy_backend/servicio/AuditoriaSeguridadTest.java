@@ -42,7 +42,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
  * (fixture de ServicioAutenticacionBaseTest).
  *
  * Formato que fijan estas pruebas: una línea por evento, con una palabra clave (LOGIN_CORRECTO en INFO,
- * LOGIN_FALLIDO en WARN, ALERTA_SEGURIDAD en WARN o más) y datos en forma clave=valor: ip, userAgent, correlationId
+ * LOGIN_CUENTA_NO_ACTIVA en INFO, LOGIN_FALLIDO en WARN, ALERTA_SEGURIDAD en WARN o más) y datos en forma clave=valor: ip, userAgent, correlationId
  * (el del MDC de la petición), email (siempre enmascarado), userId o motivo; las alertas llevan además el tipo
  * (BLOQUEO_CUENTA, IP_MODO_ADAPTATIVO) y segundos o usuarios.
  *
@@ -111,6 +111,23 @@ class AuditoriaSeguridadTest extends ServicioAutenticacionBaseTest {
                                 "correlationId=" + ID_CORRELACION, "email=" + CORREO_ENMASCARADO,
                                 "motivo=" + motivo.name())
                         .doesNotContain(EMAIL, "userId=");
+            });
+        }
+    }
+
+    @Test
+    void registrarLoginCuentaNoActiva_emiteEventoPropioInformativoYNoUnLoginFallido() { // CP-AUD-06
+        try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
+            // When: la contraseña era correcta pero la cuenta sigue sin activar
+            auditoriaReal.registrarLoginCuentaNoActiva(CONTEXTO_AUDITADO, EMAIL);
+
+            // Then: un evento informativo propio, con los mismos datos enmascarados y sin figurar como fallo
+            assertThat(eventosDeSeguridad(logs)).singleElement().satisfies(evento -> {
+                assertThat(evento.getLevel()).isEqualTo(Level.INFO);
+                assertThat(evento.getFormattedMessage())
+                        .contains("LOGIN_CUENTA_NO_ACTIVA", "ip=203.0.113.7", "userAgent=Mozilla/5.0 (JUnit)",
+                                "correlationId=" + ID_CORRELACION, "email=" + CORREO_ENMASCARADO)
+                        .doesNotContain("LOGIN_FALLIDO", "motivo=", EMAIL, "userId=");
             });
         }
     }

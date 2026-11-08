@@ -1,8 +1,11 @@
 package com.esibuy.esibuy_backend.controlador;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroLimitePeticionesRegistro;
-import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDosFactoresDTO;
+import com.esibuy.esibuy_backend.configuracion.ConfiguracionAplicacion;
+import com.esibuy.esibuy_backend.configuracion.ConfiguracionLogin;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
+import com.esibuy.esibuy_backend.servicio.AuditoriaSeguridad;
 import com.esibuy.esibuy_backend.servicio.ServicioRegistro;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudVendedor;
@@ -31,7 +34,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * Limite de peticiones por IP en el registro (decision D10): al superarlo, 429 con Retry-After.
  */
 @WebMvcTest(ControladorAuth.class)
-@Import(ConfiguracionSeguridad.class)
+@Import({ConfiguracionSeguridad.class, ConfiguracionAplicacion.class, ConfiguracionLogin.class})
 class LimitePeticionesRegistroTest {
 
     // Un unico endpoint: el campo tipoCuenta del cuerpo decide si es cliente o vendedor
@@ -47,6 +50,8 @@ class LimitePeticionesRegistroTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private ServicioRegistro servicioRegistro;
+    @MockitoBean
+    private AuditoriaSeguridad auditoria;
 
     private MockMvc mockMvc;
     private String cuerpoCliente;
@@ -58,16 +63,17 @@ class LimitePeticionesRegistroTest {
                 .addFilters(new FiltroLimitePeticionesRegistro(MAXIMO_PETICIONES, Duration.ofMinutes(1)))
                 .apply(springSecurity())
                 .build();
-        when(servicioRegistro.registrarCliente(any())).thenReturn(
-                new RespuestaRegistroDTO("id-1", "ana@ejemplo.es", "Ana", "Cuenta creada"));
-        when(servicioRegistro.registrarVendedor(any())).thenReturn(
-                new RespuestaRegistroDTO("id-2", "luis@tienda.es", "Luis", "Cuenta creada"));
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenReturn(
+                new RespuestaRegistroDosFactoresDTO("id-1", "ana@ejemplo.es", "Ana", "Cuenta creada", java.util.List.of()));
+        when(servicioRegistro.registrarVendedor(any(), any(), any())).thenReturn(
+                new RespuestaRegistroDosFactoresDTO("id-2", "luis@tienda.es", "Luis", "Cuenta creada", java.util.List.of()));
         cuerpoCliente = objectMapper.writeValueAsString(ConstructorSolicitudCliente.unaSolicitudValida().construir());
         cuerpoVendedor = objectMapper.writeValueAsString(ConstructorSolicitudVendedor.unaSolicitudValida().construir());
     }
 
     private MvcResult registrarDesde(String ip, String ruta, String cuerpo) throws Exception {
         return mockMvc.perform(post(ruta)
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(cuerpo)
                 .with(peticion -> {
