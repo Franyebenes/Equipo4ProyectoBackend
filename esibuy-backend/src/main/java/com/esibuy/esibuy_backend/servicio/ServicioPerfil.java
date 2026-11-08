@@ -63,7 +63,7 @@ public class ServicioPerfil {
         errores.lanzarSiHay();
 
         // 2. Reglas que consultan la base de datos
-        if (esVendedor) {
+        if (esVendedor && nombreComercial != null){
             comprobarNombreComercialLibre(nombreComercial, perfil.getNombreComercial());
         }
 

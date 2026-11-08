@@ -88,13 +88,17 @@ public class ServicioPedido {
         return realizar(idCliente, premium, direccion, null);
     }
 
+    private DireccionEnvio resolverDireccion(String idCliente, DireccionEnvioDTO direccion) {
+        return direccion != null && direccion.idDireccion() != null
+                ? servicioDireccion.paraPedido(idCliente, direccion.idDireccion())
+                : validarDireccion(direccion);
+    }
+
     // HU-26 Realizar pedido: cada pedido es de un solo vendedor (lo pidio el product owner). Se compran los productos
     // del carrito de ese vendedor con los precios de este momento y solo esos salen del carrito; los de otros
     // vendedores se quedan para otra compra. Sin vendedor elegido, el carrito tiene que ser de uno solo.
     public PedidoDTO realizar(String idCliente, boolean premium, DireccionEnvioDTO direccion, String idVendedor) {
-        DireccionEnvio direccionEnvio = direccion != null && direccion.idDireccion() != null
-            ? servicioDireccion.paraPedido(idCliente, direccion.idDireccion()) // de la libreta: 404 si no es suya
-            : validarDireccion(direccion);                                     // escrita a mano
+        DireccionEnvio direccionEnvio = resolverDireccion(idCliente, direccion);
         if (idVendedor != null && !ObjectId.isValid(idVendedor)) {
             throw new PedidoInvalidoException(MENSAJE_SIN_PRODUCTOS_VENDEDOR);
         }
@@ -110,22 +114,19 @@ public class ServicioPedido {
         Set<String> vendedores = new HashSet<>();
         for (LineaCarrito linea : carrito.getLineas()) {
             Producto producto = productos.get(linea.getIdProducto());
-            // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora y se limpia
             if (producto == null) {
+                // Un producto borrado de la base de datos tampoco aparece en el carrito: se ignora y se limpia
                 quitarDelCarrito.add(linea.getIdProducto());
-                continue;
+            } else if (idVendedor == null || idVendedor.equals(producto.getIdVendedor())) {
+                // Los productos de otros vendedores no entran en esta rama y se quedan en el carrito
+                if (!Boolean.TRUE.equals(producto.getVisible())) {
+                    throw new PedidoInvalidoException(MENSAJE_PRODUCTOS_NO_DISPONIBLES);
+                }
+                lineas.add(new LineaPedido(producto.getId(), producto.getNombre(), linea.getCantidad(),
+                        ServicioCarrito.precioFinal(producto.getPrecio(), premium)));
+                quitarDelCarrito.add(producto.getId());
+                vendedores.add(producto.getIdVendedor());
             }
-            // Los productos de otros vendedores se quedan en el carrito
-            if (idVendedor != null && !idVendedor.equals(producto.getIdVendedor())) {
-                continue;
-            }
-            if (!Boolean.TRUE.equals(producto.getVisible())) {
-                throw new PedidoInvalidoException(MENSAJE_PRODUCTOS_NO_DISPONIBLES);
-            }
-            lineas.add(new LineaPedido(producto.getId(), producto.getNombre(), linea.getCantidad(),
-                    ServicioCarrito.precioFinal(producto.getPrecio(), premium)));
-            quitarDelCarrito.add(producto.getId());
-            vendedores.add(producto.getIdVendedor());
         }
         if (lineas.isEmpty()) {
             throw new PedidoInvalidoException(idVendedor == null ? MENSAJE_CARRITO_VACIO : MENSAJE_SIN_PRODUCTOS_VENDEDOR);
