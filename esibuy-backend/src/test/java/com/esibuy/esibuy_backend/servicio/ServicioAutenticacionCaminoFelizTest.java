@@ -100,6 +100,24 @@ class ServicioAutenticacionCaminoFelizTest extends ServicioAutenticacionBaseTest
         assertThat(resultado.id()).isEqualTo(ID_USUARIO);
     }
 
+    // ------------------------------------------------------------------ CP-PWD-20 (cuentas anteriores a la politica)
+
+    @Test
+    void autenticar_contrasenaAnteriorQueNoCumpleLaPoliticaActual_iniciaSesion() { // CP-PWD-20
+        // Given: una cuenta creada cuando la politica no exigia mayuscula, numero ni caracter especial
+        String contrasenaAntigua = "contrasenasinformato";
+        dadoUsuarioRegistrado(usuario(Rol.CLIENTE, EstadoUsuario.ACTIVO));
+        when(codificador.matches(contrasenaAntigua, HASH_USUARIO)).thenReturn(true);
+
+        // When: el login solo comprueba la contrasena guardada, no vuelve a aplicar la politica de creacion
+        ResultadoAutenticacion resultado = servicio.autenticar(
+                new SolicitudLoginDTO(EMAIL, contrasenaAntigua), CONTEXTO);
+
+        // Then
+        assertThat(resultado.id()).isEqualTo(ID_USUARIO);
+        verify(limitador).registrarExito(EMAIL);
+    }
+
     // ------------------------------------------------------------------ CP-LOG-07
 
     @Test

@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import com.esibuy.esibuy_backend.dto.SolicitudLoginDTO;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.CredencialesInvalidasException;
-import com.esibuy.esibuy_backend.excepcion.CuentaPendienteActivacionException;
 import com.esibuy.esibuy_backend.excepcion.DatosLoginInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.LoginBloqueadoTemporalmenteException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
@@ -31,10 +30,12 @@ import com.esibuy.esibuy_backend.util.Constantes;
  * limitador (cuenta bloqueada o IP agotada), busqueda por correo exacto y verificacion de la contrasena una sola vez
  * (con un hash ficticio si el correo no existe, para que el trabajo sea el mismo). Solo entra una cuenta ACTIVA con
  * un unico rol valido; cualquier otro caso es la misma CredencialesInvalidasException y suma un fallo, salvo una
- * cuenta DESACTIVADO con la contrasena correcta, que lanza CuentaPendienteActivacionException sin sumar fallo. Un
- * fallo interno falla cerrado como ServicioNoDisponibleException, sin causa y sin sumar fallo.
+ * cuenta DESACTIVADO con la contrasena correcta: la respuesta es la misma, pero no suma fallo (la contrasena era
+ * buena) y se audita con su evento propio (LOGIN_CUENTA_NO_ACTIVA), no como login fallido. Un fallo interno falla cerrado como
+ * ServicioNoDisponibleException, sin causa y sin sumar fallo.
  *
- * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria.
+ * Cada resultado (correcto, rechazo con su motivo o bloqueo temporal) se comunica a la auditoria. Si la cuenta tiene el 2FA
+ * activo, el resultado lo indica (requiereSegundoFactor) y se audita como primer factor correcto, no como login correcto.
  */
 @Service
 public class ServicioAutenticacion {
@@ -91,11 +92,12 @@ public class ServicioAutenticacion {
         if (!comprobacion.contrasenaCorrecta()) {
             throw rechazar(email, contexto, MotivoFalloLogin.CONTRASENA_INCORRECTA);
         }
-        // Con la contrasena correcta, una cuenta aun sin activar se lo dice al usuario. Es seguro porque quien no
-        // conoce la contrasena no llega aqui. No cuenta como fallo del limitador: la contrasena era buena.
+        // Una cuenta aun sin activar recibe la misma respuesta generica que cualquier otro rechazo: no se le dice que
+        // esta desactivada. No cuenta como fallo del limitador (la contrasena era buena) ni se audita como login
+        // fallido: tiene su propio evento.
         if (usuario.getEstado() == EstadoUsuario.DESACTIVADO) {
-            auditoria.registrarLoginFallido(contexto, email, MotivoFalloLogin.CUENTA_NO_ACTIVA);
-            throw new CuentaPendienteActivacionException();
+            auditoria.registrarLoginCuentaNoActiva(contexto, email);
+            throw new CredencialesInvalidasException();
         }
         // Solo una cuenta activa con un unico rol valido puede entrar
         if (usuario.getEstado() != EstadoUsuario.ACTIVO) {
@@ -107,9 +109,17 @@ public class ServicioAutenticacion {
         }
 
         limitador.registrarExito(email);
-        auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
+        // Con el 2FA activo la contrasena sola no es un login correcto: falta el codigo del segundo paso, que es el que
+        // audita LOGIN_CORRECTO. Solo se llega aqui con una cuenta ACTIVA y la contrasena buena, asi que decir que falta el
+        // segundo factor no revela nada a quien no la sepa.
+        boolean segundoFactor = usuario.tieneDosFactoresActivo();
+        if (segundoFactor) {
+            auditoria.registrarLoginPrimerFactorCorrecto(contexto, email, usuario.getId());
+        } else {
+            auditoria.registrarLoginCorrecto(contexto, email, usuario.getId());
+        }
         return new ResultadoAutenticacion(usuario.getId(), usuario.getEmail(), usuario.getPerfil().getNombre(),
-                rol.get(), usuario.getPerfil().getAvatarUrl());
+                rol.get(), usuario.getPerfil().getAvatarUrl(), segundoFactor);
     }
 
     // Un bloqueo temporal (cuenta o IP) se rechaza tal cual, pero antes queda constancia en la auditoria.

@@ -1,13 +1,16 @@
 package com.esibuy.esibuy_backend.controlador;
 
 import com.esibuy.esibuy_backend.configuracion.FiltroCorrelacionId;
-import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDosFactoresDTO;
 import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
 import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
+import com.esibuy.esibuy_backend.configuracion.ConfiguracionAplicacion;
+import com.esibuy.esibuy_backend.configuracion.ConfiguracionLogin;
 import com.esibuy.esibuy_backend.seguridad.ConfiguracionSeguridad;
+import com.esibuy.esibuy_backend.servicio.AuditoriaSeguridad;
 import com.esibuy.esibuy_backend.servicio.ServicioRegistro;
 import com.esibuy.esibuy_backend.util.CapturadorLogs;
 import com.esibuy.esibuy_backend.util.ConstructorSolicitudCliente;
@@ -63,18 +66,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  - El duplicado responde 409 con un mensaje generico; los fallos inesperados 500 con correlationId.
  */
 @WebMvcTest(ControladorAuth.class)
-@Import(ConfiguracionSeguridad.class)
+@Import({ConfiguracionSeguridad.class, ConfiguracionAplicacion.class, ConfiguracionLogin.class})
 class ControladorAuthTest {
 
     // Un unico endpoint: el campo tipoCuenta del cuerpo decide si es cliente o vendedor
     private static final String RUTA_REGISTRO = "/api/auth/registro";
 
-    private static final RespuestaRegistroDTO RESPUESTA_CLIENTE = new RespuestaRegistroDTO(
+    private static final RespuestaRegistroDosFactoresDTO RESPUESTA_CLIENTE = new RespuestaRegistroDosFactoresDTO(
             "id-cliente-1", ConstructorSolicitudCliente.EMAIL_POR_DEFECTO, "Ana",
-            "Tu cuenta ha sido creada correctamente");
-    private static final RespuestaRegistroDTO RESPUESTA_VENDEDOR = new RespuestaRegistroDTO(
+            "Tu cuenta ha sido creada correctamente", java.util.List.of("ABCD-EFGH-IJKL-MNOP"));
+    private static final RespuestaRegistroDosFactoresDTO RESPUESTA_VENDEDOR = new RespuestaRegistroDosFactoresDTO(
             "id-vendedor-1", ConstructorSolicitudVendedor.EMAIL_POR_DEFECTO, "Luis",
-            "Tu cuenta ha sido creada correctamente");
+            "Tu cuenta ha sido creada correctamente", java.util.List.of("ABCD-EFGH-IJKL-MNOP"));
 
     @Autowired
     private WebApplicationContext contexto;
@@ -82,6 +85,8 @@ class ControladorAuthTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private ServicioRegistro servicioRegistro;
+    @MockitoBean
+    private AuditoriaSeguridad auditoria;
 
     private MockMvc mockMvc;
 
@@ -91,14 +96,15 @@ class ControladorAuthTest {
                 .addFilters(new FiltroCorrelacionId())
                 .apply(springSecurity())
                 .build();
-        when(servicioRegistro.registrarCliente(any())).thenReturn(RESPUESTA_CLIENTE);
-        when(servicioRegistro.registrarVendedor(any())).thenReturn(RESPUESTA_VENDEDOR);
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenReturn(RESPUESTA_CLIENTE);
+        when(servicioRegistro.registrarVendedor(any(), any(), any())).thenReturn(RESPUESTA_VENDEDOR);
     }
 
     // ------------------------------------------------------------------ utilidades
 
     private ResultActions enviar(String ruta, String cuerpoJson) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.post(ruta)
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(cuerpoJson));
     }
@@ -173,7 +179,7 @@ class ControladorAuthTest {
         errores.put("nombre", Set.of(CodigoError.OBLIGATORIO));
         errores.put("email", Set.of(CodigoError.FORMATO_INVALIDO));
         errores.put("telefono", Set.of(CodigoError.TELEFONO_INVALIDO));
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new DatosRegistroInvalidosException(errores));
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
         ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido());
@@ -188,7 +194,7 @@ class ControladorAuthTest {
     @Test
     void registrarCliente_registroNoCompletado_devuelve409ConMensajeGenericoSinDatosDelUsuario() throws Exception { // CP-CTR-03
         // Given
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new RegistroNoCompletadoException());
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new RegistroNoCompletadoException());
 
         // When
         MvcResult resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido())
@@ -207,7 +213,7 @@ class ControladorAuthTest {
         // Given
         Map<String, Set<CodigoError>> errores =
                 Map.of("categoriaPrincipalId", Set.of(CodigoError.CATEGORIA_INEXISTENTE));
-        when(servicioRegistro.registrarVendedor(any())).thenThrow(new DatosRegistroInvalidosException(errores));
+        when(servicioRegistro.registrarVendedor(any(), any(), any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
         ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoVendedorValido());
@@ -221,7 +227,7 @@ class ControladorAuthTest {
     void registrarCliente_dominioDeEmailInvalido_devuelve400ConErrorEnElEmail() throws Exception { // CP-CTR-04
         // Given
         Map<String, Set<CodigoError>> errores = Map.of("email", Set.of(CodigoError.DOMINIO_EMAIL_INEXISTENTE));
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new DatosRegistroInvalidosException(errores));
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new DatosRegistroInvalidosException(errores));
 
         // When
         ResultActions resultado = enviar(RUTA_REGISTRO, cuerpoClienteValido());
@@ -234,7 +240,7 @@ class ControladorAuthTest {
     @Test
     void registrarCliente_servicioExternoNoDisponible_devuelve503ConMensajeGenerico() throws Exception { // CP-CTR-04
         // Given
-        when(servicioRegistro.registrarCliente(any()))
+        when(servicioRegistro.registrarCliente(any(), any(), any()))
                 .thenThrow(new ServicioNoDisponibleException(new IllegalStateException("timeout DNS interno")));
 
         // When
@@ -253,7 +259,7 @@ class ControladorAuthTest {
     void registrarCliente_excepcionInesperada_devuelve500GenericoConCorrelationIdYDetalleSoloEnElLog() throws Exception { // CP-CTR-05
         // Given
         String detalleInterno = "Fallo interno al escribir en la coleccion users";
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new IllegalStateException(detalleInterno));
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new IllegalStateException(detalleInterno));
 
         try (CapturadorLogs logs = CapturadorLogs.iniciar()) {
             // When
@@ -279,7 +285,7 @@ class ControladorAuthTest {
     @Test
     void registrarCliente_errorDeBaseDeDatos_laRespuestaNoFiltraDetallesInternos() throws Exception { // CP-SEG-10
         // Given
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new RuntimeException(
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new RuntimeException(
                 "E11000 duplicate key error collection: ESIBuy.users index: email_1 (MongoDB 7.0.4)"));
 
         // When
@@ -408,8 +414,8 @@ class ControladorAuthTest {
         enviar(RUTA_REGISTRO, cuerpo).andExpect(status().isCreated());
 
         // Then
-        verify(servicioRegistro).registrarCliente(argThat(solicitud -> solicitud.tipoCuenta() == TipoCuenta.valueOf(tipo)));
-        verify(servicioRegistro, never()).registrarVendedor(any());
+        verify(servicioRegistro).registrarCliente(argThat(solicitud -> solicitud.tipoCuenta() == TipoCuenta.valueOf(tipo)), any(), any());
+        verify(servicioRegistro, never()).registrarVendedor(any(), any(), any());
     }
 
     @Test
@@ -421,8 +427,8 @@ class ControladorAuthTest {
         enviar(RUTA_REGISTRO, cuerpo).andExpect(status().isCreated());
 
         // Then
-        verify(servicioRegistro).registrarVendedor(any());
-        verify(servicioRegistro, never()).registrarCliente(any());
+        verify(servicioRegistro).registrarVendedor(any(), any(), any());
+        verify(servicioRegistro, never()).registrarCliente(any(), any(), any());
     }
 
     @Test
@@ -517,8 +523,8 @@ class ControladorAuthTest {
     void registrar_sinAutenticacionYConConflicto_respondeConflictoYNuncaNoAutorizadoNiProhibido(String tipo)
             throws Exception { // CP-SEG-07
         // Given
-        when(servicioRegistro.registrarCliente(any())).thenThrow(new RegistroNoCompletadoException());
-        when(servicioRegistro.registrarVendedor(any())).thenThrow(new RegistroNoCompletadoException());
+        when(servicioRegistro.registrarCliente(any(), any(), any())).thenThrow(new RegistroNoCompletadoException());
+        when(servicioRegistro.registrarVendedor(any(), any(), any())).thenThrow(new RegistroNoCompletadoException());
         String cuerpo = tipo.equals("CLIENTE") ? cuerpoClienteValido() : cuerpoVendedorValido();
 
         // When
@@ -535,7 +541,7 @@ class ControladorAuthTest {
         // Given: peticion JSON sin cuerpo
 
         // When
-        MvcResult resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO)
+        MvcResult resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andReturn();
@@ -552,7 +558,7 @@ class ControladorAuthTest {
         String cuerpo = "nombre=Ana";
 
         // When
-        ResultActions resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO)
+        ResultActions resultado = mockMvc.perform(MockMvcRequestBuilders.post(RUTA_REGISTRO).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType(MediaType.TEXT_PLAIN)
                 .content(cuerpo));
 

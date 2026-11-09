@@ -11,11 +11,16 @@ import com.esibuy.esibuy_backend.modelo.Producto;
 public interface RepositorioProducto extends MongoRepository<Producto, String> {
 
     // idVendedor se guarda como ObjectId: se consulta con un ObjectId para que coincida el tipo y se use el indice
-    // idVendedor_1 del script de BBDD.
-    @Query("{ 'idVendedor': ?0 }")
+    // idVendedor_1 del script de BBDD. Sin la imagen: el listado no la muestra y es lo que mas ocupa (va en base64).
+    @Query(value = "{ 'idVendedor': ?0 }", fields = "{ 'imagen': 0 }")
     List<Producto> buscarPorVendedor(ObjectId idVendedor);
 
     // Numero de productos del vendedor: antes de eliminarlo, para no dejar productos huerfanos.
     @Query(value = "{ 'idVendedor': ?0 }", count = true)
     long contarPorVendedor(ObjectId idVendedor);
+
+    // Solo los productos activos, de todos los vendedores. Sin la imagen: despues se piden
+    // solo las de la pagina que se muestra.
+    @Query(value = "{ 'visible': true }", fields = "{ 'imagen': 0 }")
+    List<Producto> buscarActivos();
 }

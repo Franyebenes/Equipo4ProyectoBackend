@@ -105,6 +105,8 @@ class RegistroIntegracionMongoTest {
     private ObjectMapper objectMapper;
     @Autowired
     private MongoTemplate mongo;
+    @Autowired
+    private com.esibuy.esibuy_backend.servicio.GeneradorTotp totp;
 
     @MockitoBean
     private ValidadorDominioEmail validadorDominioEmail;
@@ -125,10 +127,9 @@ class RegistroIntegracionMongoTest {
 
     // ------------------------------------------------------------------ utilidades
 
+    // El registro exige el 2FA: se hace entero (QR, codigo y alta) con la sesion de un navegador
     private ResultActions registrarCliente(SolicitudRegistroClienteDTO solicitud) throws Exception {
-        return mockMvc.perform(post(RUTA_REGISTRO)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(solicitud)));
+        return RegistroConDosFactoresDePrueba.registrar(mockMvc, objectMapper, totp, solicitud);
     }
 
     private ResultActions registrarCliente(String email) throws Exception {
@@ -136,9 +137,7 @@ class RegistroIntegracionMongoTest {
     }
 
     private ResultActions registrarVendedor(SolicitudRegistroVendedorDTO solicitud) throws Exception {
-        return mockMvc.perform(post(RUTA_REGISTRO)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(solicitud)));
+        return RegistroConDosFactoresDePrueba.registrar(mockMvc, objectMapper, totp, solicitud);
     }
 
     private Document usuarioPorEmail(String email) {

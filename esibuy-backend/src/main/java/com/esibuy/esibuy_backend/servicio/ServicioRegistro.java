@@ -3,21 +3,25 @@ package com.esibuy.esibuy_backend.servicio;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.esibuy.esibuy_backend.dto.RespuestaRegistroDTO;
+import com.esibuy.esibuy_backend.dto.RespuestaRegistroDosFactoresDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistro;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroClienteDTO;
 import com.esibuy.esibuy_backend.dto.SolicitudRegistroVendedorDTO;
 import com.esibuy.esibuy_backend.dto.TipoCuenta;
 import com.esibuy.esibuy_backend.excepcion.CodigoError;
+import com.esibuy.esibuy_backend.excepcion.DatosRegistroInvalidosException;
 import com.esibuy.esibuy_backend.excepcion.RegistroNoCompletadoException;
 import com.esibuy.esibuy_backend.excepcion.ServicioNoDisponibleException;
 import com.esibuy.esibuy_backend.modelo.PerfilUsuario;
@@ -25,9 +29,10 @@ import com.esibuy.esibuy_backend.modelo.Rol;
 import com.esibuy.esibuy_backend.modelo.Usuario;
 import com.esibuy.esibuy_backend.repositorio.RepositorioCategoria;
 import com.esibuy.esibuy_backend.repositorio.RepositorioUsuario;
+import com.esibuy.esibuy_backend.seguridad.PendienteRegistroDosFactores;
 
 /**
- * Registro de clientes y vendedores. Tests: ServicioRegistro*Test.
+ * Registro de clientes y vendedores, siempre con el 2FA ya configurado. Tests: ServicioRegistro*Test.
  *
  * <p>Flujo comun:
  * <ol>
@@ -61,6 +66,7 @@ public class ServicioRegistro {
     private static final String CAMPO_FECHA_NACIMIENTO = "fechaNacimiento";
     private static final String CAMPO_NOMBRE_COMERCIAL = "nombreComercial";
     private static final String CAMPO_CATEGORIA_PRINCIPAL = "categoriaPrincipalId";
+    private static final String CAMPO_CODIGO_DOS_FACTORES = "codigoDosFactores";
 
     private static final Logger log = LoggerFactory.getLogger(ServicioRegistro.class);
 
@@ -71,6 +77,8 @@ public class ServicioRegistro {
     private final PasswordEncoder codificadorContrasena;
     private final CatalogoAvatares catalogoAvatares;
     private final Clock reloj;
+    private final AltaDosFactores altaDosFactores;
+    private final AuditoriaSeguridad auditoria;
 
     public ServicioRegistro(RepositorioUsuario repositorioUsuario,
                             RepositorioCategoria repositorioCategoria,
@@ -78,7 +86,9 @@ public class ServicioRegistro {
                             ValidadorContrasena validadorContrasena,
                             PasswordEncoder codificadorContrasena,
                             CatalogoAvatares catalogoAvatares,
-                            Clock reloj) {
+                            Clock reloj,
+                            AltaDosFactores altaDosFactores,
+                            AuditoriaSeguridad auditoria) {
         this.repositorioUsuario = repositorioUsuario;
         this.repositorioCategoria = repositorioCategoria;
         this.validadorDominioEmail = validadorDominioEmail;
@@ -86,15 +96,25 @@ public class ServicioRegistro {
         this.codificadorContrasena = codificadorContrasena;
         this.catalogoAvatares = catalogoAvatares;
         this.reloj = reloj;
+        this.altaDosFactores = altaDosFactores;
+        this.auditoria = auditoria;
     }
 
-    public RespuestaRegistroDTO registrarCliente(SolicitudRegistroClienteDTO solicitud) {
+    /*
+     * Registro con el 2FA ya configurado. El orden es parte del contrato: formato (con el codigo obligatorio), secreto pendiente
+     * vigente para ese correo, comprobaciones externas, codigo y, solo al final, si el correo ya existe: un codigo incorrecto
+     * no revela si un correo esta registrado y un error corregible no gasta el intento del codigo.
+     */
+    public RespuestaRegistroDosFactoresDTO registrarCliente(SolicitudRegistroClienteDTO solicitud,
+            PendienteRegistroDosFactores pendiente, ContextoPeticion contexto) {
         DatosComunes datos = DatosComunes.de(solicitud);
+        String codigo = Normalizador.texto(solicitud.codigoDosFactores());
 
         ErroresValidacion errores = validarFormatoComun(datos, null);
-        ReglasCampos.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, solicitud.fechaNacimiento(), hoy(),
-                errores);
+        ReglasCampos.validarFechaNacimiento(CAMPO_FECHA_NACIMIENTO, solicitud.fechaNacimiento(), hoy(), errores);
+        exigirCodigo(codigo, errores);
         errores.lanzarSiHay();
+        exigirPendienteVigente(datos.email(), pendiente, contexto);
 
         ErroresValidacion erroresExternos = new ErroresValidacion();
         comprobarDominioEmail(datos.email(), erroresExternos);
@@ -103,19 +123,22 @@ public class ServicioRegistro {
         PerfilUsuario perfil = perfilComun(datos, catalogoAvatares::avatarPorDefectoCliente)
                 .fechaNacimiento(solicitud.fechaNacimiento())
                 .build();
-        return crearCuenta(datos, rolDeCliente(solicitud.tipoCuenta()), perfil);
+        return crearCuentaConDosFactores(datos, rolDeCliente(solicitud.tipoCuenta()), perfil, pendiente, codigo, contexto);
     }
 
-    public RespuestaRegistroDTO registrarVendedor(SolicitudRegistroVendedorDTO solicitud) {
+    public RespuestaRegistroDosFactoresDTO registrarVendedor(SolicitudRegistroVendedorDTO solicitud,
+            PendienteRegistroDosFactores pendiente, ContextoPeticion contexto) {
         DatosComunes datos = DatosComunes.de(solicitud);
         String nombreComercial = Normalizador.nombreComercial(solicitud.nombreComercial());
         String categoriaId = Normalizador.texto(solicitud.categoriaPrincipalId());
+        String codigo = Normalizador.texto(solicitud.codigoDosFactores());
 
         ErroresValidacion errores = validarFormatoComun(datos, nombreComercial);
-        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE_COMERCIAL, nombreComercial,
-                LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
+        ReglasCampos.validarTextoObligatorio(CAMPO_NOMBRE_COMERCIAL, nombreComercial, LONGITUD_MAXIMA_CAMPO_TEXTO, errores);
         ReglasCampos.validarCategoriaPrincipal(CAMPO_CATEGORIA_PRINCIPAL, categoriaId, errores);
+        exigirCodigo(codigo, errores);
         errores.lanzarSiHay();
+        exigirPendienteVigente(datos.email(), pendiente, contexto);
 
         ErroresValidacion erroresExternos = new ErroresValidacion();
         comprobarDominioEmail(datos.email(), erroresExternos);
@@ -131,7 +154,21 @@ public class ServicioRegistro {
                 .nombreComercial(nombreComercial)
                 .categoriaPrincipalId(categoriaId)
                 .build();
-        return crearCuenta(datos, Rol.VENDEDOR, perfil);
+        return crearCuentaConDosFactores(datos, Rol.VENDEDOR, perfil, pendiente, codigo, contexto);
+    }
+
+    private static void exigirCodigo(String codigo, ErroresValidacion errores) {
+        if (codigo == null || codigo.isBlank()) {
+            errores.anadir(CAMPO_CODIGO_DOS_FACTORES, CodigoError.OBLIGATORIO);
+        }
+    }
+
+    private void exigirPendienteVigente(String email, PendienteRegistroDosFactores pendiente, ContextoPeticion contexto) {
+        if (pendiente == null || !pendiente.esDe(email)) {
+            auditoria.registrarRegistroDosFactoresFallido(contexto, email, MotivoFalloDosFactores.ACTIVACION_NO_VIGENTE);
+            throw new DatosRegistroInvalidosException(
+                    Map.of(CAMPO_CODIGO_DOS_FACTORES, Set.of(CodigoError.ACTIVACION_NO_VIGENTE)));
+        }
     }
 
     // ------------------------------------------------------------------ validacion
@@ -180,22 +217,37 @@ public class ServicioRegistro {
 
     // ------------------------------------------------------------------ creacion de la cuenta
 
-    private RespuestaRegistroDTO crearCuenta(DatosComunes datos, Rol rol, PerfilUsuario perfil) {
+    /*
+     * Cuenta con el 2FA activo, guardada de una vez. El id se asigna antes de guardar porque el secreto se cifra con el: asi la
+     * cuenta nunca existe sin 2FA a medio crear. Se usa insert para que un id nunca sobrescriba un documento.
+     */
+    private RespuestaRegistroDosFactoresDTO crearCuentaConDosFactores(DatosComunes datos, Rol rol, PerfilUsuario perfil,
+            PendienteRegistroDosFactores pendiente, String codigo, ContextoPeticion contexto) {
+        AltaDosFactores.Verificado verificado;
+        try {
+            verificado = altaDosFactores.verificar(pendiente, codigo);
+        } catch (DatosRegistroInvalidosException e) {
+            auditoria.registrarRegistroDosFactoresFallido(contexto, datos.email(), MotivoFalloDosFactores.CODIGO_INCORRECTO);
+            throw e;
+        }
         if (repositorioUsuario.existePorEmail(datos.email())) {
             log.info("Registro rechazado: el email ya pertenece a una cuenta");
             throw new RegistroNoCompletadoException();
         }
+        String id = new ObjectId().toHexString();
+        AltaDosFactores.DosFactoresNuevos nuevos = altaDosFactores.crear(verificado, id);
         String hash = codificadorContrasena.encode(datos.contrasena());
-        Usuario guardado = guardar(new Usuario(datos.email(), hash, rol, perfil));
-        log.info("Cuenta creada: id={}, rol={}", guardado.getId(), rol);
-        return new RespuestaRegistroDTO(guardado.getId(), guardado.getEmail(), perfil.getNombre(),
-                MENSAJE_REGISTRO_CORRECTO);
+        Usuario guardado = guardar(new Usuario(id, datos.email(), hash, rol, perfil, nuevos.dosFactores()));
+        log.info("Cuenta creada con 2FA: id={}, rol={}", guardado.getId(), rol);
+        auditoria.registrarRegistroDosFactoresCompletado(contexto, datos.email(), guardado.getId());
+        return new RespuestaRegistroDosFactoresDTO(guardado.getId(), guardado.getEmail(), perfil.getNombre(),
+                MENSAJE_REGISTRO_CORRECTO, nuevos.codigosRecuperacion());
     }
 
     /** Un registro simultaneo con el mismo email puede ganar la carrera a la comprobacion previa (CP-REG-41). */
     private Usuario guardar(Usuario usuario) {
         try {
-            return repositorioUsuario.save(usuario);
+            return repositorioUsuario.insert(usuario);
         } catch (DuplicateKeyException e) { // NOSONAR S1166: la causa se descarta a proposito
             // El mensaje de MongoDB incluye el valor duplicado (el email): no puede llegar al log ni al cliente,
             // asi que la causa no se encadena ni se registra.

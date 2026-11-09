@@ -36,6 +36,10 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
     @Query("{ 'email': ?0 }")
     Optional<Usuario> buscarPorEmail(String email);
 
+    // Solo la marca de cambio de contrasena del usuario (proyeccion): se consulta en cada peticion autenticada.
+    @Query(value = "{ '_id': ?0 }", fields = "{ 'contrasenaCambiadaEn': 1 }")
+    Optional<Usuario> buscarMarcaDeCredenciales(String id);
+
     //listado por defecto de todos los usuarios, sin filtrar por estado
     Page<Usuario> findByEstadoNot(EstadoUsuario estado, Pageable paginacion);
 
@@ -45,11 +49,8 @@ public interface RepositorioUsuario extends MongoRepository<Usuario, String> {
     @Query("{ 'rol': ?0, 'estado': { $ne: ?1 } }")
     Page<Usuario> findPorRolExcluyendoEstado(Rol rol, EstadoUsuario estadoExcluido, Pageable paginacion);
 
-    /** NEW - Listing filtered by role AND an exact state. ?0 = role, ?1 = state. */
+    // NEW - Listing filtered by role AND an exact state. ?0 = role, ?1 = state.
     @Query("{ 'rol': ?0, 'estado': ?1 }")
     Page<Usuario> findPorRolYEstado(Rol rol, EstadoUsuario estado, Pageable paginacion);
-
-    
-    Optional<Usuario> findByIdAndEstadoNot(String id, EstadoUsuario estado);
 
 }
