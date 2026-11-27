@@ -2,9 +2,11 @@
 #
 # Cuando se lanza:
 #   - PR hacia main (obligatoria: la rama main debe exigir que este pipeline este en verde)
-#   - push a release
+#   - push a main o release
 #
-# Etapas: Compilar -> Tests (JUnit + JaCoCo) -> SonarQube. Si una falla, las siguientes no se ejecutan.
+# Etapas: Compilar -> Tests (JUnit + JaCoCo) -> SonarQube -> Despliegue. Si una falla, las siguientes no se ejecutan.
+# El despliegue solo se hace en push a main o release (nunca en una PR) y necesita la variable secreta
+# RENDER_DEPLOY_HOOK del pipeline (Deploy Hook del servicio en Render).
 #
 # Todo corre en el agente propio (agente-equipo4, Windows), que necesita estar en marcha, con Docker Desktop encendido (los
 # tests usan Testcontainers), Maven y Java, y la VPN de la universidad para Sonar. El token de Sonar esta en
@@ -13,6 +15,7 @@
 trigger:
   branches:
     include:
+      - main
       - release
       - release/*
 
@@ -136,3 +139,17 @@ stages:
 
           - script: echo "Analisis de SonarQube terminado"
             displayName: 'Fin del analisis'
+
+  - stage: Despliegue
+    displayName: '4. Desplegar en Render'
+    dependsOn: Sonar
+    condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/release'), eq(variables['Build.SourceBranch'], 'refs/heads/main')))
+    jobs:
+      - job: Render
+        displayName: 'Lanzar el despliegue'
+        steps:
+          - checkout: none
+
+          # Render descarga el codigo de la rama que tenga configurada y construye la imagen con el Dockerfile
+          - script: curl --fail --silent --show-error -X POST "$(RENDER_DEPLOY_HOOK)"
+            displayName: 'Lanzar despliegue en Render'
