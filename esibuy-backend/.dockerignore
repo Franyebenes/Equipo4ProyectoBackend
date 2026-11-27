@@ -1,0 +1,8 @@
+# El .env lleva secretos: nunca debe entrar en la imagen
+.env
+**/.env
+target
+.scannerwork
+.mvn
+*.docx
+ResultadosTestsTDD
